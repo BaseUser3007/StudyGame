@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="AuxiliaryCodeEditorWindow.uss"/>
+    <ui:VisualElement name="window" class="window window-auxiliary">
+        <ui:VisualElement name="header" class="window-header">
+            <ui:Label name="title" class="window-title" text="Class_1"/>
+            <ui:TextField name="title-edit" class="title-edit hidden" value="Class_1"/>
+            <ui:Label name="energy-cost" class="energy-cost" text="0"/>
+            <ui:Button name="btn-close" class="btn-close" text="X"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="code-area" class="code-area">
+            <ui:Label name="line-numbers" class="line-numbers" text="1"/>
+            <ui:VisualElement name="code-wrapper" class="code-wrapper">
+                <ui:TextField name="code-field" class="code-field" multiline="true" value=""/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="resize-handle" class="resize-handle"/>
+    </ui:VisualElement>
+</ui:UXML>

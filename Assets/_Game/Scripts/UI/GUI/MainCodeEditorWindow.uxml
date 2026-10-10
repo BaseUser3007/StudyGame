@@ -1,0 +1,16 @@
+﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="MainCodeEditorWindow.uss"/>
+    <ui:VisualElement name="window" class="window window-main">
+        <ui:VisualElement name="header" class="window-header">
+            <ui:Label name="title" class="window-title" text="Main"/>
+            <ui:Label name="energy-cost" class="energy-cost" text="0"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="code-area" class="code-area">
+            <ui:Label name="line-numbers" class="line-numbers" text="1"/>
+            <ui:VisualElement name="code-wrapper" class="code-wrapper">
+                <ui:TextField name="code-field" class="code-field" multiline="true" value=""/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="resize-handle" class="resize-handle"/>
+    </ui:VisualElement>
+</ui:UXML>

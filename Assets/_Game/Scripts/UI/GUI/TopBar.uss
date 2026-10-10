@@ -1,0 +1,111 @@
+﻿/* ── Top Bar ─────────────────────────────────────────────── */
+.top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgb(30, 30, 30);
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(60, 60, 60);
+    padding: 0 8px;
+}
+
+.top-bar-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* ── Sections ────────────────────────────────────────────── */
+.top-bar-section {
+    flex-direction: row;
+    align-items: center;
+}
+
+.top-bar-center {
+    flex-grow: 1;
+    justify-content: center;
+}
+
+.top-bar-right {
+    justify-content: flex-end;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.top-bar-btn {
+    height: 28px;
+    padding: 0 12px;
+    margin: 0 2px;
+    border-radius: 3px;
+    border-width: 0;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 12px;
+}
+
+.top-bar-btn:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+.btn-run {
+    background-color: rgb(50, 100, 50);
+    color: rgb(150, 220, 150);
+}
+
+.btn-run:hover {
+    background-color: rgb(60, 130, 60);
+}
+
+/* ── Energy ──────────────────────────────────────────────── */
+.energy-label {
+    font-size: 13px;
+    color: rgb(150, 220, 150);
+}
+
+/* ── Inventory Popup ─────────────────────────────────────── */
+.inventory-popup {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    min-width: 200px;
+    min-height: 100px;
+    background-color: rgb(35, 35, 35);
+    border-width: 1px;
+    border-color: rgb(60, 60, 60);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.inventory-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.inventory-slot {
+    width: 48px;
+    height: 48px;
+    margin: 2px;
+    border-width: 1px;
+    border-color: rgb(80, 80, 80);
+    border-radius: 3px;
+    background-color: rgb(45, 45, 45);
+    align-items: center;
+    justify-content: center;
+}
+
+.inventory-slot-count {
+    font-size: 10px;
+    color: rgb(220, 220, 220);
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

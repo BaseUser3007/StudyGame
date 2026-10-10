@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>LuaCSharp.Annotations</id>
+    <version>0.5.5</version>
+    <authors>nuskey,Akeit0</authors>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <icon>Icon.png</icon>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/nuskey8/Lua-CSharp</projectUrl>
+    <description>Attributes for Lua-CSharp SourceGenerator</description>
+    <copyright>© Yusuke Nakada</copyright>
+    <tags>lua interpreter</tags>
+    <repository type="git" url="https://github.com/nuskey8/Lua-CSharp" commit="c48134e8948b8a009b72d3b4f3063d7bffd2c169" />
+    <dependencies>
+      <group targetFramework="net6.0" />
+      <group targetFramework="net8.0" />
+      <group targetFramework="net10.0" />
+      <group targetFramework=".NETStandard2.1" />
+    </dependencies>
+  </metadata>
+</package>
