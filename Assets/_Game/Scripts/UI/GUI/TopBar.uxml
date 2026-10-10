@@ -10,10 +10,10 @@
             <!-- Центр — Энергия -->
             <ui:VisualElement name="center-section" class="top-bar-section top-bar-center">
                 <ui:Label name="energy-label" class="energy-label" text="Energy: 100 / 100"/>
+                <ui:Label name="program-cost" class="program-cost" text="Program cost: 0"/>
             </ui:VisualElement>
             <!-- Правая часть — Управление окнами -->
             <ui:VisualElement name="right-section" class="top-bar-section top-bar-right">
-                <ui:Button name="btn-add-window" class="top-bar-btn" text="+"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-simulation" class="top-bar-btn" text="Simulation"/>
             </ui:VisualElement>

@@ -1,6 +1,6 @@
-/// <summary>
-/// Базовый класс для команд которые управляют персонажем.
-/// Хранит ссылку на executor и mapData.
+п»ї/// <summary>
+/// Р‘Р°Р·РѕРІС‹Р№ РєР»Р°СЃСЃ РґР»СЏ РєРѕРјР°РЅРґ РєРѕС‚РѕСЂС‹Рµ СѓРїСЂР°РІР»СЏСЋС‚ РїРµСЂСЃРѕРЅР°Р¶РµРј.
+/// РҐСЂР°РЅРёС‚ СЃСЃС‹Р»РєСѓ РЅР° executor Рё mapData.
 /// </summary>
 public abstract class PlayerCommandBase : ILuaCommand
 {
@@ -15,6 +15,8 @@ public abstract class PlayerCommandBase : ILuaCommand
 
     public abstract string Name { get; }
     public abstract float EnergyCost { get; }
+    public abstract string Signature { get; }
+    public abstract string Description { get; }
 
     public abstract void Register(Lua.LuaState state);
 }

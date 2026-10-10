@@ -6,6 +6,8 @@ public class MoveCommand : PlayerCommandBase
 {
     public override string Name => "move";
     public override float EnergyCost => 1f;
+    public override string Signature => "move(direction, steps)";
+    public override string Description => "Идти в направлении: north, south, east, west, northeast, northwest, southeast, southwest. Возвращает число пройденных шагов";
 
     public MoveCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }
@@ -24,7 +26,7 @@ public class MoveCommand : PlayerCommandBase
                 return 1;
             }
 
-            int stepsTaken = await Executor.MoveAsync(dir, steps);
+            int stepsTaken = await Executor.MoveAsync(dir, steps, ct);
             context.Return(stepsTaken);
             return 1;
         });

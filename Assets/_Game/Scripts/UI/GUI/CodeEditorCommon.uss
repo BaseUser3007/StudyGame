@@ -1,0 +1,212 @@
+/* Общие стили редактора кода (подключается после стиля окна) */
+
+.hidden {
+    display: none;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.energy-cost {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(230, 200, 110);
+}
+
+/* ── Gutters: номера строк и стоимость строк ─────────────── */
+.gutter {
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+    background-color: rgb(30, 30, 30);
+}
+
+.gutter-numbers {
+    width: 36px;
+    border-right-width: 1px;
+    border-right-color: rgb(60, 60, 60);
+}
+
+.gutter-costs {
+    width: 30px;
+    border-left-width: 1px;
+    border-left-color: rgb(50, 50, 50);
+}
+
+.gutter-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0 4px;
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+    overflow: visible;
+    font-size: 13px;
+    white-space: pre;
+    -unity-text-align: upper-right;
+}
+
+.line-numbers {
+    color: rgb(100, 100, 100);
+}
+
+.line-costs {
+    color: rgb(200, 170, 90);
+}
+
+/* ── Подсветка синтаксиса ────────────────────────────────── */
+.code-field {
+    --unity-cursor-color: rgb(240, 240, 240);
+    --unity-selection-color: rgba(64, 115, 204, 0.45);
+}
+
+/* Поле занимает ровно доступную высоту, а лишний текст прокручивается
+   внутри ScrollView поля, а не растягивает окно */
+.code-field {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+}
+
+.code-field > .unity-text-field__input {
+    min-height: 0;
+    max-height: 100%;
+}
+
+.code-field .unity-scroll-view {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+/* Тонкая тёмная полоса прокрутки */
+.code-field .unity-scroller {
+    border-width: 0;
+    background-color: rgb(30, 30, 30);
+}
+
+.code-field .unity-scroller--vertical {
+    width: 10px;
+    min-width: 10px;
+}
+
+.code-field .unity-scroller--horizontal {
+    height: 10px;
+    min-height: 10px;
+}
+
+.code-field .unity-scroller > .unity-repeat-button {
+    display: none;
+}
+
+.code-field .unity-scroller > .unity-slider {
+    margin: 0;
+}
+
+.code-field .unity-base-slider__tracker,
+.code-field .unity-base-slider__dragger-border {
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.code-field .unity-base-slider__dragger {
+    border-width: 0;
+    border-radius: 4px;
+    background-color: rgb(75, 75, 80);
+}
+
+.code-field .unity-base-slider__dragger:hover {
+    background-color: rgb(100, 100, 108);
+}
+
+.code-highlight {
+    margin: 0;
+    white-space: pre;
+}
+
+/* ── Автодополнение ──────────────────────────────────────── */
+.completion-popup {
+    position: absolute;
+    min-width: 280px;
+    max-width: 440px;
+    padding: 2px 0;
+    border-width: 1px;
+    border-radius: 3px;
+    border-color: rgb(75, 75, 85);
+    background-color: rgb(37, 37, 42);
+}
+
+.completion-row {
+    flex-direction: row;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+}
+
+.completion-row:hover {
+    background-color: rgb(50, 50, 58);
+}
+
+.completion-row--selected,
+.completion-row--selected:hover {
+    background-color: rgb(9, 71, 113);
+}
+
+.completion-kind {
+    width: 16px;
+    height: 16px;
+    margin: 0 6px 0 0;
+    padding: 0;
+    border-radius: 2px;
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(25, 25, 25);
+    background-color: rgb(150, 150, 150);
+}
+
+.completion-kind-command .completion-kind { background-color: rgb(102, 199, 240); }
+.completion-kind-function .completion-kind { background-color: rgb(200, 160, 240); }
+.completion-kind-keyword .completion-kind { background-color: rgb(220, 120, 64); }
+.completion-kind-snippet .completion-kind { background-color: rgb(150, 215, 115); }
+.completion-kind-member .completion-kind { background-color: rgb(102, 199, 240); }
+.completion-kind-variable .completion-kind { background-color: rgb(200, 200, 200); }
+
+.completion-label {
+    margin: 0 10px 0 0;
+    padding: 0;
+    font-size: 13px;
+    color: rgb(235, 235, 235);
+}
+
+.completion-detail {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-size: 11px;
+    color: rgb(140, 140, 140);
+    text-overflow: ellipsis;
+}
+
+.completion-cost {
+    margin: 0 0 0 10px;
+    padding: 0;
+    font-size: 11px;
+    color: rgb(230, 200, 110);
+}
+
+.completion-description {
+    max-width: 440px;
+    margin: 2px 0 0 0;
+    padding: 4px 8px;
+    border-top-width: 1px;
+    border-top-color: rgb(60, 60, 60);
+    white-space: normal;
+    font-size: 11px;
+    color: rgb(185, 185, 185);
+}

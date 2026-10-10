@@ -69,6 +69,7 @@ public class ObjectGenerator : MonoBehaviour
             Vector3 worldPos = _mapData.TileIndexToWorld(tileX, tileY);
             ResourceObject obj = _objectPool.Get(prefab, worldPos);
             Vector2Int tile = new Vector2Int(tileX, tileY);
+            obj.SetTile(tile);
 
             obj.OnConsumed += HandleObjectConsumed;
             OnObjectSpawned?.Invoke(obj, tile);

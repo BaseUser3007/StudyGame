@@ -7,6 +7,8 @@ public class FindObjectsCommand : PlayerCommandBase
 {
     public override string Name => "findObjects";
     public override float EnergyCost => 0f;
+    public override string Signature => "findObjects(type)";
+    public override string Description => "Объекты типа в поле зрения: tree, stone, bush, mushroom, rabbit, stick, pebble. У результата есть метод getNear()";
 
     private readonly ObjectManager _objectManager;
 
@@ -59,11 +61,8 @@ public class FindObjectsCommand : PlayerCommandBase
 
     private List<ResourceObject> GetObjectsByType(Type type)
     {
-        Vector2Int center = Executor.CurrentTile;
-        int radius = 4; // поле зрения 8x8
-
-        List<ResourceObject> all = _objectManager.GetObjectsByType(center, radius, type);
-        return all;
+        return _objectManager.GetObjectsByType(
+            Executor.CurrentTile, Executor.VisionRadius, type);
     }
 
     private LuaTable BuildResultTable(LuaState state, List<ResourceObject> objects)
@@ -94,11 +93,7 @@ public class FindObjectsCommand : PlayerCommandBase
             {
                 if (!obj.IsAvailable) continue;
 
-                Vector2Int objTile = new Vector2Int(
-                    Mathf.RoundToInt(obj.transform.position.x),
-                    Mathf.RoundToInt(obj.transform.position.y));
-
-                float distance = Vector2Int.Distance(center, objTile);
+                float distance = Vector2Int.Distance(center, obj.Tile);
 
                 if (distance < minDistance)
                 {
@@ -124,12 +119,8 @@ public class FindObjectsCommand : PlayerCommandBase
     {
         LuaTable objTable = new LuaTable();
 
-        Vector2Int tile = new Vector2Int(
-            Mathf.RoundToInt(obj.transform.position.x),
-            Mathf.RoundToInt(obj.transform.position.y));
-
-        objTable["x"] = (double)tile.x;
-        objTable["y"] = (double)tile.y;
+        objTable["x"] = (double)obj.Tile.x;
+        objTable["y"] = (double)obj.Tile.y;
         objTable["type"] = obj.GetType().Name.ToLower().Replace("object", "");
 
         return objTable;

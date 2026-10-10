@@ -1,5 +1,5 @@
-/// <summary>
-/// Куст ягод — не требует инструмента.
+п»ї/// <summary>
+/// РљСѓСЃС‚ СЏРіРѕРґ вЂ” РЅРµ С‚СЂРµР±СѓРµС‚ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°.
 /// </summary>
 public class BushObject : HarvestableResource
 {

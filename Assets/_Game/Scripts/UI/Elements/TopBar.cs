@@ -5,13 +5,12 @@ using UnityEngine.UIElements;
 
 public class TopBar : VisualElement
 {
-    public event Action OnAddWindowRequested;
     public event Action OnRunRequested;
     public event Action OnSimulationRequested;
 
     private Label _energyLabel;
+    private Label _programCostLabel;
     private Button _btnInventory;
-    private Button _btnAddWindow;
     private Button _btnRun;
     private Button _btnSimulation;
     private VisualElement _inventoryGrid;
@@ -22,8 +21,8 @@ public class TopBar : VisualElement
         VisualElement root = template.Instantiate();
 
         _energyLabel = root.Q<Label>("energy-label");
+        _programCostLabel = root.Q<Label>("program-cost");
         _btnInventory = root.Q<Button>("btn-inventory");
-        _btnAddWindow = root.Q<Button>("btn-add-window");
         _btnRun = root.Q<Button>("btn-run");
         _btnSimulation = root.Q<Button>("btn-simulation");
         _inventoryGrid = root.Q<VisualElement>("inventory-grid");
@@ -32,7 +31,6 @@ public class TopBar : VisualElement
 
         Debug.Assert(_energyLabel != null, "TopBar: energy-label not found");
         Debug.Assert(_btnInventory != null, "TopBar: btn-inventory not found");
-        Debug.Assert(_btnAddWindow != null, "TopBar: btn-add-window not found");
         Debug.Assert(_btnRun != null, "TopBar: btn-run not found");
         Debug.Assert(popup != null, "TopBar: inventory-popup not found");
 
@@ -44,15 +42,33 @@ public class TopBar : VisualElement
 
     private void RegisterCallbacks()
     {
-        _btnAddWindow.clicked += () => OnAddWindowRequested?.Invoke();
         _btnRun.clicked += () => OnRunRequested?.Invoke();
         _btnSimulation.clicked += () => OnSimulationRequested?.Invoke();
+    }
+
+    /// <summary>
+    /// Пока скрипт выполняется, кнопка Run превращается в Stop.
+    /// </summary>
+    public void SetRunning(bool running)
+    {
+        _btnRun.text = running ? "Stop" : "Run";
+        _btnRun.EnableInClassList("btn-stop", running);
+    }
+
+    /// <summary>
+    /// Стоимость всей программы. Красным — если энергии не хватит.
+    /// </summary>
+    public void UpdateProgramCost(float cost, float energyMax)
+    {
+        if (_programCostLabel == null) return;
+        _programCostLabel.text = $"Program cost: {cost:0.#}";
+        _programCostLabel.EnableInClassList("program-cost--over", cost > energyMax);
     }
 
     public void UpdateEnergy(float current, float max)
     {
         if (_energyLabel == null) return;
-        _energyLabel.text = $"{Mathf.RoundToInt(current)} / {Mathf.RoundToInt(max)}";
+        _energyLabel.text = $"Energy: {Mathf.RoundToInt(current)} / {Mathf.RoundToInt(max)}";
     }
 
     public void UpdateInventory(Dictionary<string, int> items)

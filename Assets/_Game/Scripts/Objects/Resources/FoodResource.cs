@@ -1,7 +1,7 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 /// <summary>
-/// Пищевой ресурс — ягоды, гриб, мясо и т.д.
+/// РџРёС‰РµРІРѕР№ СЂРµСЃСѓСЂСЃ вЂ” СЏРіРѕРґС‹, РіСЂРёР±, РјСЏСЃРѕ Рё С‚.Рґ.
 /// </summary>
 [CreateAssetMenu(fileName = "FoodResource", menuName = "CodeRogue/Resources/FoodResource")]
 public class FoodResource : ResourceItem

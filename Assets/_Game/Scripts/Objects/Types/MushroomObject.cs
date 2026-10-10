@@ -1,5 +1,5 @@
-/// <summary>
-/// Гриб — не требует инструмента.
+п»ї/// <summary>
+/// Р“СЂРёР± вЂ” РЅРµ С‚СЂРµР±СѓРµС‚ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°.
 /// </summary>
 public class MushroomObject : HarvestableResource
 {

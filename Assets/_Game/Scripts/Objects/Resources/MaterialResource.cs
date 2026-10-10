@@ -1,7 +1,7 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 /// <summary>
-/// Материальный ресурс — бревно, камень, палка и т.д.
+/// РњР°С‚РµСЂРёР°Р»СЊРЅС‹Р№ СЂРµСЃСѓСЂСЃ вЂ” Р±СЂРµРІРЅРѕ, РєР°РјРµРЅСЊ, РїР°Р»РєР° Рё С‚.Рґ.
 /// </summary>
 [CreateAssetMenu(fileName = "MaterialResource", menuName = "CodeRogue/Resources/MaterialResource")]
 public class MaterialResource : ResourceItem

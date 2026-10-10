@@ -11,8 +11,8 @@ public class AuxiliaryCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay
         string windowId,
         string title,
         VisualTreeAsset template,
-        CodeEditorTheme theme)
-        : base(windowId, title, template, theme)
+        CodeEditorContext context)
+        : base(windowId, title, template, context)
     {
     }
 
@@ -52,6 +52,6 @@ public class AuxiliaryCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay
     public void UpdateEnergyCost(float cost)
     {
         if (_energyCostLabel == null) return;
-        _energyCostLabel.text = Mathf.RoundToInt(cost).ToString();
+        _energyCostLabel.text = $"Cost {cost:0.#}";
     }
 }

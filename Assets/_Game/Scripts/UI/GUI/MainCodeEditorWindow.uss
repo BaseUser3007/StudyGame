@@ -46,6 +46,23 @@
     background-color: rgb(120, 60, 60);
 }
 
+.btn-add-method {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 3px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: rgb(170, 230, 170);
+    background-color: rgb(60, 95, 60);
+}
+
+.btn-add-method:hover {
+    background-color: rgb(75, 125, 75);
+}
+
 .code-area {
     flex-grow: 1;
     flex-direction: row;

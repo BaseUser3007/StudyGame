@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Threading;
+using UnityEngine;
 using Cysharp.Threading.Tasks;
 
 public class PlayerCommandExecutor : MonoBehaviour
@@ -32,7 +33,8 @@ public class PlayerCommandExecutor : MonoBehaviour
     /// Перемещает персонажа в указанном направлении на указанное количество шагов.
     /// Возвращает количество реально пройденных шагов.
     /// </summary>
-    public async UniTask<int> MoveAsync(Direction direction, int steps)
+    public async UniTask<int> MoveAsync(
+        Direction direction, int steps, CancellationToken ct = default)
     {
         int stepsTaken = 0;
 
@@ -43,7 +45,7 @@ public class PlayerCommandExecutor : MonoBehaviour
             if (!_mapData.IsWalkable(nextTile.x, nextTile.y))
                 break;
 
-            await MoveToTileAsync(nextTile);
+            await MoveToTileAsync(nextTile, ct);
             stepsTaken++;
         }
 
@@ -55,7 +57,8 @@ public class PlayerCommandExecutor : MonoBehaviour
     /// Останавливается при встрече препятствия.
     /// Возвращает количество реально пройденных шагов.
     /// </summary>
-    public async UniTask<int> MoveToAsync(Vector2Int targetTile)
+    public async UniTask<int> MoveToAsync(
+        Vector2Int targetTile, CancellationToken ct = default)
     {
         int stepsTaken = 0;
 
@@ -66,7 +69,7 @@ public class PlayerCommandExecutor : MonoBehaviour
             if (!_mapData.IsWalkable(nextTile.x, nextTile.y))
                 break;
 
-            await MoveToTileAsync(nextTile);
+            await MoveToTileAsync(nextTile, ct);
             stepsTaken++;
         }
 
@@ -75,7 +78,7 @@ public class PlayerCommandExecutor : MonoBehaviour
 
     // ─── Private Movement ─────────────────────────────────────
 
-    private async UniTask MoveToTileAsync(Vector2Int targetTile)
+    private async UniTask MoveToTileAsync(Vector2Int targetTile, CancellationToken ct)
     {
         Vector3 startPos = transform.position;
         Vector3 endPos = _mapData.TileIndexToWorld(targetTile.x, targetTile.y);
@@ -83,12 +86,21 @@ public class PlayerCommandExecutor : MonoBehaviour
         float elapsed = 0f;
         float duration = _playerConfig.moveSpeed;
 
-        while (elapsed < duration)
+        try
         {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            transform.position = Vector3.Lerp(startPos, endPos, t);
-            await UniTask.Yield();
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                transform.position = Vector3.Lerp(startPos, endPos, t);
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+        }
+        catch (System.OperationCanceledException)
+        {
+            // Шаг прерван — возвращаем персонажа на текущий тайл
+            transform.position = startPos;
+            throw;
         }
 
         transform.position = endPos;
@@ -117,14 +129,16 @@ public class PlayerCommandExecutor : MonoBehaviour
 
     private Vector2Int StepTowards(Vector2Int from, Vector2Int to)
     {
-        int x = from.x + (int)Mathf.Sign(to.x - from.x == 0 ? 0 : to.x - from.x);
-        int y = from.y + (int)Mathf.Sign(to.y - from.y == 0 ? 0 : to.y - from.y);
+        // System.Math.Sign, а не Mathf.Sign: Mathf.Sign(0) == 1, из-за чего путь шёл зигзагом
+        int x = from.x + System.Math.Sign(to.x - from.x);
+        int y = from.y + System.Math.Sign(to.y - from.y);
         return new Vector2Int(x, y);
     }
 
     // ─── Public Data ──────────────────────────────────────────
 
     public Vector2Int CurrentTile => _currentTile;
+    public int VisionRadius => _playerConfig.visionRadius;
 }
 
 public enum Direction

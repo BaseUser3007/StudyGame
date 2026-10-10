@@ -2,18 +2,14 @@
 using System.Text;
 using UnityEngine;
 
+/// <summary>
+/// Превращает Lua код в rich text с цветами из CodeEditorTheme.
+/// Текст после подсветки должен совпадать с исходным символ в символ —
+/// он рисуется под прозрачным текстом поля ввода.
+/// </summary>
 public class LuaSyntaxHighlighter
 {
-    private static readonly HashSet<string> ApiMethods = new HashSet<string>
-    {
-        "move", "moveTo", "chop", "mine", "harvest",
-        "hunt", "pickup", "eat", "sleep", "craft",
-        "getPosition", "distanceTo", "getInventory",
-        "hasItem", "itemCount", "getTool",
-        "findObjects", "getNear",
-        "autoChop", "autoMine", "autoHarvest",
-        "autoExplore", "autoEat"
-    };
+    private readonly HashSet<string> _apiNames;
 
     private readonly string _keywordColor;
     private readonly string _apiColor;
@@ -22,50 +18,46 @@ public class LuaSyntaxHighlighter
     private readonly string _numberColor;
     private readonly string _defaultColor;
 
-    private readonly LuaTokenizer _tokenizer;
+    private readonly LuaTokenizer _tokenizer = new LuaTokenizer();
 
-    public LuaSyntaxHighlighter(
-        Color keywordColor,
-        Color apiColor,
-        Color stringColor,
-        Color commentColor,
-        Color numberColor,
-        Color defaultColor)
+    public LuaSyntaxHighlighter(CodeEditorTheme theme, IEnumerable<string> apiNames)
     {
-        _keywordColor = ColorToHex(keywordColor);
-        _apiColor = ColorToHex(apiColor);
-        _stringColor = ColorToHex(stringColor);
-        _commentColor = ColorToHex(commentColor);
-        _numberColor = ColorToHex(numberColor);
-        _defaultColor = ColorToHex(defaultColor);
-        _tokenizer = new LuaTokenizer();
+        _apiNames = new HashSet<string>(apiNames);
+
+        _keywordColor = ColorToHex(theme.keywordColor);
+        _apiColor = ColorToHex(theme.apiColor);
+        _stringColor = ColorToHex(theme.stringColor);
+        _commentColor = ColorToHex(theme.commentColor);
+        _numberColor = ColorToHex(theme.numberColor);
+        _defaultColor = ColorToHex(theme.defaultColor);
     }
 
     // ─── Public API ───────────────────────────────────────────
 
     public string Highlight(string code)
     {
-        if (string.IsNullOrEmpty(code)) return code;
+        if (string.IsNullOrEmpty(code)) return string.Empty;
 
-        List<LuaTokenizer.Token> tokens = _tokenizer.Tokenize(code);
-        return BuildRichText(tokens);
-    }
+        StringBuilder sb = new StringBuilder(code.Length * 2);
 
-    // ─── RichText ─────────────────────────────────────────────
-
-    private string BuildRichText(List<LuaTokenizer.Token> tokens)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        foreach (LuaTokenizer.Token token in tokens)
+        foreach (LuaTokenizer.Token token in _tokenizer.Tokenize(code))
         {
-            string color = GetColor(token);
-            string escaped = EscapeRichText(token.Value);
-            sb.Append($"<color={color}>{escaped}</color>");
+            if (token.Type == LuaTokenizer.TokenType.Whitespace ||
+                token.Type == LuaTokenizer.TokenType.Newline)
+            {
+                sb.Append(token.Value);
+                continue;
+            }
+
+            sb.Append("<color=").Append(GetColor(token)).Append('>');
+            AppendEscaped(sb, token.Value);
+            sb.Append("</color>");
         }
 
         return sb.ToString();
     }
+
+    // ─── Helpers ──────────────────────────────────────────────
 
     private string GetColor(LuaTokenizer.Token token)
     {
@@ -76,20 +68,28 @@ public class LuaSyntaxHighlighter
             case LuaTokenizer.TokenType.Comment: return _commentColor;
             case LuaTokenizer.TokenType.Number: return _numberColor;
             case LuaTokenizer.TokenType.Identifier:
-                return ApiMethods.Contains(token.Value) ? _apiColor : _defaultColor;
+                return _apiNames.Contains(token.Value) ? _apiColor : _defaultColor;
             default:
                 return _defaultColor;
         }
     }
 
-    private string EscapeRichText(string text)
+    /// <summary>
+    /// Символ '<' может начать rich text тег, поэтому такие фрагменты
+    /// оборачиваются в noparse — видимый текст не меняется.
+    /// </summary>
+    private static void AppendEscaped(StringBuilder sb, string text)
     {
-        return text
-            .Replace("<", "<\u200B")
-            .Replace(">", "\u200B>");
+        if (text.IndexOf('<') < 0)
+        {
+            sb.Append(text);
+            return;
+        }
+
+        sb.Append("<noparse>").Append(text.Replace("</noparse>", "</no​parse>")).Append("</noparse>");
     }
 
-    private string ColorToHex(Color color)
+    private static string ColorToHex(Color color)
     {
         return $"#{ColorUtility.ToHtmlStringRGB(color)}";
     }

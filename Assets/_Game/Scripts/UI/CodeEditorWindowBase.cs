@@ -24,7 +24,7 @@ public abstract class CodeEditorWindowBase : VisualElement
     private WindowResizer _resizer;
     private CodeEditor _codeEditor;
 
-    protected CodeEditorTheme _theme;
+    protected CodeEditorContext _context;
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -32,11 +32,11 @@ public abstract class CodeEditorWindowBase : VisualElement
         string windowId,
         string title,
         VisualTreeAsset template,
-        CodeEditorTheme theme)
+        CodeEditorContext context)
     {
         WindowId = windowId;
         Title = title;
-        _theme = theme;
+        _context = context;
 
         BuildUI(template);
         SetupWindowButtons();
@@ -58,6 +58,7 @@ public abstract class CodeEditorWindowBase : VisualElement
 
         TextField codeField = root.Q<TextField>("code-field");
         Label lineNumbers = root.Q<Label>("line-numbers");
+        Label lineCosts = root.Q<Label>("line-costs");
         VisualElement header = root.Q<VisualElement>("header");
         VisualElement resizeHandle = root.Q<VisualElement>("resize-handle");
 
@@ -72,7 +73,7 @@ public abstract class CodeEditorWindowBase : VisualElement
         _window.AddToClassList(GetWindowClass());
 
         // Инициализируем вспомогательные классы
-        _codeEditor = new CodeEditor(codeField, lineNumbers);
+        _codeEditor = new CodeEditor(codeField, lineNumbers, lineCosts, _window, _context);
         _codeEditor.OnCodeChanged += code => OnCodeChanged?.Invoke(this, code);
 
         if (header != null)

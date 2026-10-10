@@ -1,7 +1,7 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 /// <summary>
-/// Базовый класс для всех ресурсов игры.
+/// Р‘Р°Р·РѕРІС‹Р№ РєР»Р°СЃСЃ РґР»СЏ РІСЃРµС… СЂРµСЃСѓСЂСЃРѕРІ РёРіСЂС‹.
 /// </summary>
 public abstract class ResourceItem : ScriptableObject
 {

@@ -1,14 +1,21 @@
 ﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="MainCodeEditorWindow.uss"/>
+    <Style src="CodeEditorCommon.uss"/>
     <ui:VisualElement name="window" class="window window-main">
         <ui:VisualElement name="header" class="window-header">
             <ui:Label name="title" class="window-title" text="Main"/>
             <ui:Label name="energy-cost" class="energy-cost" text="0"/>
+            <ui:Button name="btn-add-method" class="btn-add-method" text="+" tooltip="Добавить метод"/>
         </ui:VisualElement>
         <ui:VisualElement name="code-area" class="code-area">
-            <ui:Label name="line-numbers" class="line-numbers" text="1"/>
+            <ui:VisualElement class="gutter gutter-numbers">
+                <ui:Label name="line-numbers" class="line-numbers gutter-label" text="1"/>
+            </ui:VisualElement>
             <ui:VisualElement name="code-wrapper" class="code-wrapper">
                 <ui:TextField name="code-field" class="code-field" multiline="true" value=""/>
+            </ui:VisualElement>
+            <ui:VisualElement class="gutter gutter-costs" tooltip="Energy cost of each line">
+                <ui:Label name="line-costs" class="line-costs gutter-label" text=""/>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="resize-handle" class="resize-handle"/>

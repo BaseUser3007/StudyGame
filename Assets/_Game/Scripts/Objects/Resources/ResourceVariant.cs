@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 [CreateAssetMenu(fileName = "ResourceVariant", menuName = "CodeRogue/Resources/ResourceVariant")]
 public class ResourceVariant : ScriptableObject
@@ -20,6 +20,6 @@ public class ResourceVariant : ScriptableObject
     [Header("Visual")]
     public Sprite idleSprite;
     public AnimationClip idleAnimation;
-    public AnimationClip harvestAnimation; // анимация при сборе/рубке
-    public AnimationClip destroyAnimation; // анимация уничтожения
+    public AnimationClip harvestAnimation; // Р°РЅРёРјР°С†РёСЏ РїСЂРё СЃР±РѕСЂРµ/СЂСѓР±РєРµ
+    public AnimationClip destroyAnimation; // Р°РЅРёРјР°С†РёСЏ СѓРЅРёС‡С‚РѕР¶РµРЅРёСЏ
 }

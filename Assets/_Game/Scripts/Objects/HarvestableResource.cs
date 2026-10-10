@@ -1,5 +1,3 @@
-using static Unity.VisualScripting.Dependencies.Sqlite.SQLite3;
-
 public abstract class HarvestableResource : ResourceObject
 {
     public override ToolType? RequiredTool => null;

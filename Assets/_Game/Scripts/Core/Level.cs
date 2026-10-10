@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 public class Level : MonoBehaviour
 {
@@ -48,28 +48,28 @@ public class Level : MonoBehaviour
 
     private void InitializeLevel()
     {
-        // 1. Карта
+        // 1. РљР°СЂС‚Р°
         tilemapGenerator.GenerateMap();
 
-        // 2. Спавн
+        // 2. РЎРїР°РІРЅ
         spawnPoint.Initialize(tilemapGenerator);
         Vector2Int startTile = spawnPoint.GetSpawnTile();
         GameObject player = SpawnPlayer(startTile);
 
-        // 3. Компоненты игрока
+        // 3. РљРѕРјРїРѕРЅРµРЅС‚С‹ РёРіСЂРѕРєР°
         PlayerCommandExecutor executor = player.GetComponent<PlayerCommandExecutor>();
         executor.Initialize(tilemapGenerator, playerConfig, startTile);
 
-        // 4. Туман войны
+        // 4. РўСѓРјР°РЅ РІРѕР№РЅС‹
         fogOfWarSystem.Initialize(tilemapGenerator, playerConfig, startTile);
 
-        // 5. Камера
+        // 5. РљР°РјРµСЂР°
         cameraController.Initialize(tilemapGenerator, player.transform);
 
-        // 6. Объекты
+        // 6. РћР±СЉРµРєС‚С‹
         objectManager.Initialize(tilemapGenerator, startTile);
 
-        // 7. Lua песочница
+        // 7. Lua РїРµСЃРѕС‡РЅРёС†Р°
         luaSandbox.Initialize(executor, tilemapGenerator, energyConfig, objectManager);
 
         // 8. UI

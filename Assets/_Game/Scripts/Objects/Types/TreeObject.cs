@@ -1,7 +1,7 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 /// <summary>
-/// Дерево — требует топор для рубки.
+/// Р”РµСЂРµРІРѕ вЂ” С‚СЂРµР±СѓРµС‚ С‚РѕРїРѕСЂ РґР»СЏ СЂСѓР±РєРё.
 /// </summary>
 public class TreeObject : ExtractableResource
 {

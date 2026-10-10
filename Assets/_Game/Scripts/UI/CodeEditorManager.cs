@@ -19,7 +19,9 @@ public class CodeEditorManager : MonoBehaviour
     private TopBar _topBar;
     private int _windowCount = 0;
     private bool _isUIFocused;
+    private bool _navigationBlocked;
     private float _energyMax = 100f;
+    private CodeEditorContext _context;
 
     public TopBar TopBar => _topBar;
 
@@ -35,34 +37,102 @@ public class CodeEditorManager : MonoBehaviour
 
         _container = _uiDocument.rootVisualElement;
 
-        PlayerEventBus.OnUIFocused += () => _isUIFocused = true;
-        PlayerEventBus.OnUIUnfocused += () => _isUIFocused = false;
+        PlayerEventBus.OnUIFocused += HandleUIFocused;
+        PlayerEventBus.OnUIUnfocused += HandleUIUnfocused;
 
-        _container.RegisterCallback<NavigationMoveEvent>(evt =>
-        {
-            if (!_isUIFocused) evt.StopPropagation();
-        }, TrickleDown.TrickleDown);
+        // Без фокуса навигация адресована корню панели и мимо _container не проходит,
+        // поэтому перехватываем её на самом корне
+        if (_container.panel != null)
+            BlockKeyboardNavigation(_container.panel.visualTree);
+        else
+            _container.RegisterCallback<AttachToPanelEvent>(
+                evt => BlockKeyboardNavigation(evt.destinationPanel.visualTree));
 
         _container.RegisterCallback<KeyDownEvent>(evt =>
         {
             if (!_isUIFocused) evt.StopImmediatePropagation();
         }, TrickleDown.TrickleDown);
 
+        _context = CreateContext();
+
         CreateTopBar();
         CreateMainWindow();
+
+        _luaSandbox.OnRunningChanged += HandleRunningChanged;
+    }
+
+    /// <summary>
+    /// Клавиатурная навигация UI Toolkit (WASD/стрелки/Tab/Enter) не должна трогать интерфейс:
+    /// те же клавиши двигают камеру. Иначе фокус перескакивает в поле кода
+    /// (и выделяет весь текст) или на кнопки верхней панели.
+    /// Интерфейс управляется только мышью.
+    /// </summary>
+    private void BlockKeyboardNavigation(VisualElement panelRoot)
+    {
+        if (_navigationBlocked) return;
+        _navigationBlocked = true;
+
+        panelRoot.RegisterCallback<NavigationMoveEvent>(IgnoreNavigation, TrickleDown.TrickleDown);
+        panelRoot.RegisterCallback<NavigationSubmitEvent>(IgnoreNavigation, TrickleDown.TrickleDown);
+        panelRoot.RegisterCallback<NavigationCancelEvent>(IgnoreNavigation, TrickleDown.TrickleDown);
+    }
+
+    private void IgnoreNavigation(EventBase evt)
+    {
+        // Фокус от навигации никогда не меняется
+        (evt.target as Focusable)?.focusController?.IgnoreEvent(evt);
+
+        // Пока пишут код, событие доходит до поля ввода — оно само решает, что с ним делать.
+        // Иначе (например, Enter после клика по кнопке Run) событие гасится целиком.
+        if (!_isUIFocused)
+            evt.StopPropagation();
     }
 
     public void SetEnergyMax(float max)
     {
         _energyMax = max;
         UIEventBus.PublishPlayerEnergyChanged(_energyMax, _energyMax);
+        UpdateProgramCost();
+    }
+
+    private CodeEditorContext CreateContext()
+    {
+        LuaCommandRegistry registry = _luaSandbox.Registry;
+
+        var apiNames = new List<string>();
+        foreach (ILuaCommand command in registry.GetAllCommands())
+            apiNames.Add(command.Name);
+        apiNames.Add("getNear");
+
+        var completion = new LuaCompletionProvider(
+            registry.GetAllCommands,
+            GetWindowFunctionNames);
+
+        return new CodeEditorContext(
+            theme,
+            new LuaSyntaxHighlighter(theme, apiNames),
+            completion,
+            _luaSandbox.CalculateLineCosts);
+    }
+
+    private IEnumerable<string> GetWindowFunctionNames()
+    {
+        foreach (CodeEditorWindowBase window in _windows)
+            if (window != _mainWindow)
+                yield return window.Title;
     }
 
     private void OnDestroy()
     {
-        PlayerEventBus.OnUIFocused -= () => _isUIFocused = true;
-        PlayerEventBus.OnUIUnfocused -= () => _isUIFocused = false;
+        PlayerEventBus.OnUIFocused -= HandleUIFocused;
+        PlayerEventBus.OnUIUnfocused -= HandleUIUnfocused;
+
+        if (_luaSandbox != null)
+            _luaSandbox.OnRunningChanged -= HandleRunningChanged;
     }
+
+    private void HandleUIFocused() => _isUIFocused = true;
+    private void HandleUIUnfocused() => _isUIFocused = false;
 
     // ─── Validation ───────────────────────────────────────────
 
@@ -82,7 +152,6 @@ public class CodeEditorManager : MonoBehaviour
     private void CreateTopBar()
     {
         _topBar = new TopBar(topBarTemplate);
-        _topBar.OnAddWindowRequested += CreateAuxiliaryWindow;
         _topBar.OnRunRequested += HandleRunRequested;
         _topBar.OnSimulationRequested += HandleSimulationRequested;
         _container.Add(_topBar);
@@ -96,10 +165,11 @@ public class CodeEditorManager : MonoBehaviour
         _mainWindow = new MainCodeEditorWindow(
             $"window_{_windowCount}",
             mainWindowTemplate,
-            theme);
+            _context);
 
         _mainWindow.SetPosition(20, 50);
         _mainWindow.OnCodeChanged += HandleCodeChanged;
+        _mainWindow.OnAddMethodRequested += CreateAuxiliaryWindow;
         _uiManager.RegisterWindow(_mainWindow);
         _container.Add(_mainWindow);
         _windows.Add(_mainWindow);
@@ -114,7 +184,7 @@ public class CodeEditorManager : MonoBehaviour
             $"window_{_windowCount}",
             title,
             auxiliaryWindowTemplate,
-            theme);
+            _context);
 
         float offset = (_windows.Count % 5) * 30f;
         window.SetPosition(20 + offset, 50 + offset);
@@ -133,11 +203,29 @@ public class CodeEditorManager : MonoBehaviour
             new Dictionary<string, string> { { changedWindow.Title, newCode } });
 
         UIEventBus.PublishWindowEnergyCostChanged(changedWindow.WindowId, cost);
+        UpdateProgramCost();
+    }
+
+    /// <summary>
+    /// Стоимость всей программы — сумма всех окон, показывается рядом с энергией.
+    /// </summary>
+    private void UpdateProgramCost()
+    {
+        if (_luaSandbox == null) return;
+        float total = _luaSandbox.CalculateEnergyCost(GetAllWindowCode());
+        _topBar?.UpdateProgramCost(total, _energyMax);
     }
 
     private async void HandleRunRequested()
     {
         if (_mainWindow == null || _luaSandbox == null) return;
+
+        // Повторное нажатие во время выполнения — остановка
+        if (_luaSandbox.IsRunning)
+        {
+            _luaSandbox.Stop();
+            return;
+        }
 
         string mainCode = _mainWindow.Code;
 
@@ -151,8 +239,15 @@ public class CodeEditorManager : MonoBehaviour
 
         if (result.IsSuccess)
             UIEventBus.PublishNotification("Execution completed", LogEntryType.Success);
-        else if (!result.IsCancelled)
+        else if (result.IsCancelled)
+            UIEventBus.PublishNotification("Execution stopped", LogEntryType.Warning);
+        else
             UIEventBus.PublishNotification(result.ErrorMessage, LogEntryType.Error);
+    }
+
+    private void HandleRunningChanged(bool running)
+    {
+        _topBar?.SetRunning(running);
     }
 
     private void HandleSimulationRequested()
@@ -165,6 +260,7 @@ public class CodeEditorManager : MonoBehaviour
         _uiManager.UnregisterWindow(window);
         _windows.Remove(window);
         window.DestroyWindow();
+        UpdateProgramCost();
     }
 
     // ─── Public API ───────────────────────────────────────────

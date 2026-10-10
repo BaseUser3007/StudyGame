@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UIElements;
 
 public class WindowResizer
@@ -33,7 +33,7 @@ public class WindowResizer
         _isResizing = true;
         _resizeStartMouse = evt.position;
 
-        // Áåð¸ì àêòóàëüíûé ðàçìåð â ìîìåíò íà÷àëà ðåñàéçà
+        // Ð‘ÐµÑ€Ñ‘Ð¼ Ð°ÐºÑ‚ÑƒÐ°Ð»ÑŒÐ½Ñ‹Ð¹ Ñ€Ð°Ð·Ð¼ÐµÑ€ Ð² Ð¼Ð¾Ð¼ÐµÐ½Ñ‚ Ð½Ð°Ñ‡Ð°Ð»Ð° Ñ€ÐµÑÐ°Ð¹Ð·Ð°
         _resizeStartSize = new Vector2(
             _window.resolvedStyle.width > 0 ? _window.resolvedStyle.width : _window.style.width.value.value,
             _window.resolvedStyle.height > 0 ? _window.resolvedStyle.height : _window.style.height.value.value);

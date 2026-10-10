@@ -1,5 +1,5 @@
-/// <summary>
-/// Кролик — требует топор для охоты.
+п»ї/// <summary>
+/// РљСЂРѕР»РёРє вЂ” С‚СЂРµР±СѓРµС‚ С‚РѕРїРѕСЂ РґР»СЏ РѕС…РѕС‚С‹.
 /// </summary>
 public class RabbitObject : ExtractableResource
 {

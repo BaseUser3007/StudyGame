@@ -1,5 +1,5 @@
-/// <summary>
-/// Камень — требует кирку для добычи.
+п»ї/// <summary>
+/// РљР°РјРµРЅСЊ вЂ” С‚СЂРµР±СѓРµС‚ РєРёСЂРєСѓ РґР»СЏ РґРѕР±С‹С‡Рё.
 /// </summary>
 public class StoneObject : ExtractableResource
 {

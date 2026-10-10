@@ -10,6 +10,7 @@ public abstract class ResourceObject : MonoBehaviour
 
     public bool IsAvailable { get; private set; } = true;
     public ResourceVariant Variant => variant;
+    public Vector2Int Tile { get; private set; }
 
     public abstract ToolType? RequiredTool { get; }
     public abstract float InteractionRadius { get; }
@@ -28,6 +29,11 @@ public abstract class ResourceObject : MonoBehaviour
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         if (sr != null && variant != null)
             sr.sprite = variant.idleSprite;
+    }
+
+    public void SetTile(Vector2Int tile)
+    {
+        Tile = tile;
     }
 
     public void ResetState()

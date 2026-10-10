@@ -82,11 +82,7 @@ public class ObjectManager : MonoBehaviour
 
         foreach (T obj in objects)
         {
-            Vector2Int objTile = new Vector2Int(
-                Mathf.RoundToInt(obj.transform.position.x),
-                Mathf.RoundToInt(obj.transform.position.y));
-
-            float distance = Vector2Int.Distance(center, objTile);
+            float distance = Vector2Int.Distance(center, obj.Tile);
 
             if (distance < minDistance)
             {

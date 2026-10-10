@@ -60,10 +60,30 @@
     background-color: rgb(60, 130, 60);
 }
 
+.btn-run.btn-stop {
+    background-color: rgb(110, 45, 45);
+    color: rgb(230, 160, 160);
+}
+
+.btn-run.btn-stop:hover {
+    background-color: rgb(140, 55, 55);
+}
+
 /* ── Energy ──────────────────────────────────────────────── */
 .energy-label {
     font-size: 13px;
     color: rgb(150, 220, 150);
+}
+
+.program-cost {
+    font-size: 13px;
+    margin-left: 16px;
+    color: rgb(230, 200, 110);
+}
+
+.program-cost--over {
+    color: rgb(240, 110, 110);
+    -unity-font-style: bold;
 }
 
 /* ── Inventory Popup ─────────────────────────────────────── */

@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.Tilemaps;
 
 [CreateAssetMenu(fileName = "MapGenerationConfig", menuName = "CodeRogue/Map/MapGenerationConfig")]
@@ -16,10 +16,10 @@ public class MapGenerationConfig : ScriptableObject
     public int mapHeight = 100;
 
     [Header("Noise Settings")]
-    [Tooltip("Scale of the Perlin noise — higher values produce smoother terrain")]
+    [Tooltip("Scale of the Perlin noise â€” higher values produce smoother terrain")]
     public float noiseScale = 20f;
 
-    [Tooltip("Random seed for map generation — same seed always produces same map")]
+    [Tooltip("Random seed for map generation â€” same seed always produces same map")]
     public int seed = 0;
 
     [Tooltip("If true, a random seed is used every time")]
