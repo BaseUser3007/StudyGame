@@ -3,10 +3,6 @@
     <ui:VisualElement name="top-bar-root" class="top-bar-root">
 
         <ui:VisualElement name="top-bar" class="top-bar">
-            <!-- Левая часть — Инвентарь -->
-            <ui:VisualElement name="left-section" class="top-bar-section">
-                <ui:Button name="btn-inventory" class="top-bar-btn" text="Inventory"/>
-            </ui:VisualElement>
             <!-- Центр — Энергия -->
             <ui:VisualElement name="center-section" class="top-bar-section top-bar-center">
                 <ui:Label name="energy-label" class="energy-label" text="Energy: 100 / 100"/>
@@ -17,11 +13,6 @@
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-simulation" class="top-bar-btn" text="Simulation"/>
             </ui:VisualElement>
-        </ui:VisualElement>
-
-        <!-- Всплывающее меню инвентаря -->
-        <ui:VisualElement name="inventory-popup" class="inventory-popup hidden">
-            <ui:VisualElement name="inventory-grid" class="inventory-grid"/>
         </ui:VisualElement>
 
     </ui:VisualElement>

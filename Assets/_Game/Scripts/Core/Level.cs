@@ -17,6 +17,9 @@ public class Level : MonoBehaviour
     [Header("Objects")]
     [SerializeField] private ObjectManager objectManager;
 
+    [Header("Crafting")]
+    [SerializeField] private RecipeBook recipeBook;
+
     [Header("Lua")]
     [SerializeField] private LuaSandbox luaSandbox;
     [SerializeField] private EnergyConfig energyConfig;
@@ -40,6 +43,7 @@ public class Level : MonoBehaviour
         Debug.Assert(playerConfig != null, "Level: playerConfig is not assigned");
         Debug.Assert(cameraController != null, "Level: CameraController is not assigned");
         Debug.Assert(objectManager != null, "Level: ObjectManager is not assigned");
+        Debug.Assert(recipeBook != null, "Level: recipeBook is not assigned");
         Debug.Assert(luaSandbox != null, "Level: LuaSandbox is not assigned");
         Debug.Assert(energyConfig != null, "Level: energyConfig is not assigned");
         Debug.Assert(codeEditorManager != null, "Level: CodeEditorManager is not assigned");
@@ -50,6 +54,7 @@ public class Level : MonoBehaviour
     {
         // 1. Карта
         tilemapGenerator.GenerateMap();
+        ConfigureDepthSorting();
 
         // 2. Спавн
         spawnPoint.Initialize(tilemapGenerator);
@@ -64,24 +69,52 @@ public class Level : MonoBehaviour
         fogOfWarSystem.Initialize(tilemapGenerator, playerConfig, startTile);
 
         // 5. Камера
-        cameraController.Initialize(tilemapGenerator, player.transform);
+        cameraController.Initialize(tilemapGenerator, player.transform, codeEditorManager);
 
         // 6. Объекты
         objectManager.Initialize(tilemapGenerator, startTile);
 
-        // 7. Lua песочница
-        luaSandbox.Initialize(executor, tilemapGenerator, energyConfig, objectManager);
+        // 7. Энергия и инвентарь
+        float energyLimit = ((IPlayerDataProvider)playerConfig).BaseEnergyLimit;
+        PlayerEnergy playerEnergy = new PlayerEnergy(energyLimit);
+        PlayerInventory inventory = new PlayerInventory(playerConfig.inventorySlots);
 
-        // 8. UI
-        codeEditorManager.Initialize(luaSandbox, uiManager);
-        codeEditorManager.SetEnergyMax(
-            ((IPlayerDataProvider)playerConfig).BaseEnergyLimit);
-        uiManager.Initialize(codeEditorManager.TopBar);
+        // 8. Lua песочница
+        luaSandbox.Initialize(
+            executor, tilemapGenerator, energyConfig, objectManager, playerEnergy, inventory, recipeBook);
+
+        // 9. UI
+        codeEditorManager.Initialize(luaSandbox, uiManager, recipeBook);
+        codeEditorManager.SetEnergyMax(energyLimit);
+        uiManager.Initialize(
+            codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
+
+        // UI подписан — показываем начальное состояние
+        playerEnergy.Publish();
+        inventory.Publish();
     }
 
     private GameObject SpawnPlayer(Vector2Int tile)
     {
         Vector3 worldPos = tilemapGenerator.TileIndexToWorld(tile.x, tile.y);
-        return Instantiate(playerPrefab, worldPos, Quaternion.identity);
+        GameObject player = Instantiate(playerPrefab, worldPos, Quaternion.identity);
+
+        // Игрок двигается — порядок отрисовки пересчитывается на ходу
+        if (!player.TryGetComponent(out DepthSortedSprite depthSorting))
+            depthSorting = player.AddComponent<DepthSortedSprite>();
+        depthSorting.Dynamic = true;
+        depthSorting.Refresh();
+
+        return player;
+    }
+
+    /// <summary>
+    /// Диапазон сортировки по высоте — от нижнего до верхнего края игровой области.
+    /// </summary>
+    private void ConfigureDepthSorting()
+    {
+        float bottom = tilemapGenerator.MapToWorld(new Vector2(0f, -0.5f)).y;
+        float top = tilemapGenerator.MapToWorld(new Vector2(0f, tilemapGenerator.MapHeight - 0.5f)).y;
+        DepthSorting.Configure(bottom, top);
     }
 }

@@ -21,4 +21,4 @@ MonoBehaviour:
   energyPenaltyMultiplier: 0.15
   interactionRadius: 1.5
   structureInteractionRadius: 1.5
-  inventorySlots: 16
+  inventorySlots: 10

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a706c525a474c9eb3b99fb3f01fedea, type: 3}
+  m_Name: DefaultBiomeConfig
+  m_EditorClassIdentifier: Assembly-CSharp::BiomeConfig
+  biomes:
+  - name: "Лес"
+    weight: 1
+    resources:
+    - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
+      density: 6
+    - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
+      density: 2
+    - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
+      density: 0.3
+  - name: "Луг"
+    weight: 1.5
+    resources:
+    - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
+      density: 0.5
+    - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
+      density: 1
+    - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
+      density: 0.5
+  - name: "Скалы"
+    weight: 0.8
+    resources:
+    - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
+      density: 3
+    - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
+      density: 0.3
+    - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
+      density: 0.3
+  biomeSize: 30
+  borderWarp: 6
+  borderNoiseScale: 10

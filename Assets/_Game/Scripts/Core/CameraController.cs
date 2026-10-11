@@ -11,8 +11,20 @@ public class CameraController : MonoBehaviour
     [Header("Pan Settings")]
     [SerializeField] private float panSpeed = 10f;
 
+    [Header("Zoom Settings")]
+    [Tooltip("Насколько меняется масштаб за один щелчок колеса (доля от текущего)")]
+    [Range(0.01f, 0.5f)]
+    [SerializeField] private float zoomStep = 0.15f;
+    [Tooltip("Минимальный orthographic size — максимальное приближение")]
+    [SerializeField] private float minZoom = 2f;
+    [Tooltip("Максимальный orthographic size — максимальное отдаление")]
+    [SerializeField] private float maxZoom = 12f;
+    [SerializeField] private float zoomSmoothSpeed = 10f;
+
     private IMapDataProvider _mapData;
+    private IPointerOverUIProvider _uiPointer;
     private Transform _playerTransform;
+    private float _targetZoom;
     private CameraMode _currentMode;
     private Vector3 _targetPosition;
     private Vector2 _moveInput;
@@ -25,12 +37,17 @@ public class CameraController : MonoBehaviour
 
     // ─── Инициализация ────────────────────────────────────────
 
-    public void Initialize(IMapDataProvider mapData, Transform playerTransform)
+    public void Initialize(
+        IMapDataProvider mapData,
+        Transform playerTransform,
+        IPointerOverUIProvider uiPointer)
     {
         ValidateReferences(mapData, playerTransform);
 
         _mapData = mapData;
+        _uiPointer = uiPointer;
         _playerTransform = playerTransform;
+        _targetZoom = Mathf.Clamp(mainCamera.orthographicSize, minZoom, maxZoom);
         _currentMode = CameraMode.Following;
         _targetPosition = playerTransform.position;
 
@@ -56,6 +73,8 @@ public class CameraController : MonoBehaviour
     private void ValidateReferences(IMapDataProvider mapData, Transform playerTransform)
     {
         Debug.Assert(mainCamera != null, "CameraController: mainCamera is not assigned");
+        Debug.Assert(mainCamera == null || mainCamera.orthographic,
+            "CameraController: zoom expects an orthographic camera");
         Debug.Assert(mapData != null, "CameraController: mapData is not assigned");
         Debug.Assert(playerTransform != null, "CameraController: playerTransform is not assigned");
     }
@@ -95,7 +114,44 @@ public class CameraController : MonoBehaviour
     private void Update()
     {
         HandleInput();
+        HandleZoomInput();
         MoveCamera();
+        ZoomCamera();
+    }
+
+    /// <summary>
+    /// Колесо мыши читается напрямую (не через Camera action map): зум работает,
+    /// даже пока пишут код, — но только если курсор над картой, а не над интерфейсом.
+    /// </summary>
+    private void HandleZoomInput()
+    {
+        Mouse mouse = Mouse.current;
+        if (mouse == null) return;
+
+        float scroll = mouse.scroll.ReadValue().y;
+        if (Mathf.Approximately(scroll, 0f)) return;
+
+        if (_uiPointer != null && _uiPointer.IsPointerOverUI(mouse.position.ReadValue()))
+            return;
+
+        // Величина scroll зависит от платформы и настроек Input System (±1 или ±120 за щелчок) —
+        // берём только направление. Вверх — приближение.
+        float factor = scroll > 0f ? 1f - zoomStep : 1f + zoomStep;
+        _targetZoom = Mathf.Clamp(_targetZoom * factor, minZoom, maxZoom);
+    }
+
+    private void ZoomCamera()
+    {
+        mainCamera.orthographicSize = Mathf.Lerp(
+            mainCamera.orthographicSize,
+            _targetZoom,
+            zoomSmoothSpeed * Time.deltaTime);
+    }
+
+    private void OnValidate()
+    {
+        minZoom = Mathf.Max(0.5f, minZoom);
+        maxZoom = Mathf.Max(minZoom, maxZoom);
     }
 
     private void HandleInput()

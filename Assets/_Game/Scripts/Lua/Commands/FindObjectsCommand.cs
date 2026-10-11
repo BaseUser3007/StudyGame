@@ -8,7 +8,7 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Name => "findObjects";
     public override float EnergyCost => 0f;
     public override string Signature => "findObjects(type)";
-    public override string Description => "Объекты типа в поле зрения: tree, stone, bush, mushroom, rabbit, stick, pebble. У результата есть метод getNear()";
+    public override string Description => "Объекты типа в поле зрения: tree, stone, bush, mushroom, rabbit, stick, pebble. У объекта есть x, y, type, durability (энергия на добычу). У результата есть метод getNear()";
 
     private readonly ObjectManager _objectManager;
 
@@ -93,7 +93,7 @@ public class FindObjectsCommand : PlayerCommandBase
             {
                 if (!obj.IsAvailable) continue;
 
-                float distance = Vector2Int.Distance(center, obj.Tile);
+                float distance = Vector2.Distance(center, obj.Position);
 
                 if (distance < minDistance)
                 {
@@ -119,9 +119,10 @@ public class FindObjectsCommand : PlayerCommandBase
     {
         LuaTable objTable = new LuaTable();
 
-        objTable["x"] = (double)obj.Tile.x;
-        objTable["y"] = (double)obj.Tile.y;
+        objTable["x"] = (double)obj.Position.x;
+        objTable["y"] = (double)obj.Position.y;
         objTable["type"] = obj.GetType().Name.ToLower().Replace("object", "");
+        objTable["durability"] = obj.Variant != null ? (double)obj.Variant.HarvestEnergyCost : 0d;
 
         return objTable;
     }

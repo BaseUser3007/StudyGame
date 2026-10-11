@@ -1,7 +1,6 @@
 ﻿/// <summary>
-/// Камень — требует кирку для добычи.
+/// Камень — подбирается без инструмента.
 /// </summary>
-public class StoneObject : ExtractableResource
+public class StoneObject : HarvestableResource
 {
-    public override ToolType? RequiredTool => ToolType.Pickaxe;
 }

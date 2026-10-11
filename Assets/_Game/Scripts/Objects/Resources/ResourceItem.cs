@@ -10,6 +10,10 @@ public abstract class ResourceItem : ScriptableObject
     public string displayName;
     public Sprite sprite;
 
+    [Header("Harvest")]
+    [Tooltip("Прочность: сколько энергии тратится на добычу одной единицы ресурса")]
+    [Min(0f)] public float durability = 1f;
+
     [Header("Inventory")]
     public int maxStackSize = 20;
 }

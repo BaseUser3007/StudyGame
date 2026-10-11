@@ -19,6 +19,9 @@ public class LuaSandbox : MonoBehaviour
     private IMapDataProvider _mapData;
     private EnergyConfig _energyConfig;
     private ObjectManager _objectManager;
+    private PlayerEnergy _playerEnergy;
+    private PlayerInventory _inventory;
+    private RecipeBook _recipeBook;
 
     private LuaState _state;
     private LuaCommandRegistry _registry;
@@ -38,12 +41,18 @@ public class LuaSandbox : MonoBehaviour
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
         EnergyConfig energyConfig,
-        ObjectManager objectManager)
+        ObjectManager objectManager,
+        PlayerEnergy playerEnergy,
+        PlayerInventory inventory,
+        RecipeBook recipeBook)
     {
         _executor = executor;
         _mapData = mapData;
         _energyConfig = energyConfig;
         _objectManager = objectManager;
+        _playerEnergy = playerEnergy;
+        _inventory = inventory;
+        _recipeBook = recipeBook;
 
         _registry = new LuaCommandRegistry();
 
@@ -66,6 +75,11 @@ public class LuaSandbox : MonoBehaviour
 
         // Объекты
         _registry.RegisterCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
+        _registry.RegisterCommand(new HarvestCommand(
+            _executor, _mapData, _objectManager, _playerEnergy, _inventory));
+
+        // Крафт
+        _registry.RegisterCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory));
 
         // Добавляй новые команды здесь ↓
     }

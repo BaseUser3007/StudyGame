@@ -1,0 +1,294 @@
+﻿/* ── Root ────────────────────────────────────────────────── */
+.crafting-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* ── Toggle Button (рядом с панелью инвентаря) ───────────── */
+.craft-toggle-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 8px;
+    width: 80px;
+    height: 66px;
+    margin: 0;
+    border-width: 1px;
+    border-color: rgb(60, 60, 60);
+    border-radius: 4px;
+    background-color: rgba(30, 30, 30, 0.92);
+    color: rgb(230, 200, 110);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.craft-toggle-btn:hover {
+    background-color: rgb(55, 55, 55);
+}
+
+.craft-toggle-btn--active {
+    border-color: rgb(230, 200, 110);
+}
+
+/* ── Panel ───────────────────────────────────────────────── */
+.crafting-panel {
+    position: absolute;
+    top: 48px;
+    right: 8px;
+    bottom: 82px;
+    width: 280px;
+    background-color: rgba(30, 30, 30, 0.96);
+    border-width: 1px;
+    border-color: rgb(60, 60, 60);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.crafting-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.crafting-title {
+    font-size: 14px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+}
+
+.crafting-close {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 14px;
+}
+
+.crafting-close:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+/* ── Recipe List ─────────────────────────────────────────── */
+.recipe-list {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 60px;
+}
+
+.recipe-entry {
+    flex-direction: row;
+    align-items: center;
+    min-height: 48px;
+    margin: 1px 0;
+    padding: 4px 6px;
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+    border-radius: 3px;
+    background-color: rgb(42, 42, 42);
+}
+
+.recipe-entry:hover {
+    background-color: rgb(55, 55, 55);
+}
+
+.recipe-entry--selected {
+    border-color: rgb(230, 200, 110);
+    background-color: rgb(55, 55, 55);
+}
+
+.recipe-entry-info {
+    flex-grow: 1;
+}
+
+.recipe-entry-name {
+    font-size: 12px;
+    color: rgb(150, 150, 150);
+    padding: 0;
+    margin: 0;
+}
+
+/* Хватает ресурсов */
+.recipe-entry--craftable .recipe-entry-name {
+    color: rgb(150, 220, 150);
+}
+
+.recipe-entry-cost {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 2px;
+}
+
+.recipe-entry-cost-amount {
+    font-size: 10px;
+    color: rgb(170, 170, 170);
+    padding: 0;
+    margin: 0 6px 0 1px;
+}
+
+/* ── Icons ───────────────────────────────────────────────── */
+.craft-icon {
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    align-items: center;
+    justify-content: center;
+}
+
+.craft-icon--empty {
+    background-color: rgb(60, 60, 60);
+    border-radius: 3px;
+}
+
+.craft-icon-fallback {
+    font-size: 10px;
+    color: rgb(200, 200, 200);
+    padding: 0;
+    margin: 0;
+    -unity-text-align: middle-center;
+}
+
+.craft-icon--mini {
+    width: 16px;
+    height: 16px;
+}
+
+.craft-icon--mini .craft-icon-fallback {
+    font-size: 7px;
+}
+
+.craft-icon--entry {
+    width: 36px;
+    height: 36px;
+    margin-right: 8px;
+}
+
+.craft-icon--slot {
+    width: 36px;
+    height: 36px;
+}
+
+.craft-icon--large {
+    width: 48px;
+    height: 48px;
+    margin-right: 8px;
+}
+
+.craft-icon--large .craft-icon-fallback {
+    font-size: 14px;
+}
+
+/* ── Details ─────────────────────────────────────────────── */
+.recipe-details {
+    flex-shrink: 0;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top-width: 1px;
+    border-top-color: rgb(60, 60, 60);
+}
+
+.details-empty {
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    -unity-text-align: middle-center;
+    padding: 12px 0;
+}
+
+.details-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.details-name {
+    font-size: 14px;
+    color: rgb(230, 230, 230);
+    -unity-font-style: bold;
+}
+
+.details-caption {
+    font-size: 11px;
+    color: rgb(150, 150, 150);
+    margin-bottom: 2px;
+}
+
+.details-ingredients {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+/* Плитка ресурса — в стиле ячейки инвентаря */
+.ingredient-tile {
+    width: 60px;
+    margin: 0 4px 4px 0;
+    align-items: center;
+}
+
+.ingredient-slot {
+    width: 52px;
+    height: 52px;
+    border-width: 1px;
+    border-color: rgb(80, 110, 80);
+    border-radius: 3px;
+    background-color: rgb(45, 45, 45);
+    align-items: center;
+    justify-content: center;
+}
+
+.ingredient-tile--missing .ingredient-slot {
+    border-color: rgb(140, 60, 60);
+}
+
+.ingredient-count {
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    font-size: 11px;
+    color: rgb(150, 220, 150);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.ingredient-tile--missing .ingredient-count {
+    color: rgb(240, 110, 110);
+}
+
+.ingredient-name {
+    font-size: 10px;
+    color: rgb(200, 200, 200);
+    -unity-text-align: upper-center;
+    white-space: normal;
+    padding: 0;
+    margin-top: 2px;
+}
+
+.details-row {
+    font-size: 12px;
+    color: rgb(200, 200, 200);
+    margin-bottom: 2px;
+}
+
+.details-row--missing {
+    color: rgb(240, 110, 110);
+}
+
+.details-code {
+    margin-top: 6px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background-color: rgb(20, 20, 20);
+    font-size: 12px;
+    color: rgb(220, 220, 170);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

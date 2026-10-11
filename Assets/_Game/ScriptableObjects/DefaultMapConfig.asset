@@ -22,3 +22,4 @@ MonoBehaviour:
   grassTile: {fileID: 11400000, guid: 2a76310ac6ee3d54d97ab8e345f76e55, type: 2}
   waterTile: {fileID: 11400000, guid: aaaeaeb8e1cd0504da686b2de0de5b64, type: 2}
   fogTile: {fileID: 11400000, guid: 72822bb2c8088984e86502c22173e5b0, type: 2}
+  biomeConfig: {fileID: 11400000, guid: ef77073776894395b47c125bc69bebe6, type: 2}

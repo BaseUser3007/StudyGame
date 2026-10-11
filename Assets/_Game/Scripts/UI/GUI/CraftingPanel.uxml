@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CraftingPanel.uss"/>
+    <ui:VisualElement name="crafting-root" class="crafting-root" picking-mode="Ignore">
+
+        <!-- Кнопка в правом нижнем углу -->
+        <ui:Button name="btn-craft" class="craft-toggle-btn" text="Крафт"/>
+
+        <!-- Боковая панель -->
+        <ui:VisualElement name="crafting-panel" class="crafting-panel hidden">
+            <ui:VisualElement class="crafting-header">
+                <ui:Label class="crafting-title" text="Крафт"/>
+                <ui:Button name="btn-close" class="crafting-close" text="×"/>
+            </ui:VisualElement>
+
+            <!-- Список рецептов: заполняется из кода -->
+            <ui:ScrollView name="recipe-list" class="recipe-list"/>
+
+            <!-- Подробности выбранного рецепта -->
+            <ui:VisualElement name="recipe-details" class="recipe-details">
+                <ui:Label name="details-empty" class="details-empty" text="Выберите предмет"/>
+                <ui:VisualElement name="details-content" class="hidden">
+                    <ui:VisualElement class="details-header">
+                        <ui:VisualElement name="details-icon"/>
+                        <ui:Label name="details-name" class="details-name"/>
+                    </ui:VisualElement>
+                    <ui:Label class="details-caption" text="Нужно:"/>
+                    <ui:VisualElement name="details-ingredients" class="details-ingredients"/>
+                    <ui:Label name="details-station" class="details-row"/>
+                    <ui:Label name="details-energy" class="details-row"/>
+                    <ui:Label name="details-code" class="details-code"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

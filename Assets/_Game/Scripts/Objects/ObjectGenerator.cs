@@ -1,24 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
+/// <summary>
+/// Раскладывает ресурсы по карте: в каждом биоме — свои ресурсы со своей плотностью
+/// (настраивается в BiomeConfig, который назначен в MapGenerationConfig).
+/// </summary>
 public class ObjectGenerator : MonoBehaviour
 {
-    [System.Serializable]
-    public class SpawnEntry
-    {
-        public ResourceObject prefab;
-        public int count;
-    }
+    public event Action<ResourceObject> OnObjectSpawned;
 
-    public event Action<ResourceObject, Vector2Int> OnObjectSpawned;
+    [Tooltip("Минимальное расстояние между объектами (в тайлах)")]
+    [SerializeField] private float minObjectSpacing = 0.75f;
 
-    [SerializeField] private List<SpawnEntry> spawnEntries;
+    [Tooltip("Вокруг точки появления персонажа объекты не создаются (в тайлах). " +
+             "Считается до края коллайдера объекта")]
+    [SerializeField] private float spawnClearRadius = 3f;
+
+    private const int SpawnAttempts = 30;
+    // Объект лежит внутри своего тайла, чуть отступив от границы
+    private const float TileMargin = 0.1f;
 
     private IMapDataProvider _mapData;
     private ObjectPool _objectPool;
     private Vector2 _spawnCenter;
+    // От seed карты: при фиксированном seed объекты раскладываются так же, как карта и биомы
+    private System.Random _random;
+    // Позиции созданных объектов по тайлам — для быстрой проверки расстояния
+    private readonly Dictionary<Vector2Int, List<Vector2>> _positionsByTile
+        = new Dictionary<Vector2Int, List<Vector2>>();
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -32,6 +42,8 @@ public class ObjectGenerator : MonoBehaviour
         _mapData = mapData;
         _objectPool = objectPool;
         _spawnCenter = new Vector2(spawnCenter.x, spawnCenter.y);
+        // Сдвиг, чтобы последовательность не совпадала с той, что раздала биомы
+        _random = new System.Random(unchecked(mapData.Seed * 31 + 7919));
 
         GenerateAll();
     }
@@ -40,65 +52,245 @@ public class ObjectGenerator : MonoBehaviour
     {
         Debug.Assert(mapData != null, "ObjectGenerator: mapData is not assigned");
         Debug.Assert(objectPool != null, "ObjectGenerator: objectPool is not assigned");
-        Debug.Assert(spawnEntries != null && spawnEntries.Count > 0,
-            "ObjectGenerator: spawnEntries is empty");
     }
 
     // ─── Generation ───────────────────────────────────────────
 
     private void GenerateAll()
     {
-        foreach (SpawnEntry entry in spawnEntries)
-        {
-            if (entry.prefab == null) continue;
+        Dictionary<Biome, List<Vector2Int>> tilesByBiome = CollectLandTiles();
 
-            for (int i = 0; i < entry.count; i++)
-                TrySpawnObject(entry.prefab);
+        if (tilesByBiome.Count == 0)
+            Debug.LogWarning("ObjectGenerator: на карте нет биомов — ресурсы не созданы. " +
+                             "Назначьте BiomeConfig в MapGenerationConfig");
+
+        foreach (var pair in tilesByBiome)
+        {
+            Biome biome = pair.Key;
+            List<Vector2Int> tiles = pair.Value;
+            // Тайлы, куда помещается объект с данной площадью коллайдера, — считаем один раз на префаб
+            var candidatesByPrefab = new Dictionary<ResourceObject, List<Vector2Int>>();
+
+            foreach (BiomeResource resource in biome.resources)
+            {
+                if (resource == null || resource.prefab == null || resource.density <= 0f) continue;
+
+                // Плотность — от всей площади биома, а место ищем только там, где объект помещается
+                int count = RollCount(resource.density * tiles.Count / 100f);
+                Rect footprint = ObjectFootprint.Get(resource.prefab);
+
+                if (!candidatesByPrefab.TryGetValue(resource.prefab, out List<Vector2Int> candidates))
+                    candidatesByPrefab[resource.prefab] = candidates = FilterTiles(tiles, footprint);
+
+                int spawned = 0;
+                for (int i = 0; i < count; i++)
+                    if (TrySpawnObject(resource.prefab, footprint, candidates))
+                        spawned++;
+
+                if (spawned < count)
+                    Debug.LogWarning(
+                        $"ObjectGenerator: {biome.name}/{resource.prefab.name} — создано {spawned} из {count}, " +
+                        "не хватает свободного места");
+            }
         }
     }
 
-    private void TrySpawnObject(ResourceObject prefab)
+    /// <summary>
+    /// Тайлы суши, сгруппированные по биомам.
+    /// </summary>
+    private Dictionary<Biome, List<Vector2Int>> CollectLandTiles()
     {
-        for (int attempt = 0; attempt < 20; attempt++)
+        var result = new Dictionary<Biome, List<Vector2Int>>();
+
+        for (int x = 0; x < _mapData.MapWidth; x++)
         {
-            int tileX = Random.Range(0, _mapData.MapWidth);
-            int tileY = Random.Range(0, _mapData.MapHeight);
+            for (int y = 0; y < _mapData.MapHeight; y++)
+            {
+                if (!_mapData.IsWalkable(x, y)) continue;
 
-            if (!IsValidSpawnPosition(tileX, tileY, prefab)) continue;
+                Biome biome = _mapData.GetBiome(x, y);
+                if (biome == null) continue;
 
-            Vector3 worldPos = _mapData.TileIndexToWorld(tileX, tileY);
-            ResourceObject obj = _objectPool.Get(prefab, worldPos);
-            Vector2Int tile = new Vector2Int(tileX, tileY);
-            obj.SetTile(tile);
+                if (!result.TryGetValue(biome, out List<Vector2Int> tiles))
+                    result[biome] = tiles = new List<Vector2Int>();
+                tiles.Add(new Vector2Int(x, y));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Дробная часть ожидаемого количества превращается в шанс ещё одного объекта.
+    /// </summary>
+    private int RollCount(float expected)
+    {
+        int count = Mathf.FloorToInt(expected);
+        if (_random.NextDouble() < expected - count) count++;
+        return count;
+    }
+
+    private bool TrySpawnObject(ResourceObject prefab, Rect footprint, List<Vector2Int> tiles)
+    {
+        if (tiles.Count == 0) return false;
+
+        for (int attempt = 0; attempt < SpawnAttempts; attempt++)
+        {
+            Vector2Int tile = tiles[_random.Next(tiles.Count)];
+            Vector2 position = RandomPointInTile(tile);
+
+            if (!IsValidSpawnPosition(position, footprint)) continue;
+
+            ResourceObject obj = _objectPool.Get(prefab, _mapData.MapToWorld(position));
+            obj.SetPosition(position);
+            AddPosition(position);
 
             obj.OnConsumed += HandleObjectConsumed;
-            OnObjectSpawned?.Invoke(obj, tile);
-            return;
+            OnObjectSpawned?.Invoke(obj);
+            return true;
         }
+
+        return false;
+    }
+
+    private Vector2 RandomPointInTile(Vector2Int tile)
+    {
+        float half = 0.5f - TileMargin;
+        return new Vector2(
+            tile.x + RandomRange(-half, half),
+            tile.y + RandomRange(-half, half));
+    }
+
+    private float RandomRange(float min, float max)
+    {
+        return min + (float)_random.NextDouble() * (max - min);
     }
 
     private void HandleObjectConsumed(ResourceObject obj)
     {
         obj.OnConsumed -= HandleObjectConsumed;
+        RemovePosition(obj.Position);
         _objectPool.Return(obj);
     }
 
-    private bool IsValidSpawnPosition(int tileX, int tileY, ResourceObject prefab)
+    // ─── Placement ────────────────────────────────────────────
+
+    /// <summary>
+    /// footprint — площадь коллайдера объекта относительно его позиции (см. ObjectFootprint).
+    /// Под коллайдером должна быть только суша, и он не должен задевать зону спавна.
+    /// Остальная картинка (крона дерева) может свисать куда угодно.
+    /// </summary>
+    private bool IsValidSpawnPosition(Vector2 position, Rect footprint)
     {
-        // Проверяем тайл и соседей в радиусе 1
-        for (int dx = -1; dx <= 1; dx++)
-            for (int dy = -1; dy <= 1; dy++)
-                if (!_mapData.IsWalkable(tileX + dx, tileY + dy))
+        Rect area = PlaceFootprint(footprint, position);
+
+        if (DistanceToRect(_spawnCenter, area) < spawnClearRadius)
+            return false;
+
+        if (!IsLandUnder(area))
+            return false;
+
+        Vector2Int tile = MapPosition.ToTile(position);
+        int range = Mathf.CeilToInt(minObjectSpacing);
+        for (int x = -range; x <= range; x++)
+            for (int y = -range; y <= range; y++)
+            {
+                if (!_positionsByTile.TryGetValue(new Vector2Int(tile.x + x, tile.y + y), out List<Vector2> list))
+                    continue;
+
+                foreach (Vector2 other in list)
+                    if (Vector2.Distance(position, other) < minObjectSpacing)
+                        return false;
+            }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Грубый предварительный отбор: объект, поставленный в центр тайла, стоит на суше
+    /// и тайл не лежит целиком внутри зоны спавна. Точная проверка — в IsValidSpawnPosition.
+    /// </summary>
+    private List<Vector2Int> FilterTiles(List<Vector2Int> tiles, Rect footprint)
+    {
+        var result = new List<Vector2Int>(tiles.Count);
+        // Дальше всего от центра тайла точка объекта может отойти на (0.5 - TileMargin) · √2
+        float maxShift = (0.5f - TileMargin) * 1.4143f;
+
+        foreach (Vector2Int tile in tiles)
+        {
+            Rect area = PlaceFootprint(footprint, tile);
+            if (DistanceToRect(_spawnCenter, area) + maxShift < spawnClearRadius) continue;
+            if (!IsLandUnder(area)) continue;
+            result.Add(tile);
+        }
+
+        return result;
+    }
+
+    private static Rect PlaceFootprint(Rect footprint, Vector2 position)
+    {
+        return new Rect(footprint.position + position, footprint.size);
+    }
+
+    /// <summary>
+    /// Все тайлы, которые задевает прямоугольник, — суша (за краем карты — вода).
+    /// </summary>
+    private bool IsLandUnder(Rect area)
+    {
+        Vector2Int min = MapPosition.ToTile(area.min);
+        Vector2Int max = MapPosition.ToTile(area.max);
+
+        for (int x = min.x; x <= max.x; x++)
+            for (int y = min.y; y <= max.y; y++)
+                if (!_mapData.IsWalkable(x, y))
                     return false;
+        return true;
+    }
 
-        float distance = Vector2.Distance(
-            new Vector2(tileX, tileY),
-            _spawnCenter);
+    private static float DistanceToRect(Vector2 point, Rect rect)
+    {
+        Vector2 closest = new Vector2(
+            Mathf.Clamp(point.x, rect.xMin, rect.xMax),
+            Mathf.Clamp(point.y, rect.yMin, rect.yMax));
+        return Vector2.Distance(point, closest);
+    }
 
-        ResourceVariant variant = prefab.Variant;
-        if (variant == null) return true;
+    private void AddPosition(Vector2 position)
+    {
+        Vector2Int tile = MapPosition.ToTile(position);
+        if (!_positionsByTile.TryGetValue(tile, out List<Vector2> list))
+            _positionsByTile[tile] = list = new List<Vector2>();
+        list.Add(position);
+    }
 
-        return distance >= variant.minSpawnDistance &&
-               distance <= variant.maxSpawnDistance;
+    private void RemovePosition(Vector2 position)
+    {
+        if (_positionsByTile.TryGetValue(MapPosition.ToTile(position), out List<Vector2> list))
+            list.Remove(position);
+    }
+
+    // ─── Gizmos ───────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        // Точка спавна известна только после генерации карты
+        if (_mapData == null) return;
+
+        Gizmos.color = Color.yellow;
+        DrawCircle(_mapData.MapToWorld(_spawnCenter), spawnClearRadius);
+    }
+
+    private static void DrawCircle(Vector3 center, float radius)
+    {
+        const int segments = 64;
+        Vector3 prev = center + new Vector3(radius, 0f, 0f);
+
+        for (int i = 1; i <= segments; i++)
+        {
+            float angle = i * 2f * Mathf.PI / segments;
+            Vector3 next = center + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
     }
 }

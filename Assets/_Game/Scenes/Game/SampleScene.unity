@@ -212,6 +212,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 345c834ad2cb7f24c92e0aea2555c908, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LuaSandbox
+  freezeTimeoutSeconds: 3
 --- !u!4 &427823871
 Transform:
   m_ObjectHideFlags: 0
@@ -497,6 +498,8 @@ MonoBehaviour:
   mainWindowTemplate: {fileID: 9197481963319205126, guid: 34adcce973f4230429661208b778f73b, type: 3}
   auxiliaryWindowTemplate: {fileID: 9197481963319205126, guid: b666ca25cc35a0b43990581857870a81, type: 3}
   topBarTemplate: {fileID: 9197481963319205126, guid: 25b9b269c58159545a6695a42e6cb5a7, type: 3}
+  inventoryBarTemplate: {fileID: 9197481963319205126, guid: 965db45b56624bbd8cbf726303c9d329, type: 3}
+  craftingPanelTemplate: {fileID: 9197481963319205126, guid: 619d41a54853441eb8714833c224ddc6, type: 3}
   theme: {fileID: 11400000, guid: 3ba8cfbb857b59e43aa6df2eb23811af, type: 2}
 --- !u!114 &655539406
 MonoBehaviour:
@@ -616,6 +619,7 @@ MonoBehaviour:
   playerConfig: {fileID: 11400000, guid: 2eced05f7cae29e4d9481813334997cb, type: 2}
   cameraController: {fileID: 519420033}
   objectManager: {fileID: 1192878285}
+  recipeBook: {fileID: 11400000, guid: 4c6f87a956204f5e9350bbd8079becbe, type: 2}
   luaSandbox: {fileID: 427823870}
   energyConfig: {fileID: 11400000, guid: 926d6cba6aff6f748bb67fb43261e229, type: 2}
   codeEditorManager: {fileID: 655539405}
@@ -792,9 +796,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8528cfb389c6fb4fb3014555701a116, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ObjectGenerator
-  spawnEntries:
-  - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
-    count: 50
+  minObjectSpacing: 0.75
+  spawnClearRadius: 3
 --- !u!4 &1192878284
 Transform:
   m_ObjectHideFlags: 0

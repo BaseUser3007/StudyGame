@@ -7,6 +7,9 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
     public float moveSpeed = 0.2f;
     public int visionRadius = 4;
 
+    [Tooltip("Если персонаж упёрся и столько секунд не приближается к цели, команда движения завершается")]
+    [Min(0.1f)] public float stuckTimeout = 2f;
+
     [Header("Energy")]
     public float baseEnergyLimit = 100f;
     public float minEnergyLimit = 40f;
@@ -21,7 +24,7 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
     public float structureInteractionRadius = 1.5f;
 
     [Header("Inventory")]
-    public int inventorySlots = 16;
+    public int inventorySlots = 10;
 
     // ─── IPlayerDataProvider ──────────────────────────────────
     int IPlayerDataProvider.VisionRadius => visionRadius;

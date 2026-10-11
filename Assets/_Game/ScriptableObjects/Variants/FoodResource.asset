@@ -15,5 +15,6 @@ MonoBehaviour:
   itemId: 
   displayName: 
   sprite: {fileID: 0}
+  durability: 1
   maxStackSize: 20
   energyRestore: 10

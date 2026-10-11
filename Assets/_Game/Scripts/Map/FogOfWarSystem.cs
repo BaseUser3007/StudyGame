@@ -32,6 +32,10 @@ public class FogOfWarSystem : MonoBehaviour
         _playerData = playerData;
         _fogTile = GetFogTileFromTilemap();
 
+        // Объекты сортируются в диапазоне 100–1000 — туман должен быть поверх любого из них
+        if (fogTilemap.TryGetComponent(out TilemapRenderer fogRenderer))
+            fogRenderer.sortingOrder = DepthSorting.OverlayOrder;
+
         InitializeFogMap();
 
         PlayerEventBus.OnPlayerMoved += HandlePlayerMoved;

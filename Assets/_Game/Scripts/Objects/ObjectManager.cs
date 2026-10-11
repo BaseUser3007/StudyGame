@@ -8,8 +8,9 @@ public class ObjectManager : MonoBehaviour
     [SerializeField] private Transform poolContainer;
 
     private ObjectPool _pool;
-    private Dictionary<Vector2Int, ResourceObject> _objects
-        = new Dictionary<Vector2Int, ResourceObject>();
+    // Объекты лежат в свободных точках; индекс — по тайлу, в котором они находятся
+    private readonly Dictionary<Vector2Int, List<ResourceObject>> _objectsByTile
+        = new Dictionary<Vector2Int, List<ResourceObject>>();
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -19,8 +20,9 @@ public class ObjectManager : MonoBehaviour
 
         _pool = new ObjectPool(poolContainer);
 
-        objectGenerator.Initialize(mapData, _pool, spawnCenter);
+        // Подписываемся до генерации, иначе объекты не попадут в индекс
         objectGenerator.OnObjectSpawned += HandleObjectSpawned;
+        objectGenerator.Initialize(mapData, _pool, spawnCenter);
     }
 
     private void OnDestroy()
@@ -37,13 +39,70 @@ public class ObjectManager : MonoBehaviour
 
     // ─── Object Tracking ──────────────────────────────────────
 
-    private void HandleObjectSpawned(ResourceObject obj, Vector2Int tile)
+    private void HandleObjectSpawned(ResourceObject obj)
     {
-        _objects[tile] = obj;
-        obj.OnConsumed += _ => _objects.Remove(tile);
+        Vector2Int tile = obj.Tile;
+
+        if (!_objectsByTile.TryGetValue(tile, out List<ResourceObject> list))
+        {
+            list = new List<ResourceObject>();
+            _objectsByTile[tile] = list;
+        }
+
+        list.Add(obj);
+        obj.OnConsumed += HandleObjectConsumed;
+    }
+
+    private void HandleObjectConsumed(ResourceObject obj)
+    {
+        obj.OnConsumed -= HandleObjectConsumed;
+
+        if (_objectsByTile.TryGetValue(obj.Tile, out List<ResourceObject> list))
+            list.Remove(obj);
+    }
+
+    /// <summary>
+    /// Доступные объекты в тайлах квадрата radius вокруг center (как поле зрения).
+    /// </summary>
+    private IEnumerable<ResourceObject> EnumerateObjectsAround(Vector2Int center, int radius)
+    {
+        for (int x = -radius; x <= radius; x++)
+            for (int y = -radius; y <= radius; y++)
+            {
+                Vector2Int tile = new Vector2Int(center.x + x, center.y + y);
+                if (!_objectsByTile.TryGetValue(tile, out List<ResourceObject> list))
+                    continue;
+
+                foreach (ResourceObject obj in list)
+                    if (obj.IsAvailable)
+                        yield return obj;
+            }
     }
 
     // ─── Public API ───────────────────────────────────────────
+
+    /// <summary>
+    /// Ближайший к точке доступный объект не дальше maxDistance, или null.
+    /// </summary>
+    public ResourceObject GetNearestObjectAt(Vector2 point, float maxDistance)
+    {
+        int radius = Mathf.CeilToInt(maxDistance);
+        ResourceObject nearest = null;
+        float minDistance = maxDistance;
+
+        foreach (ResourceObject obj in EnumerateObjectsAround(MapPosition.ToTile(point), radius))
+        {
+            float distance = Vector2.Distance(point, obj.Position);
+
+            if (distance <= minDistance)
+            {
+                minDistance = distance;
+                nearest = obj;
+            }
+        }
+
+        return nearest;
+    }
 
     /// <summary>
     /// Возвращает все объекты указанного типа в радиусе от центра.
@@ -53,16 +112,9 @@ public class ObjectManager : MonoBehaviour
     {
         List<T> result = new List<T>();
 
-        for (int x = -radius; x <= radius; x++)
-            for (int y = -radius; y <= radius; y++)
-            {
-                Vector2Int tile = new Vector2Int(center.x + x, center.y + y);
-
-                if (_objects.TryGetValue(tile, out ResourceObject obj)
-                    && obj.IsAvailable
-                    && obj is T typed)
-                    result.Add(typed);
-            }
+        foreach (ResourceObject obj in EnumerateObjectsAround(center, radius))
+            if (obj is T typed)
+                result.Add(typed);
 
         return result;
     }
@@ -73,16 +125,12 @@ public class ObjectManager : MonoBehaviour
     public T GetNearestObject<T>(Vector2Int center, int radius)
         where T : ResourceObject
     {
-        List<T> objects = GetObjectsInRadius<T>(center, radius);
-
-        if (objects.Count == 0) return null;
-
         T nearest = null;
         float minDistance = float.MaxValue;
 
-        foreach (T obj in objects)
+        foreach (T obj in GetObjectsInRadius<T>(center, radius))
         {
-            float distance = Vector2Int.Distance(center, obj.Tile);
+            float distance = Vector2.Distance(center, obj.Position);
 
             if (distance < minDistance)
             {
@@ -98,16 +146,9 @@ public class ObjectManager : MonoBehaviour
     {
         List<ResourceObject> result = new List<ResourceObject>();
 
-        for (int x = -radius; x <= radius; x++)
-            for (int y = -radius; y <= radius; y++)
-            {
-                Vector2Int tile = new Vector2Int(center.x + x, center.y + y);
-
-                if (_objects.TryGetValue(tile, out ResourceObject obj)
-                    && obj.IsAvailable
-                    && obj.GetType() == type)
-                    result.Add(obj);
-            }
+        foreach (ResourceObject obj in EnumerateObjectsAround(center, radius))
+            if (obj.GetType() == type)
+                result.Add(obj);
 
         return result;
     }

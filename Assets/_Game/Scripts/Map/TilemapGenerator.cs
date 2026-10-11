@@ -11,20 +11,25 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
     [SerializeField] private MapGenerationConfig config;
 
     private TileType[,] _tileMap;
+    private BiomeMap _biomeMap;
+    private int _seed;
 
     public int MapWidth => config.mapWidth;
     public int MapHeight => config.mapHeight;
+    public int Seed => _seed;
+    public BiomeMap BiomeMap => _biomeMap;
 
     public void GenerateMap()
     {
         ValidateConfig();
 
-        int seed = config.randomSeed
+        _seed = config.randomSeed
             ? Random.Range(0, int.MaxValue)
             : config.seed;
 
         GenerateWater();
-        GenerateGround(seed);
+        GenerateGround(_seed);
+        GenerateBiomes(_seed);
         GenerateFog();
     }
 
@@ -44,6 +49,8 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
             "TilemapGenerator: grassTile is not assigned in config");
         Debug.Assert(config.fogTile != null,
             "TilemapGenerator: fogTile is not assigned in config");
+        Debug.Assert(config.biomeConfig != null,
+            "TilemapGenerator: biomeConfig is not assigned in config");
     }
 
     // ─── Private Generation ───────────────────────────────────
@@ -78,6 +85,11 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
                     groundTilemap.SetTile(new Vector3Int(x, y, 0), config.grassTile);
             }
         }
+    }
+
+    private void GenerateBiomes(int seed)
+    {
+        _biomeMap = BiomeMap.Generate(config.biomeConfig, config.mapWidth, config.mapHeight, seed);
     }
 
     private void GenerateFog()
@@ -125,6 +137,11 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
         return _tileMap[x, y];
     }
 
+    public Biome GetBiome(int x, int y)
+    {
+        return _biomeMap?.Get(x, y);
+    }
+
     public bool IsWalkable(int x, int y)
     {
         if (!IsInBounds(x, y)) return false;
@@ -147,5 +164,11 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
     {
         Vector3Int cell = groundTilemap.WorldToCell(worldPos);
         return new Vector2Int(cell.x, cell.y);
+    }
+
+    public Vector3 MapToWorld(Vector2 mapPos)
+    {
+        return TileIndexToWorld(0, 0)
+             + Vector3.Scale(new Vector3(mapPos.x, mapPos.y, 0f), groundTilemap.cellSize);
     }
 }

@@ -7,7 +7,7 @@ public class MoveCommand : PlayerCommandBase
     public override string Name => "move";
     public override float EnergyCost => 1f;
     public override string Signature => "move(direction, steps)";
-    public override string Description => "Идти в направлении: north, south, east, west, northeast, northwest, southeast, southwest. Возвращает число пройденных шагов";
+    public override string Description => "Идти в направлении: north, south, east, west, northeast, northwest, southeast, southwest. Вода останавливает, объекты обходятся; если застрял — стоп через пару секунд. Возвращает число пройденных тайлов";
 
     public MoveCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }

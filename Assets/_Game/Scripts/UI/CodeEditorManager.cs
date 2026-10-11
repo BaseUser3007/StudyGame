@@ -3,20 +3,27 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class CodeEditorManager : MonoBehaviour
+public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 {
     [SerializeField] private VisualTreeAsset mainWindowTemplate;
     [SerializeField] private VisualTreeAsset auxiliaryWindowTemplate;
     [SerializeField] private VisualTreeAsset topBarTemplate;
+    [SerializeField] private VisualTreeAsset inventoryBarTemplate;
+    [SerializeField] private VisualTreeAsset craftingPanelTemplate;
     [SerializeField] private CodeEditorTheme theme;
 
     private LuaSandbox _luaSandbox;
     private UIManager _uiManager;
     private UIDocument _uiDocument;
     private VisualElement _container;
+    // Слой окон кода — ниже панелей, чтобы окна не перекрывали инвентарь и крафт
+    private VisualElement _windowLayer;
     private List<CodeEditorWindowBase> _windows = new List<CodeEditorWindowBase>();
     private MainCodeEditorWindow _mainWindow;
     private TopBar _topBar;
+    private InventoryBar _inventoryBar;
+    private CraftingPanel _craftingPanel;
+    private RecipeBook _recipeBook;
     private int _windowCount = 0;
     private bool _isUIFocused;
     private bool _navigationBlocked;
@@ -24,13 +31,16 @@ public class CodeEditorManager : MonoBehaviour
     private CodeEditorContext _context;
 
     public TopBar TopBar => _topBar;
+    public InventoryBar InventoryBar => _inventoryBar;
+    public CraftingPanel CraftingPanel => _craftingPanel;
 
     // ─── Инициализация ────────────────────────────────────────
 
-    public void Initialize(LuaSandbox luaSandbox, UIManager uiManager)
+    public void Initialize(LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook)
     {
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
+        _recipeBook = recipeBook;
         _uiDocument = GetComponent<UIDocument>();
 
         ValidateReferences();
@@ -55,7 +65,10 @@ public class CodeEditorManager : MonoBehaviour
 
         _context = CreateContext();
 
+        CreateWindowLayer();
         CreateTopBar();
+        CreateInventoryBar();
+        CreateCraftingPanel();
         CreateMainWindow();
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
@@ -91,7 +104,6 @@ public class CodeEditorManager : MonoBehaviour
     public void SetEnergyMax(float max)
     {
         _energyMax = max;
-        UIEventBus.PublishPlayerEnergyChanged(_energyMax, _energyMax);
         UpdateProgramCost();
     }
 
@@ -142,9 +154,29 @@ public class CodeEditorManager : MonoBehaviour
         Debug.Assert(mainWindowTemplate != null, "CodeEditorManager: mainWindowTemplate is not assigned");
         Debug.Assert(auxiliaryWindowTemplate != null, "CodeEditorManager: auxiliaryWindowTemplate is not assigned");
         Debug.Assert(topBarTemplate != null, "CodeEditorManager: topBarTemplate is not assigned");
+        Debug.Assert(inventoryBarTemplate != null, "CodeEditorManager: inventoryBarTemplate is not assigned");
+        Debug.Assert(craftingPanelTemplate != null, "CodeEditorManager: craftingPanelTemplate is not assigned");
+        Debug.Assert(_recipeBook != null, "CodeEditorManager: RecipeBook is not assigned");
         Debug.Assert(theme != null, "CodeEditorManager: theme is not assigned");
         Debug.Assert(_luaSandbox != null, "CodeEditorManager: LuaSandbox is not assigned");
         Debug.Assert(_uiManager != null, "CodeEditorManager: UIManager is not assigned");
+    }
+
+    // ─── Window Layer ─────────────────────────────────────────
+
+    /// <summary>
+    /// Добавляется первым, поэтому всё, что создаётся после (верхняя панель,
+    /// инвентарь, крафт), рисуется поверх окон кода.
+    /// </summary>
+    private void CreateWindowLayer()
+    {
+        _windowLayer = new VisualElement { name = "window-layer", pickingMode = PickingMode.Ignore };
+        _windowLayer.style.position = Position.Absolute;
+        _windowLayer.style.left = 0;
+        _windowLayer.style.top = 0;
+        _windowLayer.style.right = 0;
+        _windowLayer.style.bottom = 0;
+        _container.Add(_windowLayer);
     }
 
     // ─── TopBar ───────────────────────────────────────────────
@@ -155,6 +187,22 @@ public class CodeEditorManager : MonoBehaviour
         _topBar.OnRunRequested += HandleRunRequested;
         _topBar.OnSimulationRequested += HandleSimulationRequested;
         _container.Add(_topBar);
+    }
+
+    // ─── InventoryBar ─────────────────────────────────────────
+
+    private void CreateInventoryBar()
+    {
+        _inventoryBar = new InventoryBar(inventoryBarTemplate);
+        _container.Add(_inventoryBar);
+    }
+
+    // ─── CraftingPanel ────────────────────────────────────────
+
+    private void CreateCraftingPanel()
+    {
+        _craftingPanel = new CraftingPanel(craftingPanelTemplate, _recipeBook.Recipes);
+        _container.Add(_craftingPanel);
     }
 
     // ─── Window Management ────────────────────────────────────
@@ -171,7 +219,7 @@ public class CodeEditorManager : MonoBehaviour
         _mainWindow.OnCodeChanged += HandleCodeChanged;
         _mainWindow.OnAddMethodRequested += CreateAuxiliaryWindow;
         _uiManager.RegisterWindow(_mainWindow);
-        _container.Add(_mainWindow);
+        _windowLayer.Add(_mainWindow);
         _windows.Add(_mainWindow);
     }
 
@@ -191,7 +239,7 @@ public class CodeEditorManager : MonoBehaviour
         window.OnCloseRequested += HandleCloseRequested;
         window.OnCodeChanged += HandleCodeChanged;
         _uiManager.RegisterWindow(window);
-        _container.Add(window);
+        _windowLayer.Add(window);
         _windows.Add(window);
     }
 
@@ -274,4 +322,30 @@ public class CodeEditorManager : MonoBehaviour
     }
 
     public MainCodeEditorWindow MainWindow => _mainWindow;
+
+    // ─── IPointerOverUIProvider ───────────────────────────────
+
+    public bool IsPointerOverUI(Vector2 screenPosition)
+    {
+        IPanel panel = _container?.panel;
+        if (panel == null) return false;
+
+        // Input System считает Y снизу, панель — сверху
+        Vector2 panelPosition = RuntimePanelUtils.ScreenToPanel(
+            panel, new Vector2(screenPosition.x, Screen.height - screenPosition.y));
+
+        VisualElement picked = panel.Pick(panelPosition);
+        return picked != null && !IsBackground(picked, panel);
+    }
+
+    /// <summary>
+    /// Полноэкранные подложки (корень документа, корень GameUI) — это не интерфейс,
+    /// под ними видна карта.
+    /// </summary>
+    private bool IsBackground(VisualElement element, IPanel panel)
+    {
+        return element == panel.visualTree
+            || element == _container
+            || element.ClassListContains("game-ui");
+    }
 }

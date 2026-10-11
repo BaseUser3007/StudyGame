@@ -40,4 +40,8 @@ public class MapGenerationConfig : ScriptableObject
     [Header("Fog of War")]
     [Tooltip("Tile used to cover unexplored areas")]
     public TileBase fogTile;
+
+    [Header("Biomes")]
+    [Tooltip("Биомы и ресурсы в них. Раскладка биомов случайная при каждой генерации")]
+    public BiomeConfig biomeConfig;
 }

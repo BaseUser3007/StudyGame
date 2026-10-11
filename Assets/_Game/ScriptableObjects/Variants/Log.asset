@@ -15,4 +15,5 @@ MonoBehaviour:
   itemId: log
   displayName: Log
   sprite: {fileID: 0}
+  durability: 8
   maxStackSize: 20

@@ -10,7 +10,7 @@ public static class UIEventBus
     public static event Action<string, float> OnWindowEnergyCostChanged;
 
     // ─── Инвентарь ────────────────────────────────────────────
-    public static event Action<Dictionary<string, int>> OnInventoryChanged;
+    public static event Action<IReadOnlyList<InventorySlot>> OnInventoryChanged;
 
     // ─── Уведомления ──────────────────────────────────────────
     public static event Action<string, LogEntryType> OnNotificationRequested;
@@ -23,8 +23,8 @@ public static class UIEventBus
     public static void PublishWindowEnergyCostChanged(string windowId, float cost)
         => OnWindowEnergyCostChanged?.Invoke(windowId, cost);
 
-    public static void PublishInventoryChanged(Dictionary<string, int> items)
-        => OnInventoryChanged?.Invoke(items);
+    public static void PublishInventoryChanged(IReadOnlyList<InventorySlot> slots)
+        => OnInventoryChanged?.Invoke(slots);
 
     public static void PublishNotification(string message, LogEntryType type)
         => OnNotificationRequested?.Invoke(message, type);

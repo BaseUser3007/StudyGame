@@ -10,39 +10,48 @@ public abstract class ResourceObject : MonoBehaviour
 
     public bool IsAvailable { get; private set; } = true;
     public ResourceVariant Variant => variant;
-    public Vector2Int Tile { get; private set; }
+    /// <summary>
+    /// Позиция на карте в тайлах (не привязана к центру тайла).
+    /// </summary>
+    public Vector2 Position { get; private set; }
+
+    /// <summary>
+    /// Тайл, в котором лежит объект.
+    /// </summary>
+    public Vector2Int Tile => MapPosition.ToTile(Position);
 
     public abstract ToolType? RequiredTool { get; }
     public abstract float InteractionRadius { get; }
 
+    private DepthSortedSprite _depthSorting;
+
+    // Спрайт настраивается в самом префабе — код его не трогает
     protected virtual void Awake()
     {
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null && variant != null)
-            sr.sprite = variant.idleSprite;
+        // Сортировка по высоте нужна всем объектам — добавляем, если на префабе её нет
+        if (!TryGetComponent(out _depthSorting))
+            _depthSorting = gameObject.AddComponent<DepthSortedSprite>();
     }
 
     public void SetVariant(ResourceVariant newVariant)
     {
         variant = newVariant;
-
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null && variant != null)
-            sr.sprite = variant.idleSprite;
     }
 
-    public void SetTile(Vector2Int tile)
+    /// <summary>
+    /// Логическая позиция. transform к этому моменту уже стоит на месте (ObjectPool.Get),
+    /// поэтому здесь же пересчитываем порядок отрисовки.
+    /// </summary>
+    public void SetPosition(Vector2 position)
     {
-        Tile = tile;
+        Position = position;
+        if (_depthSorting != null)
+            _depthSorting.Refresh();
     }
 
     public void ResetState()
     {
         IsAvailable = true;
-
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null && variant != null)
-            sr.sprite = variant.idleSprite;
     }
 
     public (ResourceItem item, int amount)? Interact()

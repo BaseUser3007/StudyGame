@@ -11,14 +11,12 @@ public class ResourceVariant : ScriptableObject
     public ResourceItem drop;
     public int dropAmount = 1;
 
-    [Header("Spawn")]
-    [Tooltip("Minimum distance from spawn point to place this variant")]
-    public float minSpawnDistance = 0f;
-    [Tooltip("Maximum distance from spawn point to place this variant")]
-    public float maxSpawnDistance = 100f;
+    /// <summary>
+    /// Энергия на добычу: прочность материала × количество.
+    /// </summary>
+    public float HarvestEnergyCost => drop != null ? drop.durability * dropAmount : 0f;
 
     [Header("Visual")]
-    public Sprite idleSprite;
     public AnimationClip idleAnimation;
     public AnimationClip harvestAnimation; // анимация при сборе/рубке
     public AnimationClip destroyAnimation; // анимация уничтожения

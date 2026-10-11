@@ -8,14 +8,18 @@ using UnityEngine;
 public class UIManager : MonoBehaviour
 {
     private TopBar _topBar;
+    private InventoryBar _inventoryBar;
+    private CraftingPanel _craftingPanel;
     private Dictionary<string, CodeEditorWindowBase> _windows
         = new Dictionary<string, CodeEditorWindowBase>();
 
     // ─── Инициализация ────────────────────────────────────────
 
-    public void Initialize(TopBar topBar)
+    public void Initialize(TopBar topBar, InventoryBar inventoryBar, CraftingPanel craftingPanel)
     {
         _topBar = topBar;
+        _inventoryBar = inventoryBar;
+        _craftingPanel = craftingPanel;
 
         UIEventBus.OnPlayerEnergyChanged += HandlePlayerEnergyChanged;
         UIEventBus.OnWindowEnergyCostChanged += HandleWindowEnergyCostChanged;
@@ -59,9 +63,10 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private void HandleInventoryChanged(Dictionary<string, int> items)
+    private void HandleInventoryChanged(IReadOnlyList<InventorySlot> slots)
     {
-        _topBar?.UpdateInventory(items);
+        _inventoryBar?.UpdateSlots(slots);
+        _craftingPanel?.UpdateInventory(slots);
     }
 
     private void HandleNotificationRequested(string message, LogEntryType type)

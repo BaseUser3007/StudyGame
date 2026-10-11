@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="InventoryBar.uss"/>
+    <!-- Нижняя панель инвентаря: ячейки создаются из кода по числу слотов -->
+    <ui:VisualElement name="inventory-bar-root" class="inventory-bar-root" picking-mode="Ignore">
+        <ui:VisualElement name="inventory-bar" class="inventory-bar"/>
+    </ui:VisualElement>
+</ui:UXML>
