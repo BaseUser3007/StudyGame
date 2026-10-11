@@ -50,7 +50,7 @@ public class CraftRecipe
     }
 
     /// <summary>
-    /// Нужна ли станция. Станции пока не реализованы — такой рецепт выполнить нельзя.
+    /// Нужна ли станция — постройка этого типа рядом с персонажем.
     /// </summary>
     public bool NeedsStation => station != CraftingStation.None;
 
@@ -96,9 +96,12 @@ public class CraftRecipe
 
     /// <summary>
     /// Можно ли выполнить рецепт прямо сейчас (без учёта энергии и места в инвентаре).
+    /// stationNearby — есть ли рядом с персонажем постройка-станция нужного типа.
     /// </summary>
-    public bool CanCraft(Func<ResourceItem, int> getCount)
+    public bool CanCraft(Func<ResourceItem, int> getCount, Func<CraftingStation, bool> stationNearby)
     {
-        return result != null && !NeedsStation && HasIngredients(getCount);
+        return result != null
+            && (!NeedsStation || (stationNearby != null && stationNearby(station)))
+            && HasIngredients(getCount);
     }
 }

@@ -15,12 +15,15 @@ public class CraftCommand : LuaCommandBase
     private readonly RecipeBook _recipeBook;
     private readonly PlayerEnergy _playerEnergy;
     private readonly PlayerInventory _inventory;
+    private readonly IStationProvider _stations;
 
-    public CraftCommand(RecipeBook recipeBook, PlayerEnergy playerEnergy, PlayerInventory inventory)
+    public CraftCommand(
+        RecipeBook recipeBook, PlayerEnergy playerEnergy, PlayerInventory inventory, IStationProvider stations)
     {
         _recipeBook = recipeBook;
         _playerEnergy = playerEnergy;
         _inventory = inventory;
+        _stations = stations;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -51,9 +54,9 @@ public class CraftCommand : LuaCommandBase
         if (recipe == null || recipe.result == null)
             return $"unknown recipe: {itemName}";
 
-        // Станции пока не реализованы
-        if (recipe.NeedsStation)
-            return $"station required: {recipe.station.ToString().ToLower()}";
+        // Станция — постройка рядом с персонажем (верстак и т.д.)
+        if (recipe.NeedsStation && !_stations.IsStationNearPlayer(recipe.station))
+            return $"station required: {recipe.station.ToString().ToLower()} nearby (build one with build())";
 
         // Пустые строки пропущены, одинаковые ресурсы сложены
         List<RecipeIngredient> requirements = recipe.GetRequirements();

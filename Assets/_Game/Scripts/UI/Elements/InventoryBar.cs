@@ -103,7 +103,7 @@ public class InventoryBar : VisualElement
         public void Show(InventorySlot slot)
         {
             bool filled = !slot.IsEmpty;
-            Sprite sprite = filled ? slot.Item.sprite : null;
+            Sprite sprite = filled ? slot.Item.Icon : null;
 
             Root.EnableInClassList("inventory-slot--filled", filled);
 

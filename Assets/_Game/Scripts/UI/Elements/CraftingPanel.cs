@@ -9,6 +9,9 @@ using UnityEngine.UIElements;
 public class CraftingPanel : VisualElement
 {
     private readonly IReadOnlyList<CraftRecipe> _recipes;
+    private readonly IStationProvider _stations;
+    // Пока панель открыта, наличие станции рядом перепроверяется — персонаж может подойти к верстаку
+    private const long StationRefreshMs = 500;
     private readonly Dictionary<ResourceItem, int> _counts = new Dictionary<ResourceItem, int>();
     private readonly List<VisualElement> _entries = new List<VisualElement>();
 
@@ -26,9 +29,10 @@ public class CraftingPanel : VisualElement
 
     private CraftRecipe _selected;
 
-    public CraftingPanel(VisualTreeAsset template, IReadOnlyList<CraftRecipe> recipes)
+    public CraftingPanel(VisualTreeAsset template, IReadOnlyList<CraftRecipe> recipes, IStationProvider stations)
     {
         _recipes = recipes;
+        _stations = stations;
 
         VisualElement root = template.Instantiate();
         QueryElements(root);
@@ -54,6 +58,8 @@ public class CraftingPanel : VisualElement
         btnClose.clicked += Close;
 
         _detailsCode.enableRichText = false;
+
+        schedule.Execute(RefreshStations).Every(StationRefreshMs);
 
         BuildRecipeList();
         Add(root);
@@ -185,7 +191,7 @@ public class CraftingPanel : VisualElement
             CraftRecipe recipe = (CraftRecipe)entry.userData;
             entry.EnableInClassList("recipe-entry--selected", recipe == _selected);
             // Зелёный — только если craft() действительно выполнится (станции пока нет)
-            entry.EnableInClassList("recipe-entry--craftable", recipe.CanCraft(GetCount));
+            entry.EnableInClassList("recipe-entry--craftable", recipe.CanCraft(GetCount, IsStationNearby));
         }
     }
 
@@ -215,10 +221,11 @@ public class CraftingPanel : VisualElement
         foreach (RecipeIngredient requirement in recipe.GetRequirements())
             _detailsIngredients.Add(CreateIngredientTile(requirement));
 
-        _detailsStation.text = recipe.NeedsStation
-            ? $"Станция: {recipe.station.DisplayName()} (пока недоступна)"
-            : $"Станция: {recipe.station.DisplayName()}";
-        _detailsStation.EnableInClassList("details-row--missing", recipe.NeedsStation);
+        bool stationMissing = recipe.NeedsStation && !IsStationNearby(recipe.station);
+        _detailsStation.text = !recipe.NeedsStation ? $"Станция: {recipe.station.DisplayName()}"
+            : stationMissing ? $"Станция: {recipe.station.DisplayName()} (нужна рядом)"
+            : $"Станция: {recipe.station.DisplayName()} (рядом)";
+        _detailsStation.EnableInClassList("details-row--missing", stationMissing);
         _detailsEnergy.text = $"Энергия: {recipe.energyCost:0.#}";
         _detailsCode.text = $"craft(\"{recipe.DisplayName}\")";
     }
@@ -259,6 +266,21 @@ public class CraftingPanel : VisualElement
         return false;
     }
 
+    private bool IsStationNearby(CraftingStation station)
+    {
+        return _stations != null && _stations.IsStationNearPlayer(station);
+    }
+
+    /// <summary>
+    /// Подсветка и строка «Станция» зависят от того, где стоит персонаж — обновляем, пока панель открыта.
+    /// </summary>
+    private void RefreshStations()
+    {
+        if (_panel.ClassListContains("hidden")) return;
+        RefreshEntries();
+        ShowDetails(_selected);
+    }
+
     private int GetCount(ResourceItem item)
     {
         return item != null && _counts.TryGetValue(item, out int count) ? count : 0;
@@ -274,9 +296,10 @@ public class CraftingPanel : VisualElement
         icon.AddToClassList(sizeClass);
         icon.pickingMode = PickingMode.Ignore;
 
-        if (item != null && item.sprite != null)
+        Sprite sprite = item != null ? item.Icon : null;
+        if (sprite != null)
         {
-            icon.style.backgroundImage = new StyleBackground(item.sprite);
+            icon.style.backgroundImage = new StyleBackground(sprite);
         }
         else
         {

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MaterialResource
   itemId: stick
   displayName: Stick
+  worldPrefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
   sprite: {fileID: 21300000, guid: a1c1e555a725e4b15b512516e3dec87c, type: 3}
   durability: 1
   maxStackSize: 20

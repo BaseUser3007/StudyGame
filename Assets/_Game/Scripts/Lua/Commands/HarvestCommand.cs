@@ -6,13 +6,13 @@ using UnityEngine;
 public class HarvestCommand : PlayerCommandBase
 {
     public override string Name => "harvest";
-    // Плата за вызов; сама добыча дополнительно тратит энергию по прочности ресурса
+    // Подбор с земли дешёвый: только плата за вызов (прочность тратится при mine)
     public override float EnergyCost => 1f;
     public override string Signature => "harvest([x, y])";
-    public override string Description => "Без аргументов — добыть ближайший к персонажу объект. " +
-                                          "harvest(x, y) или harvest(obj) — объект в точке рядом с персонажем. " +
-                                          "Тратит энергию по прочности ресурса. Для объектов с tool (дерево — axe) нужен инструмент в инвентаре, " +
-                                          "он изнашивается и ломается при нулевой прочности. Возвращает true или false и причину";
+    public override string Description => "Подобрать с земли в инвентарь: палки, камни, выпавшую добычу. " +
+                                          "Без аргументов — ближайшее к персонажу, harvest(x, y) или harvest(obj) — в точке рядом. " +
+                                          "Стоит только плату за вызов. Деревья и валуны не подбираются — для них mine(). " +
+                                          "Возвращает true или false и причину";
 
     private readonly ResourceHarvester _harvester;
 
@@ -52,7 +52,7 @@ public class HarvestCommand : PlayerCommandBase
     /// Принимает harvest(x, y) или harvest(obj), где obj — таблица с полями x и y.
     /// Возвращает false, если аргументы не подходят.
     /// </summary>
-    private static bool TryReadPoint(LuaFunctionExecutionContext context, out Vector2 point)
+    public static bool TryReadPoint(LuaFunctionExecutionContext context, out Vector2 point)
     {
         point = default;
         double x, y;

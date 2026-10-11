@@ -142,6 +142,14 @@ public class ObjectManager : MonoBehaviour
         return nearest;
     }
 
+    /// <summary>
+    /// Создаёт объект на карте во время игры (выброшенный предмет и т.п.).
+    /// </summary>
+    public ResourceObject Spawn(ResourceObject prefab, Vector2 position)
+    {
+        return objectGenerator.SpawnAt(prefab, position);
+    }
+
     public List<ResourceObject> GetObjectsByType(Vector2Int center, int radius, Type type)
     {
         List<ResourceObject> result = new List<ResourceObject>();

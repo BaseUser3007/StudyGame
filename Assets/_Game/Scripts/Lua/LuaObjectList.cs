@@ -225,7 +225,8 @@ public class LuaObjectList
         table["x"] = (double)obj.Position.x;
         table["y"] = (double)obj.Position.y;
         table["type"] = obj.GetType().Name.ToLower().Replace("object", "");
-        table["durability"] = obj.Variant != null ? (double)obj.Variant.HarvestEnergyCost : 0d;
+        // Энергия на добычу сверх платы за команду (mine — по прочности добычи, подбор с земли — 0)
+        table["durability"] = (double)ResourceHarvester.GetEnergyCost(obj);
         // Расстояние от персонажа (в тайлах) — на момент поиска; методы-списки его обновляют
         table["distance"] = (double)Distance(obj);
         // Нужный инструмент ("axe", "pickaxe") или nil

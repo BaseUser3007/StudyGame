@@ -24,10 +24,11 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private InventoryBar _inventoryBar;
     private CraftingPanel _craftingPanel;
     private RecipeBook _recipeBook;
+    private IStationProvider _stations;
+    private DayCycle _dayCycle;
     private int _windowCount = 0;
     private bool _isUIFocused;
     private bool _navigationBlocked;
-    private float _energyMax = 100f;
     private CodeEditorContext _context;
 
     public TopBar TopBar => _topBar;
@@ -36,11 +37,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     // ─── Инициализация ────────────────────────────────────────
 
-    public void Initialize(LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook)
+    public void Initialize(
+        LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook, IStationProvider stations,
+        DayCycle dayCycle)
     {
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
         _recipeBook = recipeBook;
+        _stations = stations;
+        _dayCycle = dayCycle;
         _uiDocument = GetComponent<UIDocument>();
 
         ValidateReferences();
@@ -103,12 +108,6 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         // Иначе (например, Enter после клика по кнопке Run) событие гасится целиком.
         if (!_isUIFocused)
             evt.StopPropagation();
-    }
-
-    public void SetEnergyMax(float max)
-    {
-        _energyMax = max;
-        UpdateProgramCost();
     }
 
     private CodeEditorContext CreateContext()
@@ -191,6 +190,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         _topBar = new TopBar(topBarTemplate);
         _topBar.OnRunRequested += HandleRunRequested;
+        _topBar.OnEndDayRequested += HandleEndDayRequested;
         _topBar.OnSimulationRequested += HandleSimulationRequested;
         _container.Add(_topBar);
     }
@@ -207,7 +207,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     private void CreateCraftingPanel()
     {
-        _craftingPanel = new CraftingPanel(craftingPanelTemplate, _recipeBook.Recipes);
+        _craftingPanel = new CraftingPanel(craftingPanelTemplate, _recipeBook.Recipes, _stations);
         _container.Add(_craftingPanel);
     }
 
@@ -267,7 +267,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         if (_luaSandbox == null) return;
         float total = _luaSandbox.CalculateEnergyCost(GetAllWindowCode());
-        _topBar?.UpdateProgramCost(total, _energyMax);
+        _topBar?.UpdateProgramCost(total);
     }
 
     private async void HandleRunRequested()
@@ -302,6 +302,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandleRunningChanged(bool running)
     {
         _topBar?.SetRunning(running);
+    }
+
+    /// <summary>
+    /// Кнопка End Day — закончить день досрочно (не во время выполнения кода).
+    /// </summary>
+    private void HandleEndDayRequested()
+    {
+        if (_dayCycle != null && !_dayCycle.TryEndDay())
+            UIEventBus.PublishNotification("Can't end the day while the code is running", LogEntryType.Warning);
     }
 
     private void HandleSimulationRequested()

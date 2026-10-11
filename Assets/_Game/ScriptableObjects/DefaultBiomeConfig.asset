@@ -16,6 +16,8 @@ MonoBehaviour:
   - name: "Лес"
     weight: 1
     resources:
+    - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}
+      density: 0.2
     - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
       density: 6
     - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
@@ -25,6 +27,8 @@ MonoBehaviour:
   - name: "Луг"
     weight: 1.5
     resources:
+    - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}
+      density: 0.4
     - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
       density: 0.5
     - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
@@ -34,6 +38,8 @@ MonoBehaviour:
   - name: "Скалы"
     weight: 0.8
     resources:
+    - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}
+      density: 1.5
     - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
       density: 3
     - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}

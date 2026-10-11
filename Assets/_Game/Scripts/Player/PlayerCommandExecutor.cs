@@ -75,9 +75,11 @@ public class PlayerCommandExecutor : MonoBehaviour
     /// Перемещает персонажа к целевому тайлу по прямой.
     /// Вода останавливает сразу, объекты персонаж обходит (см. MoveTowardsAsync).
     /// Возвращает, сколько раз персонаж перешёл в новый тайл.
+    /// stopWhen — необязательное условие досрочной остановки (например, «объект уже в досягаемости»),
+    /// проверяется перед каждым шагом.
     /// </summary>
     public UniTask<int> MoveToAsync(
-        Vector2Int targetTile, CancellationToken ct = default)
+        Vector2Int targetTile, CancellationToken ct = default, System.Func<bool> stopWhen = null)
     {
         Vector2Int target = _currentTile;
 
@@ -89,7 +91,7 @@ public class PlayerCommandExecutor : MonoBehaviour
             target = next;
         }
 
-        return MoveTowardsAsync(target, ct);
+        return MoveTowardsAsync(target, ct, stopWhen);
     }
 
     // ─── Private Movement ─────────────────────────────────────
@@ -100,7 +102,8 @@ public class PlayerCommandExecutor : MonoBehaviour
     /// так круглые объекты обходятся. Если stuckTimeout секунд персонаж не приближается к цели
     /// (застрял или ходит кругами), движение завершается.
     /// </summary>
-    private async UniTask<int> MoveTowardsAsync(Vector2Int targetTile, CancellationToken ct)
+    private async UniTask<int> MoveTowardsAsync(
+        Vector2Int targetTile, CancellationToken ct, System.Func<bool> stopWhen = null)
     {
         Vector2 target = _mapData.TileIndexToWorld(targetTile.x, targetTile.y);
         // moveSpeed — секунды на один тайл
@@ -114,6 +117,8 @@ public class PlayerCommandExecutor : MonoBehaviour
         {
             while (true)
             {
+                if (stopWhen != null && stopWhen()) break;
+
                 Vector2 position = transform.position;
                 Vector2 toTarget = target - position;
                 float distance = toTarget.magnitude;

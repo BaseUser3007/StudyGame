@@ -1,26 +1,40 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Lua;
+using UnityEngine;
 
 /// <summary>
 /// Выбрасывает ресурсы из инвентаря: по номеру ячейки или по названию.
-/// Предметы просто исчезают — подбираемых предметов на карте пока нет.
+/// Предметы с World Prefab появляются на земле рядом с персонажем (по объекту на штуку)
+/// и подбираются через harvest; остальные (инструменты, постройки) просто исчезают.
 /// </summary>
-public class DropCommand : LuaCommandBase
+public class DropCommand : PlayerCommandBase
 {
     public override string Name => "drop";
     public override float EnergyCost => 1f;
     public override string Signature => "drop(slot or name, [amount])";
-    public override string Description => "Выбросить предметы: drop(1) — всю ячейку 1, drop(\"stone\") — все камни, " +
-                                 "вторым аргументом можно указать количество. Возвращает true и число выброшенных или false и причину";
+    public override string Description => "Выбросить предметы на землю рядом с персонажем: drop(1) — всю ячейку 1, " +
+                                          "drop(\"stone\") — все камни, вторым аргументом можно указать количество. " +
+                                          "Выброшенное подбирается через harvest (предметы без объекта на земле исчезают). " +
+                                          "Возвращает true и число выброшенных или false и причину";
 
     private const string Usage = "usage: drop(slot, [amount]) or drop(\"item\", [amount])";
+    // Насколько далеко от персонажа разлетаются выброшенные предметы (в тайлах)
+    private const float ScatterRadius = 0.9f;
+    private const int PlaceAttempts = 10;
 
     private readonly PlayerInventory _inventory;
+    private readonly ObjectManager _objectManager;
 
-    public DropCommand(PlayerInventory inventory)
+    public DropCommand(
+        PlayerCommandExecutor executor,
+        IMapDataProvider mapData,
+        PlayerInventory inventory,
+        ObjectManager objectManager)
+        : base(executor, mapData)
     {
         _inventory = inventory;
+        _objectManager = objectManager;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -58,6 +72,7 @@ public class DropCommand : LuaCommandBase
         }
 
         LuaValue target = context.GetArgument(0);
+        ResourceItem item;
 
         // drop(1) — номер ячейки, как на панели инвентаря (с единицы)
         if (target.Type == LuaValueType.Number && target.TryRead(out double rawSlot))
@@ -66,24 +81,56 @@ public class DropCommand : LuaCommandBase
                 return $"slot must be 1..{_inventory.SlotCount}";
 
             int index = (int)rawSlot - 1;
-            if (_inventory.GetSlot(index).IsEmpty)
+            InventorySlot slot = _inventory.GetSlot(index);
+            if (slot.IsEmpty)
                 return $"slot {(int)rawSlot} is empty";
 
+            item = slot.Item;
             dropped = _inventory.RemoveFromSlot(index, amount);
-            return null;
         }
-
         // drop("stone") — по названию ресурса
-        if (target.TryRead(out string itemName))
+        else if (target.TryRead(out string itemName))
         {
-            ResourceItem item = _inventory.FindItem(itemName);
+            item = _inventory.FindItem(itemName);
             if (item == null)
                 return $"no {itemName} in inventory";
 
             dropped = _inventory.Remove(item, amount);
-            return null;
+        }
+        else
+        {
+            return Usage;
         }
 
-        return Usage;
+        PlaceOnGround(item, dropped);
+        return null;
+    }
+
+    /// <summary>
+    /// Раскладывает выброшенное вокруг персонажа — по объекту на штуку.
+    /// </summary>
+    private void PlaceOnGround(ResourceItem item, int count)
+    {
+        if (item.worldPrefab == null) return;
+
+        Vector2 center = Executor.CurrentTile;
+        for (int i = 0; i < count; i++)
+            _objectManager.Spawn(item.worldPrefab, FindDropPoint(center));
+    }
+
+    /// <summary>
+    /// Случайная точка на суше рядом с персонажем; не нашлась — тайл персонажа.
+    /// </summary>
+    private Vector2 FindDropPoint(Vector2 center)
+    {
+        for (int attempt = 0; attempt < PlaceAttempts; attempt++)
+        {
+            Vector2 point = center + Random.insideUnitCircle * ScatterRadius;
+            Vector2Int tile = MapPosition.ToTile(point);
+            if (MapData.IsWalkable(tile.x, tile.y))
+                return point;
+        }
+
+        return center;
     }
 }

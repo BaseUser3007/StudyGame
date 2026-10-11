@@ -89,7 +89,7 @@ public class CraftRecipeDrawer : PropertyDrawer
 
         // Свойства самого предмета — привязываются к его ассету
         TextField nameField = new TextField("Название") { isDelayed = true };
-        ObjectField spriteField = new ObjectField("Картинка") { objectType = typeof(Sprite) };
+        ObjectField spriteField = new ObjectField("Запасная иконка") { objectType = typeof(Sprite) };
         column.Add(nameField);
         column.Add(spriteField);
 
@@ -149,7 +149,7 @@ public class CraftRecipeDrawer : PropertyDrawer
             foldout.text = CraftingEditorUI.Summary(recipe);
 
             string problem = item == null ? "Не выбран предмет"
-                : item.sprite == null ? "У предмета нет картинки — она не отобразится в игре"
+                : item.Icon == null ? "У предмета нет иконки — задайте Icon Prefab или запасную картинку"
                 : recipe.GetRequirements().Count == 0 ? "Нет ресурсов — предмет будет бесплатным"
                 : CraftingEditorUI.IngredientProblem(recipe);
             warning.text = problem ?? string.Empty;
@@ -205,7 +205,7 @@ public static class CraftingEditorUI
 
     public static void ShowItem(VisualElement icon, ResourceItem item)
     {
-        Sprite sprite = item != null ? item.sprite : null;
+        Sprite sprite = item != null ? item.Icon : null;
 
         icon.style.backgroundImage = sprite != null
             ? new StyleBackground(sprite)

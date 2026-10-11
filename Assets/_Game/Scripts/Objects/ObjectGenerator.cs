@@ -141,16 +141,26 @@ public class ObjectGenerator : MonoBehaviour
 
             if (!IsValidSpawnPosition(position, footprint)) continue;
 
-            ResourceObject obj = _objectPool.Get(prefab, _mapData.MapToWorld(position));
-            obj.SetPosition(position);
-            AddPosition(position);
-
-            obj.OnConsumed += HandleObjectConsumed;
-            OnObjectSpawned?.Invoke(obj);
+            SpawnAt(prefab, position);
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Создаёт объект в точке карты без проверок места (например, выброшенный предмет).
+    /// Объект попадает в ObjectManager и возвращается в пул, когда его соберут.
+    /// </summary>
+    public ResourceObject SpawnAt(ResourceObject prefab, Vector2 position)
+    {
+        ResourceObject obj = _objectPool.Get(prefab, _mapData.MapToWorld(position));
+        obj.SetPosition(position);
+        AddPosition(position);
+
+        obj.OnConsumed += HandleObjectConsumed;
+        OnObjectSpawned?.Invoke(obj);
+        return obj;
     }
 
     private Vector2 RandomPointInTile(Vector2Int tile)

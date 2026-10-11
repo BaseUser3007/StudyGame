@@ -79,19 +79,28 @@ public class Level : MonoBehaviour
         PlayerEnergy playerEnergy = new PlayerEnergy(energyLimit);
         PlayerInventory inventory = new PlayerInventory(playerConfig.inventorySlots);
 
-        // 8. Lua песочница
-        luaSandbox.Initialize(
-            executor, tilemapGenerator, energyConfig, objectManager, playerEnergy, inventory, recipeBook);
+        // 8. Постройки (станции крафта считаются «рядом» в пределах structureInteractionRadius)
+        StructureManager structures = new StructureManager(
+            tilemapGenerator, executor, playerConfig.structureInteractionRadius);
 
-        // 9. UI
-        codeEditorManager.Initialize(luaSandbox, uiManager, recipeBook);
-        codeEditorManager.SetEnergyMax(energyLimit);
+        // 9. День: запуски кода, восстановление энергии, штраф/бонус к максимуму
+        DayCycle dayCycle = new DayCycle(playerConfig, playerEnergy, structures);
+
+        // 10. Lua песочница
+        luaSandbox.Initialize(
+            executor, tilemapGenerator, energyConfig, objectManager, playerEnergy, inventory, recipeBook,
+            structures, playerConfig.structureInteractionRadius, dayCycle);
+        dayCycle.Attach(luaSandbox);
+
+        // 11. UI
+        codeEditorManager.Initialize(luaSandbox, uiManager, recipeBook, structures, dayCycle);
         uiManager.Initialize(
             codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
 
         // UI подписан — показываем начальное состояние
         playerEnergy.Publish();
         inventory.Publish();
+        dayCycle.Publish();
     }
 
     private GameObject SpawnPlayer(Vector2Int tile)

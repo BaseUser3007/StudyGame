@@ -69,6 +69,35 @@
     background-color: rgb(140, 55, 55);
 }
 
+/* ── Day ─────────────────────────────────────────────────── */
+.top-bar-left {
+    min-width: 200px;
+}
+
+.day-label {
+    font-size: 13px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+}
+
+.day-summary {
+    font-size: 11px;
+    margin-left: 10px;
+    color: rgb(170, 170, 170);
+}
+
+.day-summary--penalty {
+    color: rgb(240, 110, 110);
+}
+
+.day-summary--bonus {
+    color: rgb(150, 220, 150);
+}
+
+.btn-end-day {
+    color: rgb(230, 200, 110);
+}
+
 /* ── Energy ──────────────────────────────────────────────── */
 .energy-label {
     font-size: 13px;

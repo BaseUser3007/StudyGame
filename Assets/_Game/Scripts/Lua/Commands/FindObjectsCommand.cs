@@ -9,7 +9,7 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Name => "findObjects";
     public override float EnergyCost => 1f;
     public override string Signature => "findObjects(type)";
-    public override string Description => "Массив объектов типа в поле зрения: tree, stone, bush, mushroom, rabbit, stick, pebble. " +
+    public override string Description => "Массив объектов типа в поле зрения: tree, stone, boulder, bush, mushroom, rabbit, stick, pebble, log, flint (выброшенные). " +
                                           $"У объекта есть поля {LuaObjectList.Fields}. " +
                                           "У массива есть count и методы для поиска, фильтрации и сортировки " +
                                           "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке";
@@ -26,7 +26,10 @@ public class FindObjectsCommand : PlayerCommandBase
         { "mushroom", typeof(MushroomObject) },
         { "rabbit",   typeof(RabbitObject)   },
         { "stick",    typeof(StickObject)    },
-        { "pebble",   typeof(PebbleObject)   }
+        { "pebble",   typeof(PebbleObject)   },
+        { "boulder",  typeof(BoulderObject)  },
+        { "log",      typeof(LogObject)      },
+        { "flint",    typeof(FlintObject)    }
     };
 
     public FindObjectsCommand(

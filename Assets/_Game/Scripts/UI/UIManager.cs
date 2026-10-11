@@ -25,6 +25,7 @@ public class UIManager : MonoBehaviour
         UIEventBus.OnWindowEnergyCostChanged += HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged += HandleInventoryChanged;
         UIEventBus.OnNotificationRequested += HandleNotificationRequested;
+        UIEventBus.OnDayChanged += HandleDayChanged;
     }
 
     private void OnDestroy()
@@ -33,6 +34,7 @@ public class UIManager : MonoBehaviour
         UIEventBus.OnWindowEnergyCostChanged -= HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged -= HandleInventoryChanged;
         UIEventBus.OnNotificationRequested -= HandleNotificationRequested;
+        UIEventBus.OnDayChanged -= HandleDayChanged;
     }
 
     // ─── Регистрация окон ─────────────────────────────────────
@@ -61,6 +63,11 @@ public class UIManager : MonoBehaviour
             if (window is IEnergyDisplay display)
                 display.UpdateEnergyCost(cost);
         }
+    }
+
+    private void HandleDayChanged(DayInfo info)
+    {
+        _topBar?.UpdateDay(info);
     }
 
     private void HandleInventoryChanged(IReadOnlyList<InventorySlot> slots)

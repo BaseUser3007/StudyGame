@@ -22,6 +22,9 @@ public class LuaSandbox : MonoBehaviour
     private PlayerEnergy _playerEnergy;
     private PlayerInventory _inventory;
     private RecipeBook _recipeBook;
+    private StructureManager _structures;
+    private float _buildReach;
+    private DayCycle _dayCycle;
 
     private LuaState _state;
     private LuaCommandRegistry _registry;
@@ -46,7 +49,10 @@ public class LuaSandbox : MonoBehaviour
         ObjectManager objectManager,
         PlayerEnergy playerEnergy,
         PlayerInventory inventory,
-        RecipeBook recipeBook)
+        RecipeBook recipeBook,
+        StructureManager structures,
+        float buildReach,
+        DayCycle dayCycle)
     {
         _executor = executor;
         _mapData = mapData;
@@ -55,6 +61,9 @@ public class LuaSandbox : MonoBehaviour
         _playerEnergy = playerEnergy;
         _inventory = inventory;
         _recipeBook = recipeBook;
+        _structures = structures;
+        _buildReach = buildReach;
+        _dayCycle = dayCycle;
 
         _registry = new LuaCommandRegistry();
 
@@ -79,19 +88,26 @@ public class LuaSandbox : MonoBehaviour
         _registry.RegisterCommand(new AutoExploreCommand(_executor, _mapData));
 
         // Объекты
-        var harvester = new ResourceHarvester(_executor, _objectManager, _playerEnergy, _inventory);
+        var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
         _registry.RegisterCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
         _registry.RegisterCommand(new HarvestCommand(_executor, _mapData, harvester));
+        _registry.RegisterCommand(new MineCommand(_executor, _mapData, harvester));
 
         // Готовые команды: удобнее, но дороже самописного аналога
         _registry.RegisterCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
 
         // Крафт
-        _registry.RegisterCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory));
+        _registry.RegisterCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory, _structures));
+
+        // Постройки
+        _registry.RegisterCommand(new BuildCommand(_executor, _mapData, _inventory, _structures, _buildReach));
 
         // Инвентарь
-        _registry.RegisterCommand(new DropCommand(_inventory));
+        _registry.RegisterCommand(new DropCommand(_executor, _mapData, _inventory, _objectManager));
         _registry.RegisterCommand(new GetInventoryCommand(_inventory));
+
+        // Состояние дня и энергии
+        _registry.RegisterCommand(new GetStatusCommand(_playerEnergy, _dayCycle));
 
         // Добавляй новые команды здесь ↓
     }

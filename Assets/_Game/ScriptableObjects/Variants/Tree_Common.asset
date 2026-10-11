@@ -16,6 +16,11 @@ MonoBehaviour:
   displayName: Tree
   drop: {fileID: 11400000, guid: f65700c717ab8fa4589e0c7a1f8fa961, type: 2}
   dropAmount: 1
+  loot:
+  - item: {fileID: 11400000, guid: f65700c717ab8fa4589e0c7a1f8fa961, type: 2}
+    amount: 2
+  - item: {fileID: 11400000, guid: 2c8f1bead1764530bc429718b1b60ecb, type: 2}
+    amount: 2
   idleAnimation: {fileID: 7400000, guid: 3d7b45c4516334556afcb4d7781223ae, type: 2}
   harvestAnimation: {fileID: 7400000, guid: fbe8a1e7ca36a4c6bb7c9e0e74fda83f, type: 2}
   destroyAnimation: {fileID: 0}

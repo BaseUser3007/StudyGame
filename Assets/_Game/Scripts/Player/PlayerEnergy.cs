@@ -1,5 +1,8 @@
-﻿/// <summary>
-/// Текущий запас энергии игрока. Тратится во время выполнения кода (например, на добычу).
+﻿using UnityEngine;
+
+/// <summary>
+/// Запас энергии игрока на текущий день. Тратится во время выполнения кода
+/// (конструкции языка, команды, добыча); в начале дня восстанавливается (DayCycle).
 /// </summary>
 public class PlayerEnergy
 {
@@ -26,6 +29,16 @@ public class PlayerEnergy
         Current -= amount;
         Publish();
         return true;
+    }
+
+    /// <summary>
+    /// Новый максимум (начало дня). refill — заполнить запас до нового максимума.
+    /// </summary>
+    public void SetMax(float max, bool refill)
+    {
+        Max = Mathf.Max(0f, max);
+        Current = refill ? Max : Mathf.Min(Current, Max);
+        Publish();
     }
 
     public void Publish()

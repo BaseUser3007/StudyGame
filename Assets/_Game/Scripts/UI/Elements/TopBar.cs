@@ -6,13 +6,21 @@ using UnityEngine.UIElements;
 public class TopBar : VisualElement
 {
     public event Action OnRunRequested;
+    public event Action OnEndDayRequested;
     public event Action OnSimulationRequested;
 
     private Label _energyLabel;
     private Label _programCostLabel;
+    private Label _dayLabel;
+    private Label _daySummary;
     private Button _btnRun;
+    private Button _btnEndDay;
     private Button _btnSimulation;
     private CommandHelp _commandHelp;
+
+    // Цена прохода краснеет, если больше текущего запаса энергии
+    private float _currentEnergy = float.MaxValue;
+    private float _programCost;
 
     public TopBar(VisualTreeAsset template)
     {
@@ -20,8 +28,14 @@ public class TopBar : VisualElement
 
         _energyLabel = root.Q<Label>("energy-label");
         _programCostLabel = root.Q<Label>("program-cost");
+        _dayLabel = root.Q<Label>("day-label");
+        _daySummary = root.Q<Label>("day-summary");
         _btnRun = root.Q<Button>("btn-run");
+        _btnEndDay = root.Q<Button>("btn-end-day");
         _btnSimulation = root.Q<Button>("btn-simulation");
+
+        Debug.Assert(_dayLabel != null && _daySummary != null, "TopBar: day labels not found");
+        Debug.Assert(_btnEndDay != null, "TopBar: btn-end-day not found");
 
         Button btnHelp = root.Q<Button>("btn-help");
         VisualElement helpPopup = root.Q<VisualElement>("help-popup");
@@ -50,7 +64,20 @@ public class TopBar : VisualElement
     private void RegisterCallbacks()
     {
         _btnRun.clicked += () => OnRunRequested?.Invoke();
+        _btnEndDay.clicked += () => OnEndDayRequested?.Invoke();
         _btnSimulation.clicked += () => OnSimulationRequested?.Invoke();
+    }
+
+    /// <summary>
+    /// День, запуски и итог прошлого дня (штраф — красным, бонус — зелёным).
+    /// </summary>
+    public void UpdateDay(DayInfo info)
+    {
+        _dayLabel.text = $"Day {info.Day} · Runs {info.RunsUsed}/{info.RunsPerDay}";
+
+        _daySummary.text = info.Summary;
+        _daySummary.EnableInClassList("day-summary--penalty", info.Summary.StartsWith("−"));
+        _daySummary.EnableInClassList("day-summary--bonus", info.Summary.StartsWith("+"));
     }
 
     /// <summary>
@@ -60,22 +87,32 @@ public class TopBar : VisualElement
     {
         _btnRun.text = running ? "Stop" : "Run";
         _btnRun.EnableInClassList("btn-stop", running);
+        // Закончить день во время выполнения нельзя
+        _btnEndDay.SetEnabled(!running);
     }
 
     /// <summary>
-    /// Стоимость всей программы. Красным — если энергии не хватит.
+    /// Стоимость одного прохода программы. Красным — если больше текущего запаса энергии.
     /// </summary>
-    public void UpdateProgramCost(float cost, float energyMax)
+    public void UpdateProgramCost(float cost)
     {
         if (_programCostLabel == null) return;
+        _programCost = cost;
         // Цена одного прохода: циклы и повторные вызовы оплачиваются при каждом выполнении
         _programCostLabel.text = $"Cost per pass: {cost:0.#}";
-        _programCostLabel.EnableInClassList("program-cost--over", cost > energyMax);
+        RefreshCostWarning();
     }
 
     public void UpdateEnergy(float current, float max)
     {
         if (_energyLabel == null) return;
-        _energyLabel.text = $"Energy: {Mathf.RoundToInt(current)} / {Mathf.RoundToInt(max)}";
+        _currentEnergy = current;
+        _energyLabel.text = $"Energy: {current:0.#} / {Mathf.RoundToInt(max)}";
+        RefreshCostWarning();
+    }
+
+    private void RefreshCostWarning()
+    {
+        _programCostLabel?.EnableInClassList("program-cost--over", _programCost > _currentEnergy);
     }
 }

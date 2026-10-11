@@ -17,7 +17,7 @@ public class ObtainCommand : PlayerCommandBase
     public override string Signature => "obtain([type])";
     public override bool IsReadyMade => true;
     public override string Description => "Готовая команда: дойти до ближайшего видимого ресурса (можно указать тип: stone, stick…) " +
-                                          "и собрать его. Дороже, чем findObjects + moveTo + harvest. " +
+                                          "и подобрать его, как harvest (останавливается, как только объект в досягаемости; деревья и валуны не трогает — для них mine). Дороже, чем findObjects + moveTo + harvest. " +
                                           "Возвращает true или false и причину";
 
     private readonly ObjectManager _objectManager;
@@ -52,7 +52,9 @@ public class ObtainCommand : PlayerCommandBase
             ResourceObject target = FindTarget(type, out error);
             if (target != null)
             {
-                await Executor.MoveToAsync(target.Tile, ct);
+                // Идём, пока объект не окажется в досягаемости — не упираясь в его коллайдер
+                await Executor.MoveToAsync(target.Tile, ct,
+                    () => Vector2.Distance(Executor.CurrentTile, target.Position) <= target.InteractionRadius);
                 error = _harvester.TryHarvest(target);
             }
         }

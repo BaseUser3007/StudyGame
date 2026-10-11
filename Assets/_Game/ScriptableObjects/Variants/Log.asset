@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MaterialResource
   itemId: log
   displayName: Log
+  worldPrefab: {fileID: 1852307222561421786, guid: 3c025f2105ef4c888822578bbc5a5d4a, type: 3}
   sprite: {fileID: 0}
-  durability: 8
+  durability: 5
   maxStackSize: 20

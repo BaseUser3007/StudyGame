@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5d31f575a907f048bba4f8c31a31eca, type: 3}
   m_Name: DefaultEnergyConfig
   m_EditorClassIdentifier: Assembly-CSharp::EnergyConfig
-  ifCost: 3
-  elseifCost: 3
-  elseCost: 1
-  forCost: 5
-  whileCost: 5
-  repeatCost: 5
-  functionCost: 2
-  localCost: 1
-  returnCost: 1
+  ifCost: 0.5
+  elseifCost: 0.5
+  elseCost: 0
+  forCost: 1
+  whileCost: 1
+  repeatCost: 1
+  functionCost: 0
+  localCost: 0
+  returnCost: 0
   apiCallCost: 1
   variableCost: 1

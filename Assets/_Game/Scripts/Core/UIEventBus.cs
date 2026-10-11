@@ -15,6 +15,12 @@ public static class UIEventBus
     // ─── Уведомления ──────────────────────────────────────────
     public static event Action<string, LogEntryType> OnNotificationRequested;
 
+    // ─── День ─────────────────────────────────────────────────
+    public static event Action<DayInfo> OnDayChanged;
+
+    public static void PublishDayChanged(DayInfo info)
+        => OnDayChanged?.Invoke(info);
+
     // ─── Publish ──────────────────────────────────────────────
 
     public static void PublishPlayerEnergyChanged(float current, float max)

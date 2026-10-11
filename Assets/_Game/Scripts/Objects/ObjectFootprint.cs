@@ -8,9 +8,9 @@ using UnityEngine;
 /// </summary>
 public static class ObjectFootprint
 {
-    private static readonly Dictionary<ResourceObject, Rect> Cache = new Dictionary<ResourceObject, Rect>();
+    private static readonly Dictionary<Component, Rect> Cache = new Dictionary<Component, Rect>();
 
-    public static Rect Get(ResourceObject prefab)
+    public static Rect Get(Component prefab)
     {
         if (prefab == null) return Rect.zero;
 
@@ -22,7 +22,7 @@ public static class ObjectFootprint
 
     // ─── Helpers ──────────────────────────────────────────────
 
-    private static Rect Calculate(ResourceObject prefab)
+    private static Rect Calculate(Component prefab)
     {
         Collider2D collider = prefab.GetComponentInChildren<Collider2D>(true);
         if (collider == null) return Rect.zero;
