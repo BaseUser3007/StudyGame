@@ -1,0 +1,7 @@
+Stone & Rock Pack (v1.0) - Kebap Guy
+
+This asset is distributed through the Unity Asset Store and is licensed
+under the Standard Unity Asset Store EULA:
+https://unity.com/legal/as-terms
+
+Copyright (c) 2026 Deniz Samed Öztaş
