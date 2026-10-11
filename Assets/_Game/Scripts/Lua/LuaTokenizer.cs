@@ -86,7 +86,17 @@ public class LuaTokenizer
                 continue;
             }
 
-            // Комментарий --
+            // Блочный комментарий --[[ ... ]] / --[==[ ... ]==] — может занимать несколько строк
+            if (pos + 1 < code.Length && code[pos] == '-' && code[pos + 1] == '-'
+                && LongBracketLevel(code, pos + 2) >= 0)
+            {
+                int end = FindLongBracketEnd(code, pos + 2, LongBracketLevel(code, pos + 2));
+                AddMultilineToken(tokens, code.Substring(pos, end - pos), TokenType.Comment, ref line, ref column);
+                pos = end;
+                continue;
+            }
+
+            // Комментарий -- до конца строки
             if (pos + 1 < code.Length && code[pos] == '-' && code[pos + 1] == '-')
             {
                 int startCol = column;
@@ -95,6 +105,15 @@ public class LuaTokenizer
                 string comment = code.Substring(pos, end - pos);
                 tokens.Add(new Token(comment, TokenType.Comment, line, startCol));
                 column += comment.Length;
+                pos = end;
+                continue;
+            }
+
+            // Длинная строка [[ ... ]] / [==[ ... ]==]
+            if (code[pos] == '[' && LongBracketLevel(code, pos) >= 0)
+            {
+                int end = FindLongBracketEnd(code, pos, LongBracketLevel(code, pos));
+                AddMultilineToken(tokens, code.Substring(pos, end - pos), TokenType.String, ref line, ref column);
                 pos = end;
                 continue;
             }
@@ -162,5 +181,56 @@ public class LuaTokenizer
         }
 
         return tokens;
+    }
+
+    // ─── Длинные скобки ───────────────────────────────────────
+
+    /// <summary>
+    /// Если в pos начинается открывающая длинная скобка [[ или [==[ — её уровень (число '='), иначе -1.
+    /// </summary>
+    private static int LongBracketLevel(string code, int pos)
+    {
+        if (pos >= code.Length || code[pos] != '[') return -1;
+
+        int level = 0;
+        int i = pos + 1;
+        while (i < code.Length && code[i] == '=')
+        {
+            level++;
+            i++;
+        }
+
+        return i < code.Length && code[i] == '[' ? level : -1;
+    }
+
+    /// <summary>
+    /// Позиция сразу после закрывающей скобки ]] / ]==] нужного уровня (или конец кода, если её нет).
+    /// </summary>
+    private static int FindLongBracketEnd(string code, int openPos, int level)
+    {
+        string closing = "]" + new string('=', level) + "]";
+        int contentStart = openPos + level + 2;
+        int end = code.IndexOf(closing, contentStart, System.StringComparison.Ordinal);
+        return end == -1 ? code.Length : end + closing.Length;
+    }
+
+    /// <summary>
+    /// Токен, который может содержать переводы строк: номер строки и колонка
+    /// следующих токенов сдвигаются, как если бы переводы были отдельными токенами.
+    /// </summary>
+    private static void AddMultilineToken(List<Token> tokens, string value, TokenType type, ref int line, ref int column)
+    {
+        tokens.Add(new Token(value, type, line, column));
+
+        int lastNewline = value.LastIndexOf('\n');
+        if (lastNewline < 0)
+        {
+            column += value.Length;
+            return;
+        }
+
+        foreach (char c in value)
+            if (c == '\n') line++;
+        column = value.Length - lastNewline;
     }
 }

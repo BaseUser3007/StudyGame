@@ -16,4 +16,19 @@ public abstract class ResourceItem : ScriptableObject
 
     [Header("Inventory")]
     public int maxStackSize = 20;
+
+    public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
+
+    /// <summary>
+    /// Подходит ли название из Lua (itemId, отображаемое имя или имя ассета, без учёта регистра).
+    /// </summary>
+    public bool MatchesName(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return false;
+        query = query.Trim();
+
+        return string.Equals(query, itemId, System.StringComparison.OrdinalIgnoreCase)
+            || string.Equals(query, displayName, System.StringComparison.OrdinalIgnoreCase)
+            || string.Equals(query, name, System.StringComparison.OrdinalIgnoreCase);
+    }
 }

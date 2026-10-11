@@ -62,7 +62,13 @@ public class EnergyCounter
             return GetKeywordCost(token.Value);
 
         if (token.Type == LuaTokenizer.TokenType.Identifier)
-            return _registry.GetEnergyCost(token.Value);
+        {
+            if (_registry.HasCommand(token.Value))
+                return _registry.GetEnergyCost(token.Value);
+
+            // Методы массива findObjects (getNear, where, sortBy …)
+            return LuaObjectList.IsMethod(token.Value) ? LuaObjectList.MethodCost : 0f;
+        }
 
         return 0f;
     }

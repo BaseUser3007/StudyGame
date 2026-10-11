@@ -30,10 +30,10 @@ public class LuaCommandRegistry
     /// Регистрирует все команды в Lua среде.
     /// Вызывается один раз при инициализации LuaSandbox.
     /// </summary>
-    public void RegisterAll(LuaState state)
+    public void RegisterAll(LuaState state, EnergyMeter meter)
     {
         foreach (ILuaCommand command in _commands.Values)
-            command.Register(state);
+            command.Register(state, meter);
 
         Debug.Log($"LuaCommandRegistry: registered {_commands.Count} commands");
     }

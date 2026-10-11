@@ -66,6 +66,8 @@ public class InventoryBar : VisualElement
         private readonly VisualElement _icon;
         private readonly Label _name;
         private readonly Label _count;
+        private readonly VisualElement _durability;
+        private readonly VisualElement _durabilityFill;
 
         public SlotView(int number)
         {
@@ -84,10 +86,18 @@ public class InventoryBar : VisualElement
             _count = new Label();
             _count.AddToClassList("inventory-slot-count");
 
+            // Полоска прочности — только у инструментов
+            _durability = new VisualElement();
+            _durability.AddToClassList("inventory-slot-durability");
+            _durabilityFill = new VisualElement();
+            _durabilityFill.AddToClassList("inventory-slot-durability-fill");
+            _durability.Add(_durabilityFill);
+
             Root.Add(_icon);
             Root.Add(_name);
             Root.Add(index);
             Root.Add(_count);
+            Root.Add(_durability);
         }
 
         public void Show(InventorySlot slot)
@@ -107,6 +117,17 @@ public class InventoryBar : VisualElement
             _name.EnableInClassList("hidden", !filled || sprite != null);
 
             _count.text = filled && slot.Count > 1 ? slot.Count.ToString() : string.Empty;
+
+            bool showDurability = filled && slot.HasDurability;
+            _durability.EnableInClassList("hidden", !showDurability);
+            if (showDurability)
+            {
+                float ratio = Mathf.Clamp01((float)slot.Durability / slot.MaxDurability);
+                _durabilityFill.style.width = Length.Percent(ratio * 100f);
+                // Зелёный → жёлтый → красный по мере износа
+                _durabilityFill.style.backgroundColor = Color.Lerp(
+                    new Color(0.85f, 0.3f, 0.25f), new Color(0.4f, 0.8f, 0.35f), ratio);
+            }
         }
 
         private static string GetDisplayName(ResourceItem item)

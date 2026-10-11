@@ -1,4 +1,5 @@
-﻿using Lua;
+﻿using System.Threading;
+using Lua;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -12,17 +13,14 @@ public class MoveToCommand : PlayerCommandBase
     public MoveToCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }
 
-    public override void Register(LuaState state)
+    protected override async ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
     {
-        state.Environment[Name] = new LuaFunction(async (context, ct) =>
-        {
-            // Координаты объектов дробные — идём в тайл, где лежит точка
-            int x = MapPosition.ToTile(context.GetArgument<double>(0));
-            int y = MapPosition.ToTile(context.GetArgument<double>(1));
+        // Координаты объектов дробные — идём в тайл, где лежит точка
+        int x = MapPosition.ToTile(context.GetArgument<double>(0));
+        int y = MapPosition.ToTile(context.GetArgument<double>(1));
 
-            int stepsTaken = await Executor.MoveToAsync(new Vector2Int(x, y), ct);
-            context.Return(stepsTaken);
-            return 1;
-        });
+        int stepsTaken = await Executor.MoveToAsync(new Vector2Int(x, y), ct);
+        context.Return(stepsTaken);
+        return 1;
     }
 }

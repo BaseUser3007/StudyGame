@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -11,6 +12,7 @@ public class TopBar : VisualElement
     private Label _programCostLabel;
     private Button _btnRun;
     private Button _btnSimulation;
+    private CommandHelp _commandHelp;
 
     public TopBar(VisualTreeAsset template)
     {
@@ -21,11 +23,28 @@ public class TopBar : VisualElement
         _btnRun = root.Q<Button>("btn-run");
         _btnSimulation = root.Q<Button>("btn-simulation");
 
+        Button btnHelp = root.Q<Button>("btn-help");
+        VisualElement helpPopup = root.Q<VisualElement>("help-popup");
+        Button btnHelpClose = root.Q<Button>("btn-help-close");
+        ScrollView helpContent = root.Q<ScrollView>("help-content");
+
         Debug.Assert(_energyLabel != null, "TopBar: energy-label not found");
         Debug.Assert(_btnRun != null, "TopBar: btn-run not found");
+        Debug.Assert(btnHelp != null && helpPopup != null && btnHelpClose != null && helpContent != null,
+            "TopBar: help elements not found");
+
+        _commandHelp = new CommandHelp(btnHelp, helpPopup, btnHelpClose, helpContent);
 
         RegisterCallbacks();
         Add(root);
+    }
+
+    /// <summary>
+    /// Заполняет справку по командам (кнопка Help).
+    /// </summary>
+    public void BuildCommandHelp(IEnumerable<ILuaCommand> commands, EnergyConfig energyConfig)
+    {
+        _commandHelp.Build(commands, energyConfig);
     }
 
     private void RegisterCallbacks()
@@ -49,7 +68,8 @@ public class TopBar : VisualElement
     public void UpdateProgramCost(float cost, float energyMax)
     {
         if (_programCostLabel == null) return;
-        _programCostLabel.text = $"Program cost: {cost:0.#}";
+        // Цена одного прохода: циклы и повторные вызовы оплачиваются при каждом выполнении
+        _programCostLabel.text = $"Cost per pass: {cost:0.#}";
         _programCostLabel.EnableInClassList("program-cost--over", cost > energyMax);
     }
 

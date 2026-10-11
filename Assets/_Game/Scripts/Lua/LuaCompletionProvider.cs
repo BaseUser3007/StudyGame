@@ -55,14 +55,36 @@ public class LuaCompletionProvider
         ("math", "math.*"), ("string", "string.*"), ("table", "table.*")
     };
 
-    // Поля и методы таблиц, которые возвращают команды
-    private static readonly (string name, string detail, bool isMethod)[] Members =
+    // Поля таблиц, которые возвращают команды
+    private static readonly (string name, string detail)[] Fields =
     {
-        ("getNear", "getNear() — ближайший объект", true),
-        ("x", "координата x", false),
-        ("y", "координата y", false),
-        ("type", "тип объекта", false)
+        ("x", "координата x"),
+        ("y", "координата y"),
+        ("id", "уникальный номер объекта — для сравнения a.id == b.id"),
+        ("type", "тип объекта"),
+        ("distance", "расстояние до персонажа"),
+        ("tool", "нужный инструмент или nil"),
+        ("durability", "энергия на добычу / прочность инструмента"),
+        ("count", "количество элементов"),
+        ("free", "свободных ячеек инвентаря"),
+        ("name", "название предмета"),
+        ("slot", "номер ячейки инвентаря"),
+        ("maxDurability", "максимальная прочность инструмента")
     };
+
+    // Методы и поля таблиц, которые возвращают команды (методы — массива findObjects)
+    private static readonly (string name, string detail, bool isMethod, bool hasArgs)[] Members = BuildMembers();
+
+    private static (string, string, bool, bool)[] BuildMembers()
+    {
+        var members = new List<(string, string, bool, bool)>();
+        foreach (var method in LuaObjectList.Methods)
+            members.Add((method.Name, $"{method.Signature} — {method.Description}", true,
+                !method.Signature.EndsWith("()")));
+        foreach (var field in Fields)
+            members.Add((field.name, field.detail, false, false));
+        return members.ToArray();
+    }
 
     private readonly LuaTokenizer _tokenizer = new LuaTokenizer();
     private readonly Func<IEnumerable<ILuaCommand>> _commands;
@@ -192,7 +214,8 @@ public class LuaCompletionProvider
             yield return new CompletionItem
             {
                 Label = m.name,
-                InsertText = m.name + (m.isMethod ? "()$0" : "$0"),
+                // С аргументами курсор встаёт внутрь скобок
+                InsertText = m.name + (!m.isMethod ? "$0" : m.hasArgs ? "($0)" : "()$0"),
                 Detail = m.detail,
                 Kind = CompletionKind.Member
             };

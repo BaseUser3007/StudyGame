@@ -26,6 +26,8 @@ public class LuaSandbox : MonoBehaviour
     private LuaState _state;
     private LuaCommandRegistry _registry;
     private EnergyCounter _energyCounter;
+    private EnergyInstrumenter _instrumenter;
+    private EnergyMeter _meter;
     private CancellationTokenSource _cts;
 
     // Watchdog: метка последнего кадра главного потока (Stopwatch ticks)
@@ -59,6 +61,9 @@ public class LuaSandbox : MonoBehaviour
         RegisterCommands();
 
         _energyCounter = new EnergyCounter(_energyConfig, _registry);
+        _instrumenter = new EnergyInstrumenter(_energyConfig);
+        _meter = new EnergyMeter(_playerEnergy);
+        _meter.OnExhausted += HandleEnergyExhausted;
 
         CreateLuaState();
     }
@@ -74,12 +79,19 @@ public class LuaSandbox : MonoBehaviour
         _registry.RegisterCommand(new AutoExploreCommand(_executor, _mapData));
 
         // Объекты
+        var harvester = new ResourceHarvester(_executor, _objectManager, _playerEnergy, _inventory);
         _registry.RegisterCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
-        _registry.RegisterCommand(new HarvestCommand(
-            _executor, _mapData, _objectManager, _playerEnergy, _inventory));
+        _registry.RegisterCommand(new HarvestCommand(_executor, _mapData, harvester));
+
+        // Готовые команды: удобнее, но дороже самописного аналога
+        _registry.RegisterCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
 
         // Крафт
         _registry.RegisterCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory));
+
+        // Инвентарь
+        _registry.RegisterCommand(new DropCommand(_inventory));
+        _registry.RegisterCommand(new GetInventoryCommand(_inventory));
 
         // Добавляй новые команды здесь ↓
     }
@@ -88,7 +100,26 @@ public class LuaSandbox : MonoBehaviour
     {
         _state = LuaState.Create();
         _state.OpenStandardLibraries();
-        _registry.RegisterAll(_state);
+        _registry.RegisterAll(_state, _meter);
+
+        // Списание за выполненные конструкции языка — вызовы расставляет EnergyInstrumenter.
+        // Возвращает true, чтобы `__energy(n) and cond` сохраняло значение условия
+        _state.Environment[EnergyInstrumenter.ChargeFunction] = new LuaFunction((context, ct) =>
+        {
+            double amount = context.ArgumentCount > 0 && context.GetArgument(0).TryRead(out double n) ? n : 0d;
+            _meter.Charge((float)amount, "code");
+            context.Return(true);
+            return new System.Threading.Tasks.ValueTask<int>(1);
+        });
+    }
+
+    /// <summary>
+    /// Энергия кончилась — останавливаем программу, даже если ошибку поймал pcall.
+    /// </summary>
+    private void HandleEnergyExhausted()
+    {
+        try { _cts?.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private void OnEnable()
@@ -149,6 +180,7 @@ public class LuaSandbox : MonoBehaviour
 
         SetRunning(true);
         StartWatchdog(cts);
+        _meter.Reset();
 
         try
         {
@@ -156,15 +188,15 @@ public class LuaSandbox : MonoBehaviour
             {
                 if (string.IsNullOrEmpty(kvp.Value)) continue;
                 string wrapped = $"function {kvp.Key}(...)\n{kvp.Value}\nend";
-                await _state.DoStringAsync(wrapped, cancellationToken: ct);
+                await RunChunkAsync(wrapped, kvp.Key, ct);
             }
 
-            await _state.DoStringAsync(mainCode, cancellationToken: ct);
+            await RunChunkAsync(mainCode, "Main", ct);
             return ExecutionResult.Success();
         }
         catch (OperationCanceledException)
         {
-            return CancelledResult();
+            return OutOfEnergyOr(CancelledResult());
         }
         catch (LuaCompileException ex)
         {
@@ -172,15 +204,15 @@ public class LuaSandbox : MonoBehaviour
         }
         catch (LuaRuntimeException ex)
         {
-            return ct.IsCancellationRequested
+            return OutOfEnergyOr(ct.IsCancellationRequested
                 ? CancelledResult()
-                : ExecutionResult.RuntimeError(ex.Message);
+                : ExecutionResult.RuntimeError(ex.Message));
         }
         catch (Exception ex)
         {
-            return ct.IsCancellationRequested
+            return OutOfEnergyOr(ct.IsCancellationRequested
                 ? CancelledResult()
-                : ExecutionResult.RuntimeError(ex.Message);
+                : ExecutionResult.RuntimeError(ex.Message));
         }
         finally
         {
@@ -193,12 +225,30 @@ public class LuaSandbox : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Синтаксис проверяется по исходному коду (ошибки указывают на код игрока, а не на вставки),
+    /// затем выполняется код, «размеченный» списаниями энергии: платим за то, что реально выполняется.
+    /// </summary>
+    private async UniTask RunChunkAsync(string code, string chunkName, CancellationToken ct)
+    {
+        _state.Load(code.AsSpan(), chunkName, null);
+        await _state.DoStringAsync(_instrumenter.Instrument(code), chunkName, ct);
+    }
+
     public void Stop()
     {
         _cts?.Cancel();
     }
 
     // ─── Watchdog ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Если программа остановлена из-за нехватки энергии — сообщаем именно это.
+    /// </summary>
+    private ExecutionResult OutOfEnergyOr(ExecutionResult other)
+    {
+        return _meter.IsExhausted ? ExecutionResult.RuntimeError(_meter.ExhaustedMessage) : other;
+    }
 
     private ExecutionResult CancelledResult()
     {
@@ -248,4 +298,5 @@ public class LuaSandbox : MonoBehaviour
     }
 
     public LuaCommandRegistry Registry => _registry;
+    public EnergyConfig EnergyConfig => _energyConfig;
 }

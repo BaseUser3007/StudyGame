@@ -6,13 +6,23 @@
             <!-- Центр — Энергия -->
             <ui:VisualElement name="center-section" class="top-bar-section top-bar-center">
                 <ui:Label name="energy-label" class="energy-label" text="Energy: 100 / 100"/>
-                <ui:Label name="program-cost" class="program-cost" text="Program cost: 0"/>
+                <ui:Label name="program-cost" class="program-cost" text="Cost per pass: 0"/>
             </ui:VisualElement>
             <!-- Правая часть — Управление окнами -->
             <ui:VisualElement name="right-section" class="top-bar-section top-bar-right">
+                <ui:Button name="btn-help"       class="top-bar-btn btn-help" text="Help"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-simulation" class="top-bar-btn" text="Simulation"/>
             </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Справка по командам: заполняется из реестра команд -->
+        <ui:VisualElement name="help-popup" class="help-popup hidden">
+            <ui:VisualElement class="help-header">
+                <ui:Label class="help-title" text="Команды"/>
+                <ui:Button name="btn-help-close" class="help-close" text="×"/>
+            </ui:VisualElement>
+            <ui:ScrollView name="help-content" class="help-content"/>
         </ui:VisualElement>
 
     </ui:VisualElement>

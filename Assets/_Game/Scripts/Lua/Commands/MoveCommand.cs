@@ -1,3 +1,4 @@
+﻿using System.Threading;
 using Lua;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -12,24 +13,21 @@ public class MoveCommand : PlayerCommandBase
     public MoveCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }
 
-    public override void Register(LuaState state)
+    protected override async ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
     {
-        state.Environment[Name] = new LuaFunction(async (context, ct) =>
+        string direction = context.GetArgument<string>(0);
+        int steps = context.GetArgument<int>(1);
+
+        if (!TryParseDirection(direction, out Direction dir))
         {
-            string direction = context.GetArgument<string>(0);
-            int steps = context.GetArgument<int>(1);
-
-            if (!TryParseDirection(direction, out Direction dir))
-            {
-                Debug.LogWarning($"move: unknown direction '{direction}'");
-                context.Return(0);
-                return 1;
-            }
-
-            int stepsTaken = await Executor.MoveAsync(dir, steps, ct);
-            context.Return(stepsTaken);
+            Debug.LogWarning($"move: unknown direction '{direction}'");
+            context.Return(0);
             return 1;
-        });
+        }
+
+        int stepsTaken = await Executor.MoveAsync(dir, steps, ct);
+        context.Return(stepsTaken);
+        return 1;
     }
 
     private bool TryParseDirection(string direction, out Direction result)

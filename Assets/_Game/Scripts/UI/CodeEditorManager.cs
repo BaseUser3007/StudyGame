@@ -71,6 +71,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         CreateCraftingPanel();
         CreateMainWindow();
 
+        // Справка выпадает из верхней панели справа — поверх панели крафта
+        _topBar.BringToFront();
+        _topBar.BuildCommandHelp(_luaSandbox.Registry.GetAllCommands(), _luaSandbox.EnergyConfig);
+
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
     }
 
@@ -114,7 +118,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         var apiNames = new List<string>();
         foreach (ILuaCommand command in registry.GetAllCommands())
             apiNames.Add(command.Name);
-        apiNames.Add("getNear");
+        // Методы массива findObjects
+        foreach (var method in LuaObjectList.Methods)
+            apiNames.Add(method.Name);
 
         var completion = new LuaCompletionProvider(
             registry.GetAllCommands,

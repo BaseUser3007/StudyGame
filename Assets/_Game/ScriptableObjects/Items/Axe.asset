@@ -18,3 +18,5 @@ MonoBehaviour:
   durability: 1
   maxStackSize: 1
   toolType: 0
+  maxDurability: 20
+  wearPerUse: 1

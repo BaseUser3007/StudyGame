@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Lua;
 using UnityEngine;
 
@@ -11,15 +13,12 @@ public class AutoExploreCommand : PlayerCommandBase
     public AutoExploreCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }
 
-    public override void Register(LuaState state)
+    protected override async ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
     {
-        state.Environment[Name] = new LuaFunction(async (context, ct) =>
-        {
-            Direction[] directions = (Direction[])System.Enum.GetValues(typeof(Direction));
-            Direction random = directions[Random.Range(0, directions.Length)];
-            await Executor.MoveAsync(random, 5, ct);
-            context.Return();
-            return 0;
-        });
+        Direction[] directions = (Direction[])System.Enum.GetValues(typeof(Direction));
+        Direction random = directions[Random.Range(0, directions.Length)];
+        await Executor.MoveAsync(random, 5, ct);
+        context.Return();
+        return 0;
     }
 }

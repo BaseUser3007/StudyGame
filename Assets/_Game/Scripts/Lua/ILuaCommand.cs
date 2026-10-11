@@ -28,7 +28,13 @@ public interface ILuaCommand
     string Description { get; }
 
     /// <summary>
-    /// Регистрирует команду в Lua среде.
+    /// Готовая команда — заменяет несколько базовых и стоит дороже их суммы (в справке — отдельным разделом).
     /// </summary>
-    void Register(LuaState state);
+    bool IsReadyMade { get; }
+
+    /// <summary>
+    /// Регистрирует команду в Lua среде. meter списывает EnergyCost при каждом вызове
+    /// (реализовано в <see cref="LuaCommandBase"/>).
+    /// </summary>
+    void Register(LuaState state, EnergyMeter meter);
 }

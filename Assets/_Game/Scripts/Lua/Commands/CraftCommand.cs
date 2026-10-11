@@ -1,14 +1,15 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Lua;
 
-public class CraftCommand : ILuaCommand
+public class CraftCommand : LuaCommandBase
 {
-    public string Name => "craft";
-    // Реальная стоимость задаётся в рецепте и списывается при крафте
-    public float EnergyCost => 0f;
-    public string Signature => "craft(name)";
-    public string Description => "Скрафтить предмет по названию (рецепты — в панели крафта). " +
+    public override string Name => "craft";
+    // Плата за вызов; сам крафт дополнительно тратит энергию рецепта
+    public override float EnergyCost => 1f;
+    public override string Signature => "craft(name)";
+    public override string Description => "Скрафтить предмет по названию (рецепты — в панели крафта). " +
                                  "Тратит ингредиенты и энергию рецепта. Возвращает true или false и причину";
 
     private readonly RecipeBook _recipeBook;
@@ -22,24 +23,21 @@ public class CraftCommand : ILuaCommand
         _inventory = inventory;
     }
 
-    public void Register(LuaState state)
+    // Команда мгновенная — без async, чтобы не было пустого конечного автомата
+    protected override ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
     {
-        // Команда мгновенная — без async, чтобы не было пустого конечного автомата
-        state.Environment[Name] = new LuaFunction((context, ct) =>
+        string error = context.ArgumentCount > 0 && context.GetArgument(0).TryRead(out string itemName)
+            ? TryCraft(itemName)
+            : "usage: craft(\"item name\")";
+
+        if (error == null)
         {
-            string error = context.ArgumentCount > 0 && context.GetArgument(0).TryRead(out string itemName)
-                ? TryCraft(itemName)
-                : "usage: craft(\"item name\")";
+            context.Return(true);
+            return new ValueTask<int>(1);
+        }
 
-            if (error == null)
-            {
-                context.Return(true);
-                return new ValueTask<int>(1);
-            }
-
-            context.Return(false, error);
-            return new ValueTask<int>(2);
-        });
+        context.Return(false, error);
+        return new ValueTask<int>(2);
     }
 
     // ─── Helpers ──────────────────────────────────────────────
