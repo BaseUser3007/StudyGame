@@ -30,7 +30,7 @@ public class MoveCommand : PlayerCommandBase
         return 1;
     }
 
-    private bool TryParseDirection(string direction, out Direction result)
+    public static bool TryParseDirection(string direction, out Direction result)
     {
         switch (direction.ToLower())
         {

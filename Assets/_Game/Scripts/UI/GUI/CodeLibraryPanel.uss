@@ -1,0 +1,194 @@
+/* ── Root ────────────────────────────────────────────────── */
+.library-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* Выдвижной блок у правого края: ползунок + панель, ползунок по центру по вертикали */
+.library-drawer {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    bottom: 82px;
+    flex-direction: row;
+    align-items: center;
+}
+
+/* ── Toggle (ползунок) ───────────────────────────────────── */
+.library-toggle {
+    width: 18px;
+    height: 72px;
+    margin: 0;
+    padding: 0;
+    border-width: 1px;
+    border-right-width: 0;
+    border-color: rgb(60, 60, 60);
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    background-color: rgba(30, 30, 30, 0.92);
+    color: rgb(140, 190, 230);
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.library-toggle:hover {
+    background-color: rgb(55, 55, 55);
+}
+
+.library-toggle--active {
+    border-color: rgb(140, 190, 230);
+}
+
+/* ── Panel ───────────────────────────────────────────────── */
+.library-panel {
+    align-self: stretch;
+    width: 280px;
+    margin-right: 8px;
+    background-color: rgba(30, 30, 30, 0.96);
+    border-width: 1px;
+    border-color: rgb(60, 60, 60);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+/* Окно тащат над панелью или ползунком — отпустить, чтобы сохранить */
+.library-drop-target {
+    border-color: rgb(120, 200, 120);
+    background-color: rgba(40, 60, 40, 0.96);
+}
+
+.library-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.library-title {
+    font-size: 14px;
+    color: rgb(140, 190, 230);
+    -unity-font-style: bold;
+}
+
+.library-close {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 14px;
+}
+
+.library-close:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+.library-drop-hint {
+    font-size: 11px;
+    color: rgb(150, 150, 150);
+    white-space: normal;
+    margin-bottom: 6px;
+    padding: 6px;
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    border-radius: 3px;
+    -unity-text-align: middle-center;
+}
+
+.library-drop-target .library-drop-hint {
+    border-color: rgb(120, 200, 120);
+    color: rgb(170, 230, 170);
+}
+
+.library-empty {
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    -unity-text-align: middle-center;
+    padding: 12px 0;
+}
+
+/* ── Snippet List ────────────────────────────────────────── */
+.snippet-list {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.snippet-entry {
+    flex-direction: row;
+    align-items: center;
+    margin: 1px 0;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background-color: rgb(42, 42, 42);
+}
+
+.snippet-entry:hover {
+    background-color: rgb(55, 55, 55);
+}
+
+.snippet-info {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.snippet-name {
+    font-size: 12px;
+    color: rgb(220, 220, 170);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.snippet-meta {
+    font-size: 10px;
+    color: rgb(140, 140, 140);
+    padding: 0;
+    margin: 0;
+}
+
+.snippet-preview {
+    font-size: 10px;
+    color: rgb(170, 170, 170);
+    padding: 0;
+    margin: 2px 0 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.snippet-btn {
+    height: 22px;
+    margin: 0 0 0 4px;
+    padding: 0 6px;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 11px;
+}
+
+.snippet-btn:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+/* Первое нажатие «×» только спрашивает подтверждение */
+.snippet-btn--confirm {
+    background-color: rgb(140, 50, 50);
+}
+
+.snippet-btn--confirm:hover {
+    background-color: rgb(170, 60, 60);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

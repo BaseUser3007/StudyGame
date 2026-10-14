@@ -216,6 +216,14 @@ public class LuaObjectList
 
     // ─── Objects ──────────────────────────────────────────────
 
+    /// <summary>
+    /// Имя типа объекта для Lua: TreeObject → "tree".
+    /// </summary>
+    public static string GetTypeName(ResourceObject obj)
+    {
+        return obj.GetType().Name.ToLower().Replace("object", "");
+    }
+
     private LuaTable BuildObjectTable(ResourceObject obj)
     {
         LuaTable table = new LuaTable();
@@ -224,7 +232,7 @@ public class LuaObjectList
         table["id"] = (double)obj.GetInstanceID();
         table["x"] = (double)obj.Position.x;
         table["y"] = (double)obj.Position.y;
-        table["type"] = obj.GetType().Name.ToLower().Replace("object", "");
+        table["type"] = GetTypeName(obj);
         // Энергия на добычу сверх платы за команду (mine — по прочности добычи, подбор с земли — 0)
         table["durability"] = (double)ResourceHarvester.GetEnergyCost(obj);
         // Расстояние от персонажа (в тайлах) — на момент поиска; методы-списки его обновляют

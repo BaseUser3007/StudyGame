@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CodeLibraryPanel.uss"/>
+    <ui:VisualElement name="library-root" class="library-root" picking-mode="Ignore">
+        <ui:VisualElement name="library-drawer" class="library-drawer" picking-mode="Ignore">
+
+            <!-- Ползунок посередине правого края -->
+            <ui:Button name="btn-library-toggle" class="library-toggle" text="‹" tooltip="Библиотека кода: перетащите окно сюда, чтобы сохранить"/>
+
+            <!-- Боковая панель -->
+            <ui:VisualElement name="library-panel" class="library-panel hidden">
+                <ui:VisualElement class="library-header">
+                    <ui:Label class="library-title" text="Библиотека кода"/>
+                    <ui:Button name="btn-close" class="library-close" text="×"/>
+                </ui:VisualElement>
+
+                <ui:Label name="drop-hint" class="library-drop-hint" text="Перетащите окно за заголовок сюда, чтобы сохранить его код"/>
+
+                <!-- Сохранённые фрагменты: заполняется из кода -->
+                <ui:ScrollView name="snippet-list" class="snippet-list"/>
+                <ui:Label name="list-empty" class="library-empty" text="Пока ничего не сохранено"/>
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

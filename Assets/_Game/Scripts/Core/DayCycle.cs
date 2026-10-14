@@ -38,6 +38,7 @@ public class DayCycle
     private const float ExhaustedThreshold = 1f;
 
     private readonly PlayerConfig _config;
+    private readonly RunModifiers _modifiers;
     private readonly PlayerEnergy _energy;
     private readonly ISleepingPlaceProvider _sleepingPlaces;
     private LuaSandbox _sandbox;
@@ -47,12 +48,14 @@ public class DayCycle
 
     public int Day { get; private set; } = 1;
     public int RunsUsed { get; private set; }
-    public int RunsPerDay => Mathf.Max(1, _config.runsPerDay);
+    public int RunsPerDay => _modifiers.RunsPerDay;
     public int RunsLeft => Mathf.Max(0, RunsPerDay - RunsUsed);
 
-    public DayCycle(PlayerConfig config, PlayerEnergy energy, ISleepingPlaceProvider sleepingPlaces)
+    public DayCycle(
+        PlayerConfig config, RunModifiers modifiers, PlayerEnergy energy, ISleepingPlaceProvider sleepingPlaces)
     {
         _config = config;
+        _modifiers = modifiers;
         _energy = energy;
         _sleepingPlaces = sleepingPlaces;
     }
@@ -110,11 +113,12 @@ public class DayCycle
         _sleepStreak = slept ? _sleepStreak + 1 : 0;
 
         float bonus = Mathf.Min(_config.maxEnergyBonus, _config.homeBonusPerDay * _sleepStreak);
-        float penalty = exhausted ? _config.baseEnergyLimit * _config.energyPenaltyMultiplier : 0f;
+        float baseLimit = _modifiers.BaseEnergyLimit;
+        float penalty = exhausted ? baseLimit * _config.energyPenaltyMultiplier : 0f;
         float max = Mathf.Clamp(
-            _config.baseEnergyLimit + bonus - penalty,
+            baseLimit + bonus - penalty,
             _config.minEnergyLimit,
-            _config.baseEnergyLimit + _config.maxEnergyBonus);
+            baseLimit + _config.maxEnergyBonus);
 
         _summary = BuildSummary(exhausted, penalty, slept, bonus);
 

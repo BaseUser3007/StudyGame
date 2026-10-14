@@ -100,6 +100,33 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
     }
 
     /// <summary>
+    /// Постройка, чей след (Collider2D) заходит на тайл, или null.
+    /// Касание краем не считается.
+    /// </summary>
+    public Structure GetStructureAt(Vector2Int tile)
+    {
+        Rect tileRect = new Rect(tile.x - 0.5f, tile.y - 0.5f, 1f, 1f);
+
+        foreach (Structure structure in _structures)
+        {
+            if (structure == null) continue;
+
+            Rect area = ObjectFootprint.Get(structure);
+            area.position += structure.Position;
+
+            // Без коллайдера след — точка: постройка стоит в тайле, где её основание
+            bool hit = area.width <= 0f || area.height <= 0f
+                ? structure.Tile == tile
+                : area.xMin < tileRect.xMax && area.xMax > tileRect.xMin
+                  && area.yMin < tileRect.yMax && area.yMax > tileRect.yMin;
+
+            if (hit) return structure;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Ближайшая постройка-станция, до которой от точки не дальше radius (до края её коллайдера).
     /// </summary>
     public Structure FindStationNear(CraftingStation station, Vector2 point, float radius)

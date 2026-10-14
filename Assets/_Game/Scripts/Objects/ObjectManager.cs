@@ -150,6 +150,14 @@ public class ObjectManager : MonoBehaviour
         return objectGenerator.SpawnAt(prefab, position);
     }
 
+    /// <summary>
+    /// Доступные объекты, которые находятся в тайле (по точке объекта, как в индексе).
+    /// </summary>
+    public List<ResourceObject> GetObjectsAtTile(Vector2Int tile)
+    {
+        return new List<ResourceObject>(EnumerateObjectsAround(tile, 0));
+    }
+
     public List<ResourceObject> GetObjectsByType(Vector2Int center, int radius, Type type)
     {
         List<ResourceObject> result = new List<ResourceObject>();

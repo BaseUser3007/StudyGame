@@ -6,6 +6,9 @@ public static class UIEventBus
     // ─── Энергия игрока ───────────────────────────────────────
     public static event Action<float, float> OnPlayerEnergyChanged;
 
+    // ─── Здоровье игрока ──────────────────────────────────────
+    public static event Action<float, float> OnPlayerHealthChanged;
+
     // ─── Стоимость кода в окне ────────────────────────────────
     public static event Action<string, float> OnWindowEnergyCostChanged;
 
@@ -25,6 +28,9 @@ public static class UIEventBus
 
     public static void PublishPlayerEnergyChanged(float current, float max)
         => OnPlayerEnergyChanged?.Invoke(current, max);
+
+    public static void PublishPlayerHealthChanged(float current, float max)
+        => OnPlayerHealthChanged?.Invoke(current, max);
 
     public static void PublishWindowEnergyCostChanged(string windowId, float cost)
         => OnWindowEnergyCostChanged?.Invoke(windowId, cost);

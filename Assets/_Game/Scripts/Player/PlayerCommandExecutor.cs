@@ -290,7 +290,7 @@ public class PlayerCommandExecutor : MonoBehaviour
 
     // ─── Helpers ──────────────────────────────────────────────
 
-    private Vector2Int DirectionToVector(Direction direction)
+    public static Vector2Int DirectionToVector(Direction direction)
     {
         return direction switch
         {

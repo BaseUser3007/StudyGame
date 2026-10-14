@@ -10,6 +10,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     [SerializeField] private VisualTreeAsset topBarTemplate;
     [SerializeField] private VisualTreeAsset inventoryBarTemplate;
     [SerializeField] private VisualTreeAsset craftingPanelTemplate;
+    [SerializeField] private VisualTreeAsset codeLibraryTemplate;
+    [SerializeField] private VisualTreeAsset runScreensTemplate;
     [SerializeField] private CodeEditorTheme theme;
 
     private LuaSandbox _luaSandbox;
@@ -23,6 +25,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private TopBar _topBar;
     private InventoryBar _inventoryBar;
     private CraftingPanel _craftingPanel;
+    private CodeLibrary _codeLibrary;
+    private CodeLibraryPanel _codeLibraryPanel;
+    private RunScreens _runScreens;
+    private readonly LuaIdentifierValidator _identifierValidator = new LuaIdentifierValidator();
     private RecipeBook _recipeBook;
     private IStationProvider _stations;
     private DayCycle _dayCycle;
@@ -34,6 +40,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     public TopBar TopBar => _topBar;
     public InventoryBar InventoryBar => _inventoryBar;
     public CraftingPanel CraftingPanel => _craftingPanel;
+    public RunScreens RunScreens => _runScreens;
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -74,11 +81,16 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         CreateTopBar();
         CreateInventoryBar();
         CreateCraftingPanel();
+        CreateCodeLibraryPanel();
         CreateMainWindow();
 
         // Справка выпадает из верхней панели справа — поверх панели крафта
         _topBar.BringToFront();
         _topBar.BuildCommandHelp(_luaSandbox.Registry.GetAllCommands(), _luaSandbox.EnergyConfig);
+
+        // Лагерь, диалоги и итоги забега — поверх всего, включая верхнюю панель
+        _runScreens = new RunScreens(runScreensTemplate);
+        _container.Add(_runScreens);
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
     }
@@ -161,6 +173,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         Debug.Assert(topBarTemplate != null, "CodeEditorManager: topBarTemplate is not assigned");
         Debug.Assert(inventoryBarTemplate != null, "CodeEditorManager: inventoryBarTemplate is not assigned");
         Debug.Assert(craftingPanelTemplate != null, "CodeEditorManager: craftingPanelTemplate is not assigned");
+        Debug.Assert(codeLibraryTemplate != null, "CodeEditorManager: codeLibraryTemplate is not assigned");
+        Debug.Assert(runScreensTemplate != null, "CodeEditorManager: runScreensTemplate is not assigned");
         Debug.Assert(_recipeBook != null, "CodeEditorManager: RecipeBook is not assigned");
         Debug.Assert(theme != null, "CodeEditorManager: theme is not assigned");
         Debug.Assert(_luaSandbox != null, "CodeEditorManager: LuaSandbox is not assigned");
@@ -208,7 +222,63 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void CreateCraftingPanel()
     {
         _craftingPanel = new CraftingPanel(craftingPanelTemplate, _recipeBook.Recipes, _stations);
+        // Панели занимают одно место справа — открытая крафта закрывает библиотеку
+        _craftingPanel.OnOpened += HandleCraftingOpened;
         _container.Add(_craftingPanel);
+    }
+
+    // ─── CodeLibraryPanel ─────────────────────────────────────
+
+    private void CreateCodeLibraryPanel()
+    {
+        _codeLibrary = new CodeLibrary();
+        _codeLibraryPanel = new CodeLibraryPanel(codeLibraryTemplate, _codeLibrary);
+        _codeLibraryPanel.OnOpened += HandleCodeLibraryOpened;
+        _codeLibraryPanel.OnOpenSnippetRequested += HandleOpenSnippetRequested;
+        _container.Add(_codeLibraryPanel);
+    }
+
+    private void HandleCodeLibraryOpened() => _craftingPanel.Close();
+    private void HandleCraftingOpened() => _codeLibraryPanel.Close();
+
+    private void HandleWindowDragMoved(CodeEditorWindowBase window, Vector2 position)
+    {
+        _codeLibraryPanel.SetDropHighlight(_codeLibraryPanel.IsDropTarget(position));
+    }
+
+    /// <summary>
+    /// Окно отпустили над библиотекой — сохраняем его код и возвращаем окно на место.
+    /// </summary>
+    private void HandleWindowDragEnded(CodeEditorWindowBase window, Vector2 position)
+    {
+        _codeLibraryPanel.SetDropHighlight(false);
+        if (!_codeLibraryPanel.IsDropTarget(position)) return;
+
+        window.ReturnToDragStart();
+
+        if (string.IsNullOrWhiteSpace(window.Code))
+        {
+            UIEventBus.PublishNotification($"{window.Title}: nothing to save, the code is empty", LogEntryType.Warning);
+            return;
+        }
+
+        try
+        {
+            bool updated = _codeLibrary.Save(window.Title, window.Code);
+            UIEventBus.PublishNotification(
+                updated ? $"{window.Title} updated in the library" : $"{window.Title} saved to the library",
+                LogEntryType.Success);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            UIEventBus.PublishNotification($"Failed to save {window.Title}: {e.Message}", LogEntryType.Error);
+        }
+    }
+
+    private void HandleOpenSnippetRequested(CodeSnippet snippet)
+    {
+        CreateAuxiliaryWindow(snippet.title, snippet.code);
     }
 
     // ─── Window Management ────────────────────────────────────
@@ -224,6 +294,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _mainWindow.SetPosition(20, 50);
         _mainWindow.OnCodeChanged += HandleCodeChanged;
         _mainWindow.OnAddMethodRequested += CreateAuxiliaryWindow;
+        // Главное окно в библиотеку не сохраняется — на перетаскивание не подписываемся
         _uiManager.RegisterWindow(_mainWindow);
         _windowLayer.Add(_mainWindow);
         _windows.Add(_mainWindow);
@@ -231,8 +302,17 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     public void CreateAuxiliaryWindow()
     {
+        CreateAuxiliaryWindow(null, null);
+    }
+
+    /// <summary>
+    /// Создаёт вспомогательное окно. Название должно быть допустимым и свободным
+    /// Lua-идентификатором — иначе берётся Class_N / добавляется суффикс.
+    /// </summary>
+    public void CreateAuxiliaryWindow(string title, string code)
+    {
         _windowCount++;
-        string title = $"Class_{_windowCount}";
+        title = MakeUniqueTitle(_identifierValidator.IsValid(title) ? title : $"Class_{_windowCount}");
 
         AuxiliaryCodeEditorWindow window = new AuxiliaryCodeEditorWindow(
             $"window_{_windowCount}",
@@ -244,9 +324,31 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         window.SetPosition(20 + offset, 50 + offset);
         window.OnCloseRequested += HandleCloseRequested;
         window.OnCodeChanged += HandleCodeChanged;
+        window.OnDragMoved += HandleWindowDragMoved;
+        window.OnDragEnded += HandleWindowDragEnded;
         _uiManager.RegisterWindow(window);
         _windowLayer.Add(window);
         _windows.Add(window);
+
+        if (!string.IsNullOrEmpty(code))
+            window.SetCode(code);
+    }
+
+    private string MakeUniqueTitle(string title)
+    {
+        if (!IsTitleTaken(title)) return title;
+
+        int suffix = 2;
+        while (IsTitleTaken($"{title}_{suffix}"))
+            suffix++;
+        return $"{title}_{suffix}";
+    }
+
+    private bool IsTitleTaken(string title)
+    {
+        foreach (CodeEditorWindowBase window in _windows)
+            if (window.Title == title) return true;
+        return false;
     }
 
     // ─── Event Handlers ───────────────────────────────────────

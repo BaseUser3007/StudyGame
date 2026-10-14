@@ -98,6 +98,39 @@
     color: rgb(230, 200, 110);
 }
 
+.btn-exit-run {
+    color: rgb(230, 160, 160);
+}
+
+/* ── Health ──────────────────────────────────────────────── */
+.health {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 16px;
+}
+
+.health-bar {
+    width: 90px;
+    height: 10px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    background-color: rgb(45, 30, 30);
+    overflow: hidden;
+}
+
+.health-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgb(200, 70, 70);
+}
+
+.health-label {
+    font-size: 13px;
+    margin-left: 6px;
+    color: rgb(240, 140, 140);
+}
+
 /* ── Energy ──────────────────────────────────────────────── */
 .energy-label {
     font-size: 13px;

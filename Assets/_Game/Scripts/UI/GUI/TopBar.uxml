@@ -10,6 +10,12 @@
             </ui:VisualElement>
             <!-- Центр — Энергия -->
             <ui:VisualElement name="center-section" class="top-bar-section top-bar-center">
+                <ui:VisualElement name="health" class="health">
+                    <ui:VisualElement name="health-bar" class="health-bar">
+                        <ui:VisualElement name="health-fill" class="health-fill"/>
+                    </ui:VisualElement>
+                    <ui:Label name="health-label" class="health-label" text="HP 100 / 100"/>
+                </ui:VisualElement>
                 <ui:Label name="energy-label" class="energy-label" text="Energy: 100 / 100"/>
                 <ui:Label name="program-cost" class="program-cost" text="Cost per pass: 0"/>
             </ui:VisualElement>
@@ -18,6 +24,7 @@
                 <ui:Button name="btn-help"       class="top-bar-btn btn-help" text="Help"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-end-day"    class="top-bar-btn btn-end-day" text="End Day"/>
+                <ui:Button name="btn-exit-run"   class="top-bar-btn btn-exit-run" text="Exit Run" tooltip="Вернуться в лагерь: переносятся только материалы"/>
                 <ui:Button name="btn-simulation" class="top-bar-btn" text="Simulation"/>
             </ui:VisualElement>
         </ui:VisualElement>

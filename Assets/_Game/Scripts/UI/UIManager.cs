@@ -22,6 +22,7 @@ public class UIManager : MonoBehaviour
         _craftingPanel = craftingPanel;
 
         UIEventBus.OnPlayerEnergyChanged += HandlePlayerEnergyChanged;
+        UIEventBus.OnPlayerHealthChanged += HandlePlayerHealthChanged;
         UIEventBus.OnWindowEnergyCostChanged += HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged += HandleInventoryChanged;
         UIEventBus.OnNotificationRequested += HandleNotificationRequested;
@@ -31,6 +32,7 @@ public class UIManager : MonoBehaviour
     private void OnDestroy()
     {
         UIEventBus.OnPlayerEnergyChanged -= HandlePlayerEnergyChanged;
+        UIEventBus.OnPlayerHealthChanged -= HandlePlayerHealthChanged;
         UIEventBus.OnWindowEnergyCostChanged -= HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged -= HandleInventoryChanged;
         UIEventBus.OnNotificationRequested -= HandleNotificationRequested;
@@ -54,6 +56,11 @@ public class UIManager : MonoBehaviour
     private void HandlePlayerEnergyChanged(float current, float max)
     {
         _topBar?.UpdateEnergy(current, max);
+    }
+
+    private void HandlePlayerHealthChanged(float current, float max)
+    {
+        _topBar?.UpdateHealth(current, max);
     }
 
     private void HandleWindowEnergyCostChanged(string windowId, float cost)

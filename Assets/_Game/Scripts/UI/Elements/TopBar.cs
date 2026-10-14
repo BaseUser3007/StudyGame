@@ -7,14 +7,18 @@ public class TopBar : VisualElement
 {
     public event Action OnRunRequested;
     public event Action OnEndDayRequested;
+    public event Action OnExitRunRequested;
     public event Action OnSimulationRequested;
 
     private Label _energyLabel;
+    private Label _healthLabel;
+    private VisualElement _healthFill;
     private Label _programCostLabel;
     private Label _dayLabel;
     private Label _daySummary;
     private Button _btnRun;
     private Button _btnEndDay;
+    private Button _btnExitRun;
     private Button _btnSimulation;
     private CommandHelp _commandHelp;
 
@@ -27,15 +31,20 @@ public class TopBar : VisualElement
         VisualElement root = template.Instantiate();
 
         _energyLabel = root.Q<Label>("energy-label");
+        _healthLabel = root.Q<Label>("health-label");
+        _healthFill = root.Q<VisualElement>("health-fill");
         _programCostLabel = root.Q<Label>("program-cost");
         _dayLabel = root.Q<Label>("day-label");
         _daySummary = root.Q<Label>("day-summary");
         _btnRun = root.Q<Button>("btn-run");
         _btnEndDay = root.Q<Button>("btn-end-day");
+        _btnExitRun = root.Q<Button>("btn-exit-run");
         _btnSimulation = root.Q<Button>("btn-simulation");
 
         Debug.Assert(_dayLabel != null && _daySummary != null, "TopBar: day labels not found");
         Debug.Assert(_btnEndDay != null, "TopBar: btn-end-day not found");
+        Debug.Assert(_btnExitRun != null, "TopBar: btn-exit-run not found");
+        Debug.Assert(_healthLabel != null && _healthFill != null, "TopBar: health elements not found");
 
         Button btnHelp = root.Q<Button>("btn-help");
         VisualElement helpPopup = root.Q<VisualElement>("help-popup");
@@ -65,6 +74,7 @@ public class TopBar : VisualElement
     {
         _btnRun.clicked += () => OnRunRequested?.Invoke();
         _btnEndDay.clicked += () => OnEndDayRequested?.Invoke();
+        _btnExitRun.clicked += () => OnExitRunRequested?.Invoke();
         _btnSimulation.clicked += () => OnSimulationRequested?.Invoke();
     }
 
@@ -87,8 +97,9 @@ public class TopBar : VisualElement
     {
         _btnRun.text = running ? "Stop" : "Run";
         _btnRun.EnableInClassList("btn-stop", running);
-        // Закончить день во время выполнения нельзя
+        // Закончить день или выйти из забега во время выполнения нельзя
         _btnEndDay.SetEnabled(!running);
+        _btnExitRun.SetEnabled(!running);
     }
 
     /// <summary>
@@ -109,6 +120,13 @@ public class TopBar : VisualElement
         _currentEnergy = current;
         _energyLabel.text = $"Energy: {current:0.#} / {Mathf.RoundToInt(max)}";
         RefreshCostWarning();
+    }
+
+    public void UpdateHealth(float current, float max)
+    {
+        _healthLabel.text = $"HP {Mathf.CeilToInt(current)} / {Mathf.RoundToInt(max)}";
+        float fraction = max > 0f ? Mathf.Clamp01(current / max) : 0f;
+        _healthFill.style.width = Length.Percent(fraction * 100f);
     }
 
     private void RefreshCostWarning()

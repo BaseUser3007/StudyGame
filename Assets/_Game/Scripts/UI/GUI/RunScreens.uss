@@ -1,0 +1,167 @@
+/* ── Root ────────────────────────────────────────────────── */
+.run-screens {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* Затемнение под диалогом — перехватывает клики, игра под ним недоступна */
+.screen-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Лагерь закрывает карту целиком */
+.hub-screen {
+    background-color: rgb(22, 24, 28);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.screen-card {
+    background-color: rgba(30, 30, 30, 0.98);
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.hub-card {
+    width: 420px;
+    max-height: 80%;
+}
+
+.dialog-card {
+    width: 360px;
+}
+
+.summary-card {
+    width: 400px;
+    max-height: 80%;
+}
+
+.screen-title {
+    font-size: 18px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    margin-bottom: 8px;
+}
+
+.screen-title--defeat {
+    color: rgb(240, 110, 110);
+}
+
+.screen-text {
+    font-size: 12px;
+    color: rgb(200, 200, 200);
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.screen-text--muted {
+    color: rgb(140, 140, 140);
+}
+
+.screen-section {
+    font-size: 12px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+    margin: 8px 0 4px 0;
+}
+
+.screen-empty {
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    padding: 4px 0;
+}
+
+/* ── Items ───────────────────────────────────────────────── */
+.item-list {
+    flex-shrink: 1;
+    max-height: 260px;
+}
+
+.item-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 1px 0;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background-color: rgb(42, 42, 42);
+}
+
+.item-icon {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.item-name {
+    flex-grow: 1;
+    font-size: 12px;
+    color: rgb(220, 220, 170);
+    padding: 0;
+    margin: 0;
+}
+
+.item-count {
+    font-size: 12px;
+    color: rgb(150, 220, 150);
+    padding: 0;
+    margin: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.screen-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.screen-btn {
+    height: 30px;
+    padding: 0 16px;
+    margin: 8px 0 0 6px;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 13px;
+}
+
+.screen-btn:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+.screen-btn--primary {
+    margin-left: 0;
+    margin-top: 14px;
+    background-color: rgb(50, 100, 50);
+    color: rgb(170, 230, 170);
+}
+
+.screen-btn--primary:hover {
+    background-color: rgb(60, 130, 60);
+}
+
+.screen-btn--danger {
+    background-color: rgb(110, 45, 45);
+    color: rgb(230, 170, 170);
+}
+
+.screen-btn--danger:hover {
+    background-color: rgb(140, 55, 55);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

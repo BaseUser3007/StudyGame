@@ -8,7 +8,7 @@ public enum FogState
     Visible
 }
 
-public class FogOfWarSystem : MonoBehaviour
+public class FogOfWarSystem : MonoBehaviour, IFogProvider
 {
     [SerializeField] private Tilemap fogTilemap;
 

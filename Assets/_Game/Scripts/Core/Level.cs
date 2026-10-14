@@ -7,6 +7,10 @@ public class Level : MonoBehaviour
     [SerializeField] private SpawnPoint spawnPoint;
     [SerializeField] private FogOfWarSystem fogOfWarSystem;
 
+    [Header("Session")]
+    [Tooltip("Первая загрузка сцены открывает лагерь. Выключите, чтобы при отладке сразу начинать забег")]
+    [SerializeField] private bool startInHub = true;
+
     [Header("Player")]
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private PlayerConfig playerConfig;
@@ -74,22 +78,28 @@ public class Level : MonoBehaviour
         // 6. Объекты
         objectManager.Initialize(tilemapGenerator, startTile);
 
-        // 7. Энергия и инвентарь
-        float energyLimit = ((IPlayerDataProvider)playerConfig).BaseEnergyLimit;
-        PlayerEnergy playerEnergy = new PlayerEnergy(energyLimit);
-        PlayerInventory inventory = new PlayerInventory(playerConfig.inventorySlots);
+        // 7. Параметры забега (база из PlayerConfig + постройки лагеря), энергия, здоровье, инвентарь
+        GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
+        MetaProgress progress = GameSession.Progress;
+        RunModifiers modifiers = RunModifiers.Create(playerConfig, progress);
+
+        PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);
+        PlayerHealth playerHealth = new PlayerHealth(modifiers.MaxHealth);
+        PlayerInventory inventory = new PlayerInventory(modifiers.InventorySlots);
+        foreach (ItemStack stack in modifiers.StartingItems)
+            inventory.Add(stack.item, stack.amount);
 
         // 8. Постройки (станции крафта считаются «рядом» в пределах structureInteractionRadius)
         StructureManager structures = new StructureManager(
             tilemapGenerator, executor, playerConfig.structureInteractionRadius);
 
         // 9. День: запуски кода, восстановление энергии, штраф/бонус к максимуму
-        DayCycle dayCycle = new DayCycle(playerConfig, playerEnergy, structures);
+        DayCycle dayCycle = new DayCycle(playerConfig, modifiers, playerEnergy, structures);
 
         // 10. Lua песочница
         luaSandbox.Initialize(
-            executor, tilemapGenerator, energyConfig, objectManager, playerEnergy, inventory, recipeBook,
-            structures, playerConfig.structureInteractionRadius, dayCycle);
+            executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
+            inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle);
         dayCycle.Attach(luaSandbox);
 
         // 11. UI
@@ -99,8 +109,15 @@ public class Level : MonoBehaviour
 
         // UI подписан — показываем начальное состояние
         playerEnergy.Publish();
+        playerHealth.Publish();
         inventory.Publish();
         dayCycle.Publish();
+
+        // 12. Лагерь / забег: выход из забега, поражение, переход в лагерь
+        RunController runController = new RunController(
+            mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
+            dayCycle, progress);
+        runController.Start();
     }
 
     private GameObject SpawnPlayer(Vector2Int tile)

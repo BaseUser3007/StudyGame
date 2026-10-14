@@ -31,6 +31,12 @@ public abstract class ResourceItem : ScriptableObject
     public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
 
     /// <summary>
+    /// Материал переносится из забега на склад хаба. Инструменты, оружие, постройки и еда — нет:
+    /// их каждый забег нужно делать заново.
+    /// </summary>
+    public virtual bool IsMaterial => false;
+
+    /// <summary>
     /// Иконка для UI: спрайт префаба (iconPrefab или, у построек, сам префаб постройки),
     /// иначе запасной sprite. Везде в интерфейсе используйте её, а не sprite напрямую.
     /// </summary>

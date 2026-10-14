@@ -1,0 +1,45 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="RunScreens.uss"/>
+    <ui:VisualElement name="run-screens" class="run-screens" picking-mode="Ignore">
+
+        <!-- Лагерь (хаб): склад материалов и старт забега. Поле с постройками — этап 4 -->
+        <ui:VisualElement name="hub-screen" class="screen-backdrop hub-screen hidden">
+            <ui:VisualElement class="screen-card hub-card">
+                <ui:Label class="screen-title" text="Лагерь"/>
+                <ui:Label name="hub-stats" class="screen-text" text=""/>
+                <ui:Label class="screen-section" text="Склад материалов"/>
+                <ui:ScrollView name="hub-materials" class="item-list"/>
+                <ui:Label name="hub-materials-empty" class="screen-empty" text="Пока пусто — материалы приносят из забегов"/>
+                <ui:Button name="btn-start-run" class="screen-btn screen-btn--primary" text="Начать забег"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Подтверждение выхода из забега -->
+        <ui:VisualElement name="exit-confirm" class="screen-backdrop hidden">
+            <ui:VisualElement class="screen-card dialog-card">
+                <ui:Label class="screen-title" text="Выйти из забега?"/>
+                <ui:Label class="screen-text" text="В лагерь перенесутся только материалы. Инструменты, постройки и еда останутся здесь."/>
+                <ui:VisualElement class="screen-buttons">
+                    <ui:Button name="btn-exit-cancel" class="screen-btn" text="Остаться"/>
+                    <ui:Button name="btn-exit-confirm" class="screen-btn screen-btn--danger" text="Выйти"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Итоги забега (выход или поражение) -->
+        <ui:VisualElement name="run-summary" class="screen-backdrop hidden">
+            <ui:VisualElement class="screen-card summary-card">
+                <ui:Label name="summary-title" class="screen-title" text="Забег завершён"/>
+                <ui:Label name="summary-stats" class="screen-text" text=""/>
+                <ui:Label class="screen-section" text="Переносится в лагерь"/>
+                <ui:ScrollView name="summary-loot" class="item-list"/>
+                <ui:Label name="summary-loot-empty" class="screen-empty" text="Ничего"/>
+                <ui:Label name="summary-lost" class="screen-text screen-text--muted" text=""/>
+                <ui:Label class="screen-section" text="Достижения"/>
+                <ui:Label name="summary-achievements" class="screen-empty" text="—"/>
+                <ui:Button name="btn-to-hub" class="screen-btn screen-btn--primary" text="В лагерь"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

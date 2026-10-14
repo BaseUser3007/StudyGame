@@ -8,6 +8,9 @@ public abstract class CodeEditorWindowBase : VisualElement
     public event Action<CodeEditorWindowBase> OnCloseRequested;
     public event Action<CodeEditorWindowBase, string> OnCodeChanged;
     public event Action<CodeEditorWindowBase, string> OnTitleChanged;
+    // Перетаскивание за заголовок: позиция курсора в координатах панели
+    public event Action<CodeEditorWindowBase, Vector2> OnDragMoved;
+    public event Action<CodeEditorWindowBase, Vector2> OnDragEnded;
 
     // ─── Данные ───────────────────────────────────────────────
     public string WindowId { get; private set; }
@@ -77,7 +80,11 @@ public abstract class CodeEditorWindowBase : VisualElement
         _codeEditor.OnCodeChanged += code => OnCodeChanged?.Invoke(this, code);
 
         if (header != null)
+        {
             _dragger = new WindowDragger(_window, header);
+            _dragger.OnDragMoved += position => OnDragMoved?.Invoke(this, position);
+            _dragger.OnDragEnded += position => OnDragEnded?.Invoke(this, position);
+        }
 
         if (resizeHandle != null)
             _resizer = new WindowResizer(_window, resizeHandle);
@@ -105,6 +112,14 @@ public abstract class CodeEditorWindowBase : VisualElement
     {
         _window.style.left = left;
         _window.style.top = top;
+    }
+
+    /// <summary>
+    /// Возвращает окно на место, откуда его начали перетаскивать.
+    /// </summary>
+    public void ReturnToDragStart()
+    {
+        _dragger?.ReturnToStart();
     }
 
     public void DestroyWindow()

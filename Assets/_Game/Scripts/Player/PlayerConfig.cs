@@ -1,5 +1,20 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
+/// <summary>
+/// Предмет и количество (стартовый инвентарь и т.п.).
+/// </summary>
+[System.Serializable]
+public struct ItemStack
+{
+    public ResourceItem item;
+    [Min(1)] public int amount;
+}
+
+/// <summary>
+/// Базовые параметры игрока. То, что меняют постройки хаба (лимит энергии, слоты, запуски,
+/// здоровье, день угрозы, стартовые предметы), читается не отсюда, а из RunModifiers.
+/// </summary>
 [CreateAssetMenu(fileName = "PlayerConfig", menuName = "CodeRogue/Player/PlayerConfig")]
 public class PlayerConfig : ScriptableObject, IPlayerDataProvider
 {
@@ -9,6 +24,14 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
 
     [Tooltip("Если персонаж упёрся и столько секунд не приближается к цели, команда движения завершается")]
     [Min(0.1f)] public float stuckTimeout = 2f;
+
+    [Header("Health")]
+    [Tooltip("Здоровье в начале забега; 0 — поражение, материалы забега теряются")]
+    [Min(1f)] public float maxHealth = 100f;
+
+    [Header("Run")]
+    [Tooltip("С этого дня на карте появляются патрули врагов (мировая угроза)")]
+    [Min(1)] public int threatDay = 3;
 
     [Header("Day")]
     [Tooltip("Сколько раз за день можно запустить код; после последнего запуска день заканчивается")]
@@ -34,8 +57,9 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
 
     [Header("Inventory")]
     public int inventorySlots = 10;
+    [Tooltip("С чем игрок начинает каждый забег")]
+    public List<ItemStack> startingItems = new List<ItemStack>();
 
     // ─── IPlayerDataProvider ──────────────────────────────────
     int IPlayerDataProvider.VisionRadius => visionRadius;
-    float IPlayerDataProvider.BaseEnergyLimit => baseEnergyLimit;
 }

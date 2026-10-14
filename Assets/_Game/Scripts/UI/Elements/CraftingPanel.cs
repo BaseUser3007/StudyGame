@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -28,6 +29,8 @@ public class CraftingPanel : VisualElement
     private Label _detailsCode;
 
     private CraftRecipe _selected;
+
+    public event Action OnOpened;
 
     public CraftingPanel(VisualTreeAsset template, IReadOnlyList<CraftRecipe> recipes, IStationProvider stations)
     {
@@ -106,6 +109,9 @@ public class CraftingPanel : VisualElement
 
         _panel.EnableInClassList("hidden", !open);
         _btnToggle.EnableInClassList("craft-toggle-btn--active", open);
+
+        if (open)
+            OnOpened?.Invoke();
     }
 
     public void Close()

@@ -500,6 +500,8 @@ MonoBehaviour:
   topBarTemplate: {fileID: 9197481963319205126, guid: 25b9b269c58159545a6695a42e6cb5a7, type: 3}
   inventoryBarTemplate: {fileID: 9197481963319205126, guid: 965db45b56624bbd8cbf726303c9d329, type: 3}
   craftingPanelTemplate: {fileID: 9197481963319205126, guid: 619d41a54853441eb8714833c224ddc6, type: 3}
+  codeLibraryTemplate: {fileID: 9197481963319205126, guid: 2a81a5e90cd44ecd85c06235afca25de, type: 3}
+  runScreensTemplate: {fileID: 9197481963319205126, guid: 23951df0683f4bf29736ba2597d77084, type: 3}
   theme: {fileID: 11400000, guid: 3ba8cfbb857b59e43aa6df2eb23811af, type: 2}
 --- !u!114 &655539406
 MonoBehaviour:

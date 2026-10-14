@@ -17,9 +17,11 @@ public class LuaSandbox : MonoBehaviour
 
     private PlayerCommandExecutor _executor;
     private IMapDataProvider _mapData;
+    private IFogProvider _fog;
     private EnergyConfig _energyConfig;
     private ObjectManager _objectManager;
     private PlayerEnergy _playerEnergy;
+    private PlayerHealth _playerHealth;
     private PlayerInventory _inventory;
     private RecipeBook _recipeBook;
     private StructureManager _structures;
@@ -45,9 +47,11 @@ public class LuaSandbox : MonoBehaviour
     public void Initialize(
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
+        IFogProvider fog,
         EnergyConfig energyConfig,
         ObjectManager objectManager,
         PlayerEnergy playerEnergy,
+        PlayerHealth playerHealth,
         PlayerInventory inventory,
         RecipeBook recipeBook,
         StructureManager structures,
@@ -56,9 +60,11 @@ public class LuaSandbox : MonoBehaviour
     {
         _executor = executor;
         _mapData = mapData;
+        _fog = fog;
         _energyConfig = energyConfig;
         _objectManager = objectManager;
         _playerEnergy = playerEnergy;
+        _playerHealth = playerHealth;
         _inventory = inventory;
         _recipeBook = recipeBook;
         _structures = structures;
@@ -90,6 +96,7 @@ public class LuaSandbox : MonoBehaviour
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
         _registry.RegisterCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
+        _registry.RegisterCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures));
         _registry.RegisterCommand(new HarvestCommand(_executor, _mapData, harvester));
         _registry.RegisterCommand(new MineCommand(_executor, _mapData, harvester));
 
@@ -106,8 +113,8 @@ public class LuaSandbox : MonoBehaviour
         _registry.RegisterCommand(new DropCommand(_executor, _mapData, _inventory, _objectManager));
         _registry.RegisterCommand(new GetInventoryCommand(_inventory));
 
-        // Состояние дня и энергии
-        _registry.RegisterCommand(new GetStatusCommand(_playerEnergy, _dayCycle));
+        // Состояние дня, энергии и здоровья
+        _registry.RegisterCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
 
         // Добавляй новые команды здесь ↓
     }

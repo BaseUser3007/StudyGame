@@ -24,7 +24,7 @@ public class DayCycleTests
         _config = ScriptableObject.CreateInstance<PlayerConfig>();
         _energy = new PlayerEnergy(_config.baseEnergyLimit);
         _bed = new FakeBed();
-        _day = new DayCycle(_config, _energy, _bed);
+        _day = new DayCycle(_config, RunModifiers.Create(_config, new MetaProgress()), _energy, _bed);
     }
 
     [Test]
