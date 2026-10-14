@@ -24,4 +24,4 @@ MonoBehaviour:
   startingConstructs:
   - local
   - if
-  unlockAll: 0
+  unlockAll: 1
