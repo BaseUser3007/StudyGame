@@ -35,7 +35,7 @@ public class EnergyInstrumenter
         if (string.IsNullOrEmpty(code)) return code;
 
         List<LuaTokenizer.Token> tokens = _tokenizer.Tokenize(code);
-        if (!Covers(tokens, code))
+        if (!LuaTokenizer.Reassembles(tokens, code))
         {
             // Токенизатор не смог разобрать код целиком — запускаем как есть, чтобы не сломать его
             Debug.LogWarning("EnergyInstrumenter: code could not be tokenized exactly, running without energy metering");
@@ -128,18 +128,5 @@ public class EnergyInstrumenter
     private static string Format(float value)
     {
         return value.ToString("0.###", CultureInfo.InvariantCulture);
-    }
-
-    private static bool Covers(List<LuaTokenizer.Token> tokens, string code)
-    {
-        int length = 0;
-        foreach (LuaTokenizer.Token token in tokens)
-            length += token.Value.Length;
-        if (length != code.Length) return false;
-
-        var sb = new StringBuilder(code.Length);
-        foreach (LuaTokenizer.Token token in tokens)
-            sb.Append(token.Value);
-        return sb.ToString() == code;
     }
 }

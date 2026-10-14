@@ -5,6 +5,8 @@ public class CodeEditorTheme : ScriptableObject
 {
     [Header("Syntax Highlighting Colors")]
     public Color keywordColor = new Color(0.86f, 0.47f, 0.25f);
+    [Tooltip("Ключевые слова закрытых конструкций языка (for, while, function…)")]
+    public Color lockedKeywordColor = new Color(0.62f, 0.32f, 0.32f);
     public Color apiColor = new Color(0.40f, 0.78f, 0.94f);
     public Color stringColor = new Color(0.60f, 0.85f, 0.45f);
     public Color commentColor = new Color(0.53f, 0.53f, 0.53f);

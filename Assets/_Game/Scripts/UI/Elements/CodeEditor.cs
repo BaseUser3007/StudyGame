@@ -351,6 +351,7 @@ public class CodeEditor
 
         List<CompletionItem> items = _context.Completion.GetCompletions(
             Code, CursorIndex, forced);
+        RemoveLockedKeywords(items);
 
         if (items.Count == 0)
         {
@@ -359,6 +360,43 @@ public class CodeEditor
         }
 
         _popup.Show(items, GetPopupPosition(CursorIndex));
+    }
+
+    /// <summary>
+    /// Ключевые слова и шаблоны закрытых конструкций не предлагаем: шаблон убирается, если любое слово
+    /// в его названии или вставляемом тексте закрыто (например, «local function» при закрытом function).
+    /// </summary>
+    private void RemoveLockedKeywords(List<CompletionItem> items)
+    {
+        if (_context.IsKeywordLocked == null) return;
+
+        items.RemoveAll(item =>
+        {
+            if (item.Kind != CompletionKind.Keyword && item.Kind != CompletionKind.Snippet) return false;
+            return HasLockedWord(item.Label) || HasLockedWord(item.InsertText);
+        });
+    }
+
+    private bool HasLockedWord(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (!char.IsLetter(text[i]) && text[i] != '_')
+            {
+                i++;
+                continue;
+            }
+
+            int start = i;
+            while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '_'))
+                i++;
+            if (_context.IsKeywordLocked(text.Substring(start, i - start))) return true;
+        }
+
+        return false;
     }
 
     private Vector2 GetPopupPosition(int cursorIndex)
@@ -526,6 +564,16 @@ public class CodeEditor
     {
         if (_codeField == null) return;
         _codeField.value = code;
+        Refresh();
+    }
+
+    /// <summary>
+    /// Перерисовывает подсветку и цены строк без изменения кода и курсора
+    /// (например, после открытия команды или конструкции).
+    /// </summary>
+    public void RefreshView()
+    {
+        if (_codeField == null) return;
         Refresh();
     }
 }

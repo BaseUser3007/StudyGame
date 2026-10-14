@@ -381,6 +381,10 @@ MonoBehaviour:
   mainCamera: {fileID: 519420031}
   followSpeed: 5
   panSpeed: 10
+  zoomStep: 0.15
+  minZoom: 2
+  maxZoom: 12
+  zoomSmoothSpeed: 10
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -617,6 +621,7 @@ MonoBehaviour:
   tilemapGenerator: {fileID: 333395313}
   spawnPoint: {fileID: 2100646462}
   fogOfWarSystem: {fileID: 2062329972}
+  startInHub: 1
   playerPrefab: {fileID: 6879806837283571209, guid: 9276c80ce9931a54e8fa52031750071f, type: 3}
   playerConfig: {fileID: 11400000, guid: 2eced05f7cae29e4d9481813334997cb, type: 2}
   cameraController: {fileID: 519420033}
@@ -624,6 +629,7 @@ MonoBehaviour:
   recipeBook: {fileID: 11400000, guid: 4c6f87a956204f5e9350bbd8079becbe, type: 2}
   luaSandbox: {fileID: 427823870}
   energyConfig: {fileID: 11400000, guid: 926d6cba6aff6f748bb67fb43261e229, type: 2}
+  unlockConfig: {fileID: 11400000, guid: 5e9632ab30adae646b23387af9dc4d54, type: 2}
   codeEditorManager: {fileID: 655539405}
   uiManager: {fileID: 701634680}
 --- !u!4 &731203615

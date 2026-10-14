@@ -108,6 +108,14 @@ public abstract class CodeEditorWindowBase : VisualElement
         _codeEditor?.SetCode(code);
     }
 
+    /// <summary>
+    /// Перерисовать подсветку и цены строк (код и курсор не меняются).
+    /// </summary>
+    public void RefreshEditor()
+    {
+        _codeEditor?.RefreshView();
+    }
+
     public void SetPosition(float left, float top)
     {
         _window.style.left = left;

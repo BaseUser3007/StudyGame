@@ -15,6 +15,9 @@
 
                 <ui:Label name="drop-hint" class="library-drop-hint" text="Перетащите окно за заголовок сюда, чтобы сохранить его код"/>
 
+                <!-- Показывается, пока окна-«классы» закрыты: записи нельзя открыть как окна -->
+                <ui:Label name="locked-note" class="library-locked-note hidden" text="Окна-классы ещё не открыты: записи хранятся, но открыть их как окна пока нельзя"/>
+
                 <!-- Сохранённые фрагменты: заполняется из кода -->
                 <ui:ScrollView name="snippet-list" class="snippet-list"/>
                 <ui:Label name="list-empty" class="library-empty" text="Пока ничего не сохранено"/>

@@ -86,13 +86,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         // Справка выпадает из верхней панели справа — поверх панели крафта
         _topBar.BringToFront();
-        _topBar.BuildCommandHelp(_luaSandbox.Registry.GetAllCommands(), _luaSandbox.EnergyConfig);
+        RebuildCommandHelp();
+        ApplyClassesAvailability();
 
         // Лагерь, диалоги и итоги забега — поверх всего, включая верхнюю панель
         _runScreens = new RunScreens(runScreensTemplate);
         _container.Add(_runScreens);
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
+        _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
     }
 
     /// <summary>
@@ -126,22 +128,49 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         LuaCommandRegistry registry = _luaSandbox.Registry;
 
-        var apiNames = new List<string>();
-        foreach (ILuaCommand command in registry.GetAllCommands())
-            apiNames.Add(command.Name);
-        // Методы массива findObjects
-        foreach (var method in LuaObjectList.Methods)
-            apiNames.Add(method.Name);
-
+        // Реестр читается на каждом запросе — открытые позже команды появляются сами
         var completion = new LuaCompletionProvider(
             registry.GetAllCommands,
             GetWindowFunctionNames);
 
         return new CodeEditorContext(
             theme,
-            new LuaSyntaxHighlighter(theme, apiNames),
+            new LuaSyntaxHighlighter(theme, BuildApiNames(), IsKeywordLocked),
             completion,
-            _luaSandbox.CalculateLineCosts);
+            _luaSandbox.CalculateLineCosts,
+            IsKeywordLocked);
+    }
+
+    /// <summary>
+    /// Имена, которые подсвечиваются как API: открытые команды и методы массива findObjects.
+    /// </summary>
+    private List<string> BuildApiNames()
+    {
+        var apiNames = new List<string>();
+        foreach (ILuaCommand command in _luaSandbox.Registry.GetAllCommands())
+            apiNames.Add(command.Name);
+        foreach (var method in LuaObjectList.Methods)
+            apiNames.Add(method.Name);
+        return apiNames;
+    }
+
+    /// <summary>
+    /// Ключевое слово относится к ещё закрытой конструкции языка (for, while, function…).
+    /// </summary>
+    private bool IsKeywordLocked(string keyword)
+    {
+        UnlockRegistry unlocks = _luaSandbox.Unlocks;
+        if (LuaConstructs.IsForbiddenKeyword(keyword)) return true;
+        if (unlocks == null) return false;
+
+        string id = LuaConstructs.GetConstructForKeyword(keyword);
+        return id != null && !unlocks.IsConstructUnlocked(id);
+    }
+
+    private bool AreClassesUnlocked()
+    {
+        UnlockRegistry unlocks = _luaSandbox.Unlocks;
+        return unlocks == null || unlocks.IsConstructUnlocked(LuaConstructs.Classes);
     }
 
     private IEnumerable<string> GetWindowFunctionNames()
@@ -157,7 +186,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         PlayerEventBus.OnUIUnfocused -= HandleUIUnfocused;
 
         if (_luaSandbox != null)
+        {
             _luaSandbox.OnRunningChanged -= HandleRunningChanged;
+            _luaSandbox.OnUnlocksApplied -= HandleUnlocksApplied;
+        }
     }
 
     private void HandleUIFocused() => _isUIFocused = true;
@@ -311,6 +343,14 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     /// </summary>
     public void CreateAuxiliaryWindow(string title, string code)
     {
+        // Кнопки создания скрыты/выключены, но проверяем и здесь
+        if (!AreClassesUnlocked())
+        {
+            UIEventBus.PublishNotification(
+                $"{LuaConstructs.GetDisplayName(LuaConstructs.Classes)} are not unlocked yet", LogEntryType.Warning);
+            return;
+        }
+
         _windowCount++;
         title = MakeUniqueTitle(_identifierValidator.IsValid(title) ? title : $"Class_{_windowCount}");
 
@@ -355,11 +395,54 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     private void HandleCodeChanged(CodeEditorWindowBase changedWindow, string newCode)
     {
-        float cost = _luaSandbox.CalculateEnergyCost(
-            new Dictionary<string, string> { { changedWindow.Title, newCode } });
-
-        UIEventBus.PublishWindowEnergyCostChanged(changedWindow.WindowId, cost);
+        PublishWindowCost(changedWindow, newCode);
         UpdateProgramCost();
+    }
+
+    private void PublishWindowCost(CodeEditorWindowBase window, string code)
+    {
+        float cost = _luaSandbox.CalculateEnergyCost(
+            new Dictionary<string, string> { { window.Title, code } });
+
+        UIEventBus.PublishWindowEnergyCostChanged(window.WindowId, cost);
+    }
+
+    // ─── Открытия ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Открылась команда или конструкция (песочница уже обновила реестр, код не выполняется):
+    /// всё, что построено из реестра и открытий, перестраивается.
+    /// Автодополнение читает реестр на каждом запросе — его трогать не нужно.
+    /// </summary>
+    private void HandleUnlocksApplied()
+    {
+        _context.Highlighter.SetApiNames(BuildApiNames());
+        RebuildCommandHelp();
+        ApplyClassesAvailability();
+
+        // Подсветка (новые команды, открытые ключевые слова) и цены строк/окон
+        foreach (CodeEditorWindowBase window in _windows)
+        {
+            window.RefreshEditor();
+            PublishWindowCost(window, window.Code);
+        }
+        UpdateProgramCost();
+    }
+
+    private void RebuildCommandHelp()
+    {
+        _topBar.BuildCommandHelp(
+            _luaSandbox.Registry.GetAllCommands(), _luaSandbox.EnergyConfig, _luaSandbox.Unlocks);
+    }
+
+    /// <summary>
+    /// Окна-«классы» закрыты — нельзя создать доп. окно ни кнопкой «+», ни из библиотеки.
+    /// </summary>
+    private void ApplyClassesAvailability()
+    {
+        bool available = AreClassesUnlocked();
+        _mainWindow?.SetAddMethodAvailable(available);
+        _codeLibraryPanel?.SetSnippetOpeningAvailable(available);
     }
 
     /// <summary>

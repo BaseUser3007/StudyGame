@@ -84,6 +84,33 @@ public static class TestHelpers
         return number;
     }
 
+    // ─── Сохранения ───────────────────────────────────────────
+
+    /// <summary>
+    /// Временная папка для файлов сохранений: MetaProgress пишет сюда, а не в persistentDataPath игрока.
+    /// Вызывай Dispose в TearDown — папка удаляется целиком.
+    /// </summary>
+    public sealed class TempSaveFolder : System.IDisposable
+    {
+        public readonly string Folder;
+
+        public TempSaveFolder()
+        {
+            Folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "CodeRogueTests_" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(Folder);
+        }
+
+        public string PathOf(string fileName) => System.IO.Path.Combine(Folder, fileName);
+
+        public MetaProgress Progress(string fileName = "meta_progress.json") => new MetaProgress(PathOf(fileName));
+
+        public void Dispose()
+        {
+            if (System.IO.Directory.Exists(Folder))
+                System.IO.Directory.Delete(Folder, true);
+        }
+    }
+
     // ─── Ассеты ───────────────────────────────────────────────
 
     public static T Load<T>(string path) where T : Object

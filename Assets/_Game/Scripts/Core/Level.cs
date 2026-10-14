@@ -27,6 +27,8 @@ public class Level : MonoBehaviour
     [Header("Lua")]
     [SerializeField] private LuaSandbox luaSandbox;
     [SerializeField] private EnergyConfig energyConfig;
+    [Tooltip("Стартовые команды и конструкции языка; остальное открывается мета-прогрессом")]
+    [SerializeField] private UnlockConfig unlockConfig;
 
     [Header("UI")]
     [SerializeField] private CodeEditorManager codeEditorManager;
@@ -50,6 +52,7 @@ public class Level : MonoBehaviour
         Debug.Assert(recipeBook != null, "Level: recipeBook is not assigned");
         Debug.Assert(luaSandbox != null, "Level: LuaSandbox is not assigned");
         Debug.Assert(energyConfig != null, "Level: energyConfig is not assigned");
+        Debug.Assert(unlockConfig != null, "Level: unlockConfig is not assigned");
         Debug.Assert(codeEditorManager != null, "Level: CodeEditorManager is not assigned");
         Debug.Assert(uiManager != null, "Level: UIManager is not assigned");
     }
@@ -78,10 +81,11 @@ public class Level : MonoBehaviour
         // 6. Объекты
         objectManager.Initialize(tilemapGenerator, startTile);
 
-        // 7. Параметры забега (база из PlayerConfig + постройки лагеря), энергия, здоровье, инвентарь
+        // 7. Параметры забега (база из PlayerConfig + постройки лагеря), открытия, энергия, здоровье, инвентарь
         GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
         MetaProgress progress = GameSession.Progress;
         RunModifiers modifiers = RunModifiers.Create(playerConfig, progress);
+        UnlockRegistry unlocks = new UnlockRegistry(unlockConfig, progress);
 
         PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);
         PlayerHealth playerHealth = new PlayerHealth(modifiers.MaxHealth);
@@ -99,7 +103,7 @@ public class Level : MonoBehaviour
         // 10. Lua песочница
         luaSandbox.Initialize(
             executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
-            inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle);
+            inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks);
         dayCycle.Attach(luaSandbox);
 
         // 11. UI

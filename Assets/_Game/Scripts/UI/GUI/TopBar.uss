@@ -266,6 +266,16 @@
     margin: 0;
 }
 
+/* Закрытая конструкция языка: приглушённо, вместо цены — locked */
+.help-keyword-row--locked .help-keyword {
+    color: rgb(120, 110, 125);
+}
+
+.help-keyword-row--locked .help-cost {
+    color: rgb(170, 100, 100);
+    -unity-font-style: italic;
+}
+
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden {
     display: none;

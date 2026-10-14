@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -6,12 +7,16 @@ using UnityEngine;
 /// Превращает Lua код в rich text с цветами из CodeEditorTheme.
 /// Текст после подсветки должен совпадать с исходным символ в символ —
 /// он рисуется под прозрачным текстом поля ввода.
+/// Ключевые слова закрытых конструкций языка рисуются отдельным цветом (lockedKeywordColor).
 /// </summary>
 public class LuaSyntaxHighlighter
 {
-    private readonly HashSet<string> _apiNames;
+    private HashSet<string> _apiNames;
+    // Ключевое слово закрыто (конструкция ещё не открыта). Null — всё открыто
+    private readonly Func<string, bool> _isKeywordLocked;
 
     private readonly string _keywordColor;
+    private readonly string _lockedKeywordColor;
     private readonly string _apiColor;
     private readonly string _stringColor;
     private readonly string _commentColor;
@@ -20,11 +25,14 @@ public class LuaSyntaxHighlighter
 
     private readonly LuaTokenizer _tokenizer = new LuaTokenizer();
 
-    public LuaSyntaxHighlighter(CodeEditorTheme theme, IEnumerable<string> apiNames)
+    public LuaSyntaxHighlighter(
+        CodeEditorTheme theme, IEnumerable<string> apiNames, Func<string, bool> isKeywordLocked = null)
     {
         _apiNames = new HashSet<string>(apiNames);
+        _isKeywordLocked = isKeywordLocked;
 
         _keywordColor = ColorToHex(theme.keywordColor);
+        _lockedKeywordColor = ColorToHex(theme.lockedKeywordColor);
         _apiColor = ColorToHex(theme.apiColor);
         _stringColor = ColorToHex(theme.stringColor);
         _commentColor = ColorToHex(theme.commentColor);
@@ -33,6 +41,14 @@ public class LuaSyntaxHighlighter
     }
 
     // ─── Public API ───────────────────────────────────────────
+
+    /// <summary>
+    /// Заменяет список имён API (открылись новые команды). Открытые окна нужно перерисовать.
+    /// </summary>
+    public void SetApiNames(IEnumerable<string> apiNames)
+    {
+        _apiNames = new HashSet<string>(apiNames);
+    }
 
     public string Highlight(string code)
     {
@@ -63,7 +79,10 @@ public class LuaSyntaxHighlighter
     {
         switch (token.Type)
         {
-            case LuaTokenizer.TokenType.Keyword: return _keywordColor;
+            case LuaTokenizer.TokenType.Keyword:
+                return _isKeywordLocked != null && _isKeywordLocked(token.Value)
+                    ? _lockedKeywordColor
+                    : _keywordColor;
             case LuaTokenizer.TokenType.String: return _stringColor;
             case LuaTokenizer.TokenType.Comment: return _commentColor;
             case LuaTokenizer.TokenType.Number: return _numberColor;

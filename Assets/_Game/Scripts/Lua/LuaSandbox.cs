@@ -12,6 +12,16 @@ public class LuaSandbox : MonoBehaviour
     public event Action<string, LogEntryType> OnLogMessage;
     public event Action<bool> OnRunningChanged;
 
+    /// <summary>
+    /// Открытия применены: в реестре появились команды и/или открылась конструкция языка.
+    /// UI перечитывает справку, подсветку, автодополнение и цены строк. Во время выполнения кода
+    /// новые команды подключаются после его окончания — тогда же приходит событие.
+    /// </summary>
+    public event Action OnUnlocksApplied;
+
+    /// <summary>Имя главного окна в сообщениях об ошибках и в чанке Lua.</summary>
+    public const string MainChunkName = "Main";
+
     [Tooltip("Если главный поток заблокирован Lua-кодом дольше этого времени, выполнение прерывается")]
     [SerializeField] private float freezeTimeoutSeconds = 3f;
 
@@ -27,9 +37,14 @@ public class LuaSandbox : MonoBehaviour
     private StructureManager _structures;
     private float _buildReach;
     private DayCycle _dayCycle;
+    private UnlockRegistry _unlocks;
 
     private LuaState _state;
+    // Все команды игры; в _registry (и в Lua) попадают только открытые
+    private readonly List<ILuaCommand> _allCommands = new List<ILuaCommand>();
     private LuaCommandRegistry _registry;
+    private LuaConstructGuard _constructGuard;
+    private bool _unlocksPending;
     private EnergyCounter _energyCounter;
     private EnergyInstrumenter _instrumenter;
     private EnergyMeter _meter;
@@ -56,7 +71,8 @@ public class LuaSandbox : MonoBehaviour
         RecipeBook recipeBook,
         StructureManager structures,
         float buildReach,
-        DayCycle dayCycle)
+        DayCycle dayCycle,
+        UnlockRegistry unlocks)
     {
         _executor = executor;
         _mapData = mapData;
@@ -70,10 +86,19 @@ public class LuaSandbox : MonoBehaviour
         _structures = structures;
         _buildReach = buildReach;
         _dayCycle = dayCycle;
+        _unlocks = unlocks;
+        UnityEngine.Debug.Assert(_unlocks != null, "LuaSandbox: UnlockRegistry is not assigned");
 
         _registry = new LuaCommandRegistry();
+        _constructGuard = new LuaConstructGuard(_unlocks);
 
         RegisterCommands();
+        ValidateStartingCommands();
+
+        var commandNames = new List<string>();
+        foreach (ILuaCommand command in _allCommands)
+            commandNames.Add(command.Name);
+        _unlocks.SetKnownCommands(commandNames);
 
         _energyCounter = new EnergyCounter(_energyConfig, _registry);
         _instrumenter = new EnergyInstrumenter(_energyConfig);
@@ -81,49 +106,86 @@ public class LuaSandbox : MonoBehaviour
         _meter.OnExhausted += HandleEnergyExhausted;
 
         CreateLuaState();
+
+        _unlocks.OnUnlocked += HandleUnlocked;
     }
 
     private void RegisterCommands()
     {
         // Движение
-        _registry.RegisterCommand(new MoveCommand(_executor, _mapData));
-        _registry.RegisterCommand(new MoveToCommand(_executor, _mapData));
-        _registry.RegisterCommand(new GetPositionCommand(_executor, _mapData));
+        AddCommand(new MoveCommand(_executor, _mapData));
+        AddCommand(new MoveToCommand(_executor, _mapData));
+        AddCommand(new GetPositionCommand(_executor, _mapData));
 
         // Авто команды
-        _registry.RegisterCommand(new AutoExploreCommand(_executor, _mapData));
+        AddCommand(new AutoExploreCommand(_executor, _mapData));
 
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
-        _registry.RegisterCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
-        _registry.RegisterCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures));
-        _registry.RegisterCommand(new HarvestCommand(_executor, _mapData, harvester));
-        _registry.RegisterCommand(new MineCommand(_executor, _mapData, harvester));
+        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
+        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures));
+        AddCommand(new HarvestCommand(_executor, _mapData, harvester));
+        AddCommand(new MineCommand(_executor, _mapData, harvester));
 
         // Готовые команды: удобнее, но дороже самописного аналога
-        _registry.RegisterCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
+        AddCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
 
         // Крафт
-        _registry.RegisterCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory, _structures));
+        AddCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory, _structures));
 
         // Постройки
-        _registry.RegisterCommand(new BuildCommand(_executor, _mapData, _inventory, _structures, _buildReach));
+        AddCommand(new BuildCommand(_executor, _mapData, _inventory, _structures, _buildReach));
 
         // Инвентарь
-        _registry.RegisterCommand(new DropCommand(_executor, _mapData, _inventory, _objectManager));
-        _registry.RegisterCommand(new GetInventoryCommand(_inventory));
+        AddCommand(new DropCommand(_executor, _mapData, _inventory, _objectManager));
+        AddCommand(new GetInventoryCommand(_inventory));
 
         // Состояние дня, энергии и здоровья
-        _registry.RegisterCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
+        AddCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
 
-        // Добавляй новые команды здесь ↓
+        // Добавляй новые команды здесь ↓ (открытость задаётся UnlockConfig / MetaProgress)
+    }
+
+    /// <summary>
+    /// Команда известна игре; в реестр (а значит, в Lua, справку, подсветку, автодополнение
+    /// и EnergyCounter) она попадает, только если открыта.
+    /// </summary>
+    private void AddCommand(ILuaCommand command)
+    {
+        _allCommands.Add(command);
+        if (_unlocks.IsCommandUnlocked(command.Name))
+            _registry.RegisterCommand(command);
+    }
+
+    /// <summary>
+    /// Опечатка в UnlockConfig молча закрыла бы команду — предупреждаем.
+    /// </summary>
+    private void ValidateStartingCommands()
+    {
+        foreach (string name in _unlocks.StartingCommands)
+            if (FindCommand(name) == null)
+                UnityEngine.Debug.LogWarning($"LuaSandbox: UnlockConfig lists unknown command '{name}'");
+    }
+
+    private ILuaCommand FindCommand(string name)
+    {
+        foreach (ILuaCommand command in _allCommands)
+            if (command.Name == name) return command;
+        return null;
     }
 
     private void CreateLuaState()
     {
         _state = LuaState.Create();
         _state.OpenStandardLibraries();
+        RestrictStandardLibraries();
         _registry.RegisterAll(_state, _meter);
+
+        // Закрытые команды — заглушки с понятной ошибкой вместо "attempt to call a nil value".
+        // В реестр они не входят, энергию не тратят (сразу ошибка)
+        foreach (ILuaCommand command in _allCommands)
+            if (!_registry.HasCommand(command.Name))
+                _state.Environment[command.Name] = CreateLockedStub(command.Name);
 
         // Списание за выполненные конструкции языка — вызовы расставляет EnergyInstrumenter.
         // Возвращает true, чтобы `__energy(n) and cond` сохраняло значение условия
@@ -143,6 +205,73 @@ public class LuaSandbox : MonoBehaviour
     {
         try { _cts?.Cancel(); }
         catch (ObjectDisposedException) { }
+    }
+
+    // Глобалы стандартной библиотеки, недоступные игроку:
+    // load/loadfile/dofile/require выполняют код в обход LuaConstructGuard и EnergyInstrumenter,
+    // io/os могут менять файлы сохранений и закрыть игру, debug/package/collectgarbage — служебные
+    private static readonly string[] BlockedGlobals =
+    {
+        "load", "loadfile", "dofile", "require", "package", "io", "debug", "collectgarbage"
+    };
+
+    // Из os остаются только безопасные функции времени
+    private static readonly string[] AllowedOsFunctions = { "clock", "time", "date" };
+
+    private void RestrictStandardLibraries()
+    {
+        LuaTable env = _state.Environment;
+
+        LuaTable safeOs = new LuaTable();
+        if (env["os"].TryRead(out LuaTable os))
+        {
+            foreach (string name in AllowedOsFunctions)
+            {
+                LuaValue function = os[name];
+                if (function.Type != LuaValueType.Nil)
+                    safeOs[name] = function;
+            }
+        }
+
+        foreach (string name in BlockedGlobals)
+            env[name] = LuaValue.Nil;
+        env["os"] = safeOs;
+    }
+
+    private static LuaFunction CreateLockedStub(string name)
+    {
+        return new LuaFunction((context, ct) =>
+            throw new InvalidOperationException($"command `{name}` is not unlocked yet"));
+    }
+
+    // ─── Открытия ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Открытие посреди забега (достижение): новые команды подключаются сразу, если код не выполняется,
+    /// иначе — когда запуск закончится. Конструкции проверяются при каждом запуске, их применять не нужно.
+    /// </summary>
+    private void HandleUnlocked(UnlockKind kind, string id)
+    {
+        if (IsRunning)
+            _unlocksPending = true;
+        else
+            ApplyUnlocks();
+    }
+
+    private void ApplyUnlocks()
+    {
+        _unlocksPending = false;
+
+        foreach (ILuaCommand command in _allCommands)
+        {
+            if (_registry.HasCommand(command.Name) || !_unlocks.IsCommandUnlocked(command.Name)) continue;
+
+            // Регистрация заменяет заглушку; списание за вызов и Meter для возвращаемых функций — как у всех
+            _registry.RegisterCommand(command);
+            command.Register(_state, _meter);
+        }
+
+        OnUnlocksApplied?.Invoke();
     }
 
     private void OnEnable()
@@ -168,6 +297,9 @@ public class LuaSandbox : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_unlocks != null)
+            _unlocks.OnUnlocked -= HandleUnlocked;
+
         StopWatchdog();
         _cts?.Cancel();
         _cts?.Dispose();
@@ -201,20 +333,38 @@ public class LuaSandbox : MonoBehaviour
         CancellationTokenSource cts = _cts;
         CancellationToken ct = cts.Token;
 
+        // Открытое во время прошлого запуска подключаем до нового
+        if (_unlocksPending) ApplyUnlocks();
+
         SetRunning(true);
         StartWatchdog(cts);
         _meter.Reset();
 
         try
         {
+            mainCode ??= string.Empty;
+            var chunks = new List<(string Name, string Code)>();
             foreach (var kvp in auxiliaryWindows)
             {
                 if (string.IsNullOrEmpty(kvp.Value)) continue;
-                string wrapped = $"function {kvp.Key}(...)\n{kvp.Value}\nend";
-                await RunChunkAsync(wrapped, kvp.Key, ct);
+                chunks.Add((kvp.Key, $"function {kvp.Key}(...)\n{kvp.Value}\nend"));
             }
+            chunks.Add((MainChunkName, mainCode));
 
-            await RunChunkAsync(mainCode, "Main", ct);
+            // 1. Синтаксис — по исходному коду всех окон, до выполнения чего-либо
+            foreach (var chunk in chunks)
+                _state.Load(chunk.Code.AsSpan(), chunk.Name, null);
+
+            // 2. Закрытые конструкции и окна-«классы»: отказ без траты энергии
+            //    (запуск дня засчитывается, как и при ошибке компиляции)
+            string locked = _constructGuard.Check(mainCode, auxiliaryWindows, MainChunkName);
+            if (locked != null)
+                return ExecutionResult.RuntimeError(locked);
+
+            // 3. Выполнение кода, размеченного списаниями энергии
+            foreach (var chunk in chunks)
+                await RunChunkAsync(chunk.Code, chunk.Name, ct);
+
             return ExecutionResult.Success();
         }
         catch (OperationCanceledException)
@@ -244,17 +394,18 @@ public class LuaSandbox : MonoBehaviour
             {
                 StopWatchdog();
                 SetRunning(false);
+                if (_unlocksPending) ApplyUnlocks();
             }
         }
     }
 
     /// <summary>
-    /// Синтаксис проверяется по исходному коду (ошибки указывают на код игрока, а не на вставки),
-    /// затем выполняется код, «размеченный» списаниями энергии: платим за то, что реально выполняется.
+    /// Выполняет код, «размеченный» списаниями энергии: платим за то, что реально выполняется.
+    /// Синтаксис к этому моменту уже проверен по исходному коду (ошибки указывают на код игрока,
+    /// а не на вставки).
     /// </summary>
     private async UniTask RunChunkAsync(string code, string chunkName, CancellationToken ct)
     {
-        _state.Load(code.AsSpan(), chunkName, null);
         await _state.DoStringAsync(_instrumenter.Instrument(code), chunkName, ct);
     }
 
@@ -320,6 +471,10 @@ public class LuaSandbox : MonoBehaviour
         OnRunningChanged?.Invoke(running);
     }
 
+    /// <summary>Только открытые команды — источник для справки, подсветки, автодополнения и цен.</summary>
     public LuaCommandRegistry Registry => _registry;
+    /// <summary>Все команды игры, включая закрытые (например, чтобы показать их в справке недоступными).</summary>
+    public IReadOnlyList<ILuaCommand> AllCommands => _allCommands;
+    public UnlockRegistry Unlocks => _unlocks;
     public EnergyConfig EnergyConfig => _energyConfig;
 }

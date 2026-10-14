@@ -43,7 +43,7 @@ public class LuaTokenizer
     {
         "if", "then", "else", "elseif", "end",
         "for", "while", "do", "repeat", "until",
-        "function", "local", "return", "break",
+        "function", "local", "return", "break", "goto",
         "and", "or", "not", "in", "nil",
         "true", "false"
     };
@@ -121,7 +121,6 @@ public class LuaTokenizer
             // Строка "..." или '...'
             if (code[pos] == '"' || code[pos] == '\'')
             {
-                int startCol = column;
                 char quote = code[pos];
                 int end = pos + 1;
 
@@ -130,11 +129,11 @@ public class LuaTokenizer
                     if (code[end] == '\\') end++;
                     end++;
                 }
-                end = end < code.Length ? end + 1 : end;
+                // Незакрытая строка с '\' в конце не должна выходить за код
+                end = end < code.Length ? end + 1 : code.Length;
 
-                string str = code.Substring(pos, end - pos);
-                tokens.Add(new Token(str, TokenType.String, line, startCol));
-                column += str.Length;
+                // Строка может продолжаться через '\' + перевод строки — считаем строки как у длинных строк
+                AddMultilineToken(tokens, code.Substring(pos, end - pos), TokenType.String, ref line, ref column);
                 pos = end;
                 continue;
             }
@@ -181,6 +180,25 @@ public class LuaTokenizer
         }
 
         return tokens;
+    }
+
+    /// <summary>
+    /// Токены в точности собираются обратно в исходный код — иначе разбору доверять нельзя.
+    /// </summary>
+    public static bool Reassembles(List<Token> tokens, string code)
+    {
+        int length = 0;
+        foreach (Token token in tokens)
+            length += token.Value.Length;
+        if (length != code.Length) return false;
+
+        int pos = 0;
+        foreach (Token token in tokens)
+        {
+            if (string.CompareOrdinal(code, pos, token.Value, 0, token.Value.Length) != 0) return false;
+            pos += token.Value.Length;
+        }
+        return true;
     }
 
     // ─── Длинные скобки ───────────────────────────────────────

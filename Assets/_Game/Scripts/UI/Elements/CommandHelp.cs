@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Справка по командам (кнопка Help на верхней панели). Содержимое строится из реестра
+/// Справка по командам (кнопка Help на верхней панели). Содержимое строится из реестра открытых
 /// команд и EnergyConfig, поэтому новые команды и цены появляются в ней автоматически.
 /// </summary>
 public class CommandHelp
@@ -39,7 +39,12 @@ public class CommandHelp
         SetOpen(false);
     }
 
-    public void Build(IEnumerable<ILuaCommand> commands, EnergyConfig energyConfig)
+    /// <summary>
+    /// Перестраивает справку. commands — только открытые команды (закрытые в справке не показываются);
+    /// конструкции языка показываются все: закрытые — приглушённо с пометкой locked.
+    /// unlocks == null — всё открыто.
+    /// </summary>
+    public void Build(IEnumerable<ILuaCommand> commands, EnergyConfig energyConfig, UnlockRegistry unlocks)
     {
         _content.Clear();
 
@@ -50,11 +55,15 @@ public class CommandHelp
         foreach (ILuaCommand command in all.Where(c => !c.IsReadyMade))
             _content.Add(CreateCommandEntry(command));
 
-        AddSection("Массив findObjects",
-            "Методы вызываются через двоеточие: list:getNear(). where, sortBy и take возвращают новый массив — " +
-            $"их можно выстраивать в цепочку. Поля объекта: {LuaObjectList.Fields}. Собранные объекты пропускаются.");
-        foreach (var method in LuaObjectList.Methods)
-            _content.Add(CreateEntry(method.Signature, LuaObjectList.MethodCost, method.Description));
+        // Массив возвращают только findObjects и check — без них раздел бесполезен
+        if (all.Any(c => c is FindObjectsCommand || c is CheckCommand))
+        {
+            AddSection("Массив findObjects",
+                "Методы вызываются через двоеточие: list:getNear(). where, sortBy и take возвращают новый массив — " +
+                $"их можно выстраивать в цепочку. Поля объекта: {LuaObjectList.Fields}. Собранные объекты пропускаются.");
+            foreach (var method in LuaObjectList.Methods)
+                _content.Add(CreateEntry(method.Signature, LuaObjectList.MethodCost, method.Description));
+        }
 
         List<ILuaCommand> readyMade = all.Where(c => c.IsReadyMade).ToList();
         if (readyMade.Count > 0)
@@ -65,18 +74,61 @@ public class CommandHelp
                 _content.Add(CreateCommandEntry(command));
         }
 
-        if (energyConfig != null)
+        BuildConstructs(energyConfig, unlocks);
+    }
+
+    // ─── Конструкции языка ────────────────────────────────────
+
+    /// <summary>
+    /// Все конструкции из LuaConstructs.All в порядке прогрессии. Закрытые — приглушённо, вместо цены «locked»:
+    /// игрок видит, что ещё можно открыть. return не закрывается никогда.
+    /// </summary>
+    private void BuildConstructs(EnergyConfig energyConfig, UnlockRegistry unlocks)
+    {
+        AddSection("Конструкции языка",
+            "Списывается каждый раз при выполнении: условие — при каждой проверке, цикл — на каждой итерации. " +
+            "Закрытые (locked) конструкции открываются по ходу игры — код с ними не запустится.");
+
+        foreach (LuaConstructs.Info info in LuaConstructs.All)
         {
-            AddSection("Конструкции языка",
-                "Списывается каждый раз при выполнении: условие — при каждой проверке, цикл — на каждой итерации.");
-            AddKeyword("if / elseif", energyConfig.ifCost, "за проверку условия");
-            AddKeyword("else", energyConfig.elseCost, "за вход в ветку");
-            AddKeyword("for", energyConfig.forCost, "за итерацию");
-            AddKeyword("while", energyConfig.whileCost, "за проверку условия");
-            AddKeyword("repeat … until", energyConfig.repeatCost, "за проверку условия");
-            AddKeyword("function", energyConfig.functionCost, "за вызов");
-            AddKeyword("local", energyConfig.localCost, "за выполнение");
-            AddKeyword("return", energyConfig.returnCost, "за выполнение");
+            bool locked = unlocks != null && !unlocks.IsConstructUnlocked(info.Id);
+            AddConstructRows(info, energyConfig, locked);
+        }
+
+        AddKeyword("return", energyConfig != null ? energyConfig.returnCost : (float?)null, "за выполнение", false);
+    }
+
+    private void AddConstructRows(LuaConstructs.Info info, EnergyConfig config, bool locked)
+    {
+        switch (info.Id)
+        {
+            case LuaConstructs.Local:
+                AddKeyword("local", config?.localCost, "за выполнение", locked);
+                break;
+            case LuaConstructs.If:
+                AddKeyword("if / elseif", config?.ifCost, "за проверку условия", locked);
+                AddKeyword("else", config?.elseCost, "за вход в ветку", locked);
+                break;
+            case LuaConstructs.For:
+                AddKeyword("for", config?.forCost, "за итерацию", locked);
+                break;
+            case LuaConstructs.While:
+                AddKeyword("while", config?.whileCost, "за проверку условия", locked);
+                break;
+            case LuaConstructs.Repeat:
+                AddKeyword("repeat … until", config?.repeatCost, "за проверку условия", locked);
+                break;
+            case LuaConstructs.Function:
+                AddKeyword("function", config?.functionCost, "за вызов", locked);
+                break;
+            case LuaConstructs.Classes:
+                // Доп. окно — глобальная функция с именем заголовка: платится как вызов функции
+                AddKeyword("окна-классы (+)", config?.functionCost, "за вызов окна", locked);
+                break;
+            default:
+                // Новая конструкция без описанной цены — показываем хотя бы имя
+                AddKeyword(info.DisplayName, null, string.Empty, locked);
+                break;
         }
     }
 
@@ -137,16 +189,20 @@ public class CommandHelp
         return entry;
     }
 
-    private void AddKeyword(string keyword, float cost, string when)
+    private void AddKeyword(string keyword, float? cost, string when, bool locked)
     {
         VisualElement row = new VisualElement();
         row.AddToClassList("help-keyword-row");
+        row.EnableInClassList("help-keyword-row--locked", locked);
 
-        Label name = new Label(keyword);
+        Label name = new Label(keyword) { enableRichText = false };
         name.AddToClassList("help-keyword");
         row.Add(name);
 
-        Label price = new Label($"{Format(cost)} эн. {when}");
+        string priceText = locked
+            ? "locked"
+            : cost.HasValue ? $"{Format(cost.Value)} эн. {when}" : when;
+        Label price = new Label(priceText);
         price.AddToClassList("help-cost");
         row.Add(price);
 

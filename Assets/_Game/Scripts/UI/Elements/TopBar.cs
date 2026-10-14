@@ -63,11 +63,13 @@ public class TopBar : VisualElement
     }
 
     /// <summary>
-    /// Заполняет справку по командам (кнопка Help).
+    /// Заполняет справку (кнопка Help): открытые команды и все конструкции языка
+    /// (закрытые — с пометкой locked). Вызывается заново после каждого открытия.
     /// </summary>
-    public void BuildCommandHelp(IEnumerable<ILuaCommand> commands, EnergyConfig energyConfig)
+    public void BuildCommandHelp(
+        IEnumerable<ILuaCommand> commands, EnergyConfig energyConfig, UnlockRegistry unlocks)
     {
-        _commandHelp.Build(commands, energyConfig);
+        _commandHelp.Build(commands, energyConfig, unlocks);
     }
 
     private void RegisterCallbacks()

@@ -64,9 +64,16 @@ public class MetaProgress
         set => _data.hintsEnabled = value;
     }
 
-    public MetaProgress()
+    public MetaProgress() : this(JsonFileStore.GetPath(FileName))
     {
-        _filePath = JsonFileStore.GetPath(FileName);
+    }
+
+    /// <summary>
+    /// Прогресс в указанном файле (тесты пишут во временную папку, не трогая сохранение игрока).
+    /// </summary>
+    public MetaProgress(string filePath)
+    {
+        _filePath = filePath;
         Load();
     }
 

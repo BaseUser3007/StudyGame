@@ -20,6 +20,9 @@ public class CodeLibraryPanel : VisualElement
     private VisualElement _panel;
     private ScrollView _snippetList;
     private Label _listEmpty;
+    private Label _lockedNote;
+    // Окна-«классы» открыты: записи можно открыть как окна
+    private bool _canOpenSnippets = true;
 
     public event Action OnOpened;
     public event Action<CodeSnippet> OnOpenSnippetRequested;
@@ -64,6 +67,7 @@ public class CodeLibraryPanel : VisualElement
         _panel = root.Q<VisualElement>("library-panel");
         _snippetList = root.Q<ScrollView>("snippet-list");
         _listEmpty = root.Q<Label>("list-empty");
+        _lockedNote = root.Q<Label>("locked-note");
     }
 
     private void ValidateReferences()
@@ -73,6 +77,7 @@ public class CodeLibraryPanel : VisualElement
         Debug.Assert(_panel != null, "CodeLibraryPanel: library-panel not found");
         Debug.Assert(_snippetList != null, "CodeLibraryPanel: snippet-list not found");
         Debug.Assert(_listEmpty != null, "CodeLibraryPanel: list-empty not found");
+        Debug.Assert(_lockedNote != null, "CodeLibraryPanel: locked-note not found");
     }
 
     // ─── Public API ───────────────────────────────────────────
@@ -118,6 +123,18 @@ public class CodeLibraryPanel : VisualElement
         _btnToggle.EnableInClassList(DropTargetClass, active);
     }
 
+    /// <summary>
+    /// Пока окна-«классы» закрыты, записи нельзя открыть как окна: кнопки «Открыть» выключены,
+    /// над списком — пояснение. Хранить и удалять записи можно всегда.
+    /// </summary>
+    public void SetSnippetOpeningAvailable(bool available)
+    {
+        if (_canOpenSnippets == available) return;
+        _canOpenSnippets = available;
+        _lockedNote.EnableInClassList(HiddenClass, available);
+        BuildList();
+    }
+
     // ─── Snippet List ─────────────────────────────────────────
 
     private void BuildList()
@@ -147,7 +164,8 @@ public class CodeLibraryPanel : VisualElement
         Button btnOpen = new Button(() => OnOpenSnippetRequested?.Invoke(snippet)) { text = "Открыть" };
         btnOpen.AddToClassList("snippet-btn");
         btnOpen.focusable = false;
-        btnOpen.tooltip = "Открыть в новом окне";
+        btnOpen.tooltip = _canOpenSnippets ? "Открыть в новом окне" : "Окна-классы ещё не открыты";
+        btnOpen.SetEnabled(_canOpenSnippets);
         entry.Add(btnOpen);
 
         // Удаление в два нажатия: «×» → «Удалить?» → удалено
