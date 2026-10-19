@@ -137,11 +137,12 @@ public class DataIntegrityTests
     private static AchievementCatalog Catalog() => TestHelpers.Load<AchievementCatalog>(AchievementCatalogPath);
 
     [Test]
-    public void AchievementCatalog_Has17UniqueNonNullAchievements()
+    public void AchievementCatalog_Has18UniqueNonNullAchievements()
     {
         AchievementCatalog catalog = Catalog();
 
-        Assert.AreEqual(17, catalog.Achievements.Count);
+        // 17 из §6.1 + first_bug (прогрессия v2, §6.2)
+        Assert.AreEqual(18, catalog.Achievements.Count);
         var ids = new HashSet<string>();
         for (int i = 0; i < catalog.Achievements.Count; i++)
         {
@@ -166,7 +167,8 @@ public class DataIntegrityTests
         {
             "first_harvest", "first_axe", "workbench_built", "copy_paste", "explorer", "lumberjack",
             "sweet_dreams", "efficient_logger", "loop_lover", "function_fan", "threat_survivor",
-            "enemy_spotted", "first_blood", "first_meal", "hub_builder", "code_solver", "maze_runner"
+            "enemy_spotted", "first_blood", "first_meal", "hub_builder", "code_solver", "maze_runner",
+            "first_bug"
         };
         CollectionAssert.AreEquivalent(expected, Catalog().Achievements.Select(a => a.Id));
     }

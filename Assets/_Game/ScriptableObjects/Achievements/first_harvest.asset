@@ -29,3 +29,5 @@ MonoBehaviour:
     id: moveTo
   - kind: 0
     id: harvest
+  - kind: 1
+    id: if

@@ -49,7 +49,8 @@ public class LuaCompletionProvider
 
     private static readonly (string name, string signature)[] StandardFunctions =
     {
-        ("print", "print(...)"), ("tostring", "tostring(v)"), ("tonumber", "tonumber(v)"),
+        // print — команда (PrintCommand), приходит из реестра, только когда открыта
+        ("tostring", "tostring(v)"), ("tonumber", "tonumber(v)"),
         ("type", "type(v)"), ("pairs", "pairs(t)"), ("ipairs", "ipairs(t)"),
         ("select", "select(n, ...)"), ("error", "error(message)"), ("assert", "assert(v, message)"),
         ("math", "math.*"), ("string", "string.*"), ("table", "table.*")
@@ -69,7 +70,8 @@ public class LuaCompletionProvider
         ("free", "свободных ячеек инвентаря"),
         ("name", "название предмета"),
         ("slot", "номер ячейки инвентаря"),
-        ("maxDurability", "максимальная прочность инструмента")
+        ("maxDurability", "максимальная прочность инструмента"),
+        ("spent", "getStatus(): энергия, потраченная с начала запуска")
     };
 
     // Методы и поля таблиц, которые возвращают команды (методы — массива findObjects)

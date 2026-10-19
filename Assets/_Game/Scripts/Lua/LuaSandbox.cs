@@ -9,6 +9,10 @@ using UnityEngine;
 
 public class LuaSandbox : MonoBehaviour
 {
+    /// <summary>
+    /// Сообщение для лога под главным окном: вывод print(...) (LogEntryType.Info). Вызывается
+    /// в главном потоке во время выполнения кода, текст не длиннее PrintCommand.MaxLength.
+    /// </summary>
     public event Action<string, LogEntryType> OnLogMessage;
     public event Action<bool> OnRunningChanged;
 
@@ -58,7 +62,20 @@ public class LuaSandbox : MonoBehaviour
     private Timer _watchdog;
     private volatile bool _timedOut;
 
+    // Расход энергии на старте текущего запуска (getStatus().spent) и текст ошибки заглушки
+    // закрытой команды, вызванной в этом запуске (итог "locked")
+    private float _spentAtRunStart;
+    private string _lockedCommandError;
+
     public bool IsRunning { get; private set; }
+
+    /// <summary>
+    /// Энергия, потраченная с начала текущего запуска кода (всё, что списано с PlayerEnergy);
+    /// 0, если код не выполняется. То же значение уйдёт в CodeRunReport.EnergySpent.
+    /// </summary>
+    public float EnergySpentThisRun => IsRunning && _playerEnergy != null
+        ? _playerEnergy.TotalSpent - _spentAtRunStart
+        : 0f;
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -158,13 +175,23 @@ public class LuaSandbox : MonoBehaviour
         AddCommand(new EatCommand(_playerEnergy, _playerHealth, _inventory));
 
         // Состояние дня, энергии и здоровья
-        AddCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
+        AddCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle, GetEnergySpentThisRun));
+
+        // Отладка: вывод в лог под главным окном (заменяет стандартный print); открывается first_bug
+        AddCommand(new PrintCommand(PublishPrint));
 
         // Головоломки (этап 6): условие и ответ; открываются достижением hub_builder
         AddCommand(new PuzzleCommand(_executor, _mapData, _puzzles));
         AddCommand(new SolveCommand(_puzzles));
 
         // Добавляй новые команды здесь ↓ (открытость задаётся UnlockConfig / MetaProgress)
+    }
+
+    private float GetEnergySpentThisRun() => EnergySpentThisRun;
+
+    private void PublishPrint(string text)
+    {
+        OnLogMessage?.Invoke(text, LogEntryType.Info);
     }
 
     /// <summary>
@@ -230,10 +257,11 @@ public class LuaSandbox : MonoBehaviour
 
     // Глобалы стандартной библиотеки, недоступные игроку:
     // load/loadfile/dofile/require выполняют код в обход LuaConstructGuard и EnergyInstrumenter,
-    // io/os могут менять файлы сохранений и закрыть игру, debug/package/collectgarbage — служебные
+    // io/os могут менять файлы сохранений и закрыть игру, debug/package/collectgarbage — служебные.
+    // Стандартный print писал в консоль Unity бесплатно — его место занимает PrintCommand (или её заглушка)
     private static readonly string[] BlockedGlobals =
     {
-        "load", "loadfile", "dofile", "require", "package", "io", "debug", "collectgarbage"
+        "load", "loadfile", "dofile", "require", "package", "io", "debug", "collectgarbage", "print"
     };
 
     // Из os остаются только безопасные функции времени
@@ -259,10 +287,15 @@ public class LuaSandbox : MonoBehaviour
         env["os"] = safeOs;
     }
 
-    private static LuaFunction CreateLockedStub(string name)
+    private LuaFunction CreateLockedStub(string name)
     {
+        string message = $"command `{name}` is not unlocked yet";
         return new LuaFunction((context, ct) =>
-            throw new InvalidOperationException($"command `{name}` is not unlocked yet"));
+        {
+            // Запоминаем: если ошибка дойдёт до верха (не поймана pcall), итог запуска — "locked"
+            _lockedCommandError = message;
+            throw new InvalidOperationException(message);
+        });
     }
 
     // ─── Открытия ─────────────────────────────────────────────
@@ -362,9 +395,13 @@ public class LuaSandbox : MonoBehaviour
 
         // Для достижений: расход энергии за запуск и конструкции в коде (собирает LuaConstructGuard)
         float spentAtStart = _playerEnergy.TotalSpent;
+        _spentAtRunStart = spentAtStart;
+        _lockedCommandError = null;
         var usedConstructs = new HashSet<string>(StringComparer.Ordinal);
         bool started = false;
         bool succeeded = false;
+        // Tag события RunFinished (GameEventBus.RunTag*), уточняется ниже по итогу
+        string outcome = GameEventBus.RunTagError;
 
         SetRunning(true);
         StartWatchdog(cts);
@@ -390,7 +427,10 @@ public class LuaSandbox : MonoBehaviour
             //    (запуск дня засчитывается, как и при ошибке компиляции)
             string locked = _constructGuard.Check(mainCode, auxiliaryWindows, MainChunkName, usedConstructs);
             if (locked != null)
+            {
+                outcome = GameEventBus.RunTagLocked;
                 return ExecutionResult.RuntimeError(locked);
+            }
 
             // 3. Выполнение кода, размеченного списаниями энергии
             started = true;
@@ -398,24 +438,23 @@ public class LuaSandbox : MonoBehaviour
                 await RunChunkAsync(chunk.Code, chunk.Name, ct);
 
             succeeded = true;
+            outcome = GameEventBus.RunTagOk;
             return ExecutionResult.Success();
         }
         catch (OperationCanceledException)
         {
+            outcome = _meter.IsExhausted ? GameEventBus.RunTagEnergy : GameEventBus.RunTagStopped;
             return OutOfEnergyOr(CancelledResult());
         }
         catch (LuaCompileException ex)
         {
+            outcome = GameEventBus.RunTagError;
             return ExecutionResult.CompileError(ex.Message);
-        }
-        catch (LuaRuntimeException ex)
-        {
-            return OutOfEnergyOr(ct.IsCancellationRequested
-                ? CancelledResult()
-                : ExecutionResult.RuntimeError(ex.Message));
         }
         catch (Exception ex)
         {
+            // LuaRuntimeException и исключения команд, дошедшие до верха
+            outcome = ClassifyFailure(ex, ct);
             return OutOfEnergyOr(ct.IsCancellationRequested
                 ? CancelledResult()
                 : ExecutionResult.RuntimeError(ex.Message));
@@ -428,7 +467,7 @@ public class LuaSandbox : MonoBehaviour
                 StopWatchdog();
                 // До SetRunning(false): конец дня (DayCycle) — уже после итога запуска
                 GameEventBus.PublishRunFinished(new CodeRunReport(
-                    succeeded, started, _playerEnergy.TotalSpent - spentAtStart, usedConstructs));
+                    succeeded, started, _playerEnergy.TotalSpent - spentAtStart, usedConstructs, outcome));
                 SetRunning(false);
                 if (_unlocksPending) ApplyUnlocks();
             }
@@ -458,6 +497,19 @@ public class LuaSandbox : MonoBehaviour
     private ExecutionResult OutOfEnergyOr(ExecutionResult other)
     {
         return _meter.IsExhausted ? ExecutionResult.RuntimeError(_meter.ExhaustedMessage) : other;
+    }
+
+    /// <summary>
+    /// Итог упавшего запуска (Tag RunFinished): нехватка энергии важнее всего (даже если её ошибку
+    /// пересоздал pcall/error), затем остановка, затем вызов закрытой команды, иначе — ошибка кода.
+    /// </summary>
+    private string ClassifyFailure(Exception ex, CancellationToken ct)
+    {
+        if (_meter.IsExhausted) return GameEventBus.RunTagEnergy;
+        if (ct.IsCancellationRequested) return GameEventBus.RunTagStopped;
+        if (_lockedCommandError != null && ex.Message != null && ex.Message.Contains(_lockedCommandError))
+            return GameEventBus.RunTagLocked;
+        return GameEventBus.RunTagError;
     }
 
     private ExecutionResult CancelledResult()

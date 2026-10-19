@@ -30,7 +30,10 @@ public enum GameEventType
     ConstructUsed,
     /// <summary>Начался запуск кода.</summary>
     RunStarted,
-    /// <summary>Закончился запуск кода. Id — "success" или "failed".</summary>
+    /// <summary>
+    /// Закончился запуск кода. Id — "success" или "failed", Tag — итог (GameEventBus.RunTag*):
+    /// "ok", "error", "energy", "stopped", "locked".
+    /// </summary>
     RunFinished,
 
     // ─── Этап 3 ───
@@ -107,13 +110,21 @@ public readonly struct CodeRunReport
     public readonly bool Started;
     public readonly float EnergySpent;
     public readonly IReadOnlyCollection<string> Constructs;
+    /// <summary>
+    /// Итог запуска — Tag события RunFinished (GameEventBus.RunTag*). Не задан — "ok" при успехе,
+    /// иначе "error".
+    /// </summary>
+    public readonly string Outcome;
 
-    public CodeRunReport(bool succeeded, bool started, float energySpent, IReadOnlyCollection<string> constructs)
+    public CodeRunReport(
+        bool succeeded, bool started, float energySpent, IReadOnlyCollection<string> constructs,
+        string outcome = null)
     {
         Succeeded = succeeded;
         Started = started;
         EnergySpent = energySpent;
         Constructs = constructs ?? Array.Empty<string>();
+        Outcome = outcome ?? (succeeded ? GameEventBus.RunTagOk : GameEventBus.RunTagError);
     }
 }
 
@@ -131,6 +142,18 @@ public static class GameEventBus
 
     public const string RunSucceededId = "success";
     public const string RunFailedId = "failed";
+
+    // Tag события RunFinished — итог запуска (фильтр достижений сравнивается и с Tag, GameDesign §6.2.7)
+    /// <summary>Код выполнился без ошибок.</summary>
+    public const string RunTagOk = "ok";
+    /// <summary>Ошибка компиляции или выполнения (включая ошибки команд, дошедшие до верха), кроме нехватки энергии.</summary>
+    public const string RunTagError = "error";
+    /// <summary>Кончилась энергия.</summary>
+    public const string RunTagEnergy = "energy";
+    /// <summary>Остановлен: кнопка Stop, отмена (смерть персонажа) или watchdog (зависание без await).</summary>
+    public const string RunTagStopped = "stopped";
+    /// <summary>Отказ: закрытая конструкция/окна-«классы» (LuaConstructGuard) или вызов закрытой команды.</summary>
+    public const string RunTagLocked = "locked";
 
     private static int _lastRunId;
 
@@ -208,7 +231,7 @@ public static class GameEventBus
             }
         }
 
-        Publish(GameEventType.RunFinished, report.Succeeded ? RunSucceededId : RunFailedId);
+        Publish(GameEventType.RunFinished, report.Succeeded ? RunSucceededId : RunFailedId, tag: report.Outcome);
         ActiveRunId = 0;
     }
 }

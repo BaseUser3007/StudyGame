@@ -55,6 +55,26 @@ public class LuaErrorExplainerTests
     }
 
     [Test]
+    public void IndexNil_IfLocked_DoesNotSuggestIf()
+    {
+        var e = LuaErrorExplainer.Explain(
+            "Runtime error: Lua-CSharp: [string \"Main\"]:5: attempt to index a nil value (local 'tree')",
+            Commands, null, "Main", construct => construct != LuaConstructs.If);
+
+        StringAssert.DoesNotContain("if tree then", e.Suggestion);
+        StringAssert.Contains("findObjects", e.Suggestion);
+    }
+
+    [Test]
+    public void DidYouMean_DoesNotOfferPrint_WhenItIsNotACommand()
+    {
+        // print — открываемая команда игры: «Did you mean» предлагает её только из реестра
+        var e = Explain("Runtime error: Lua-CSharp: [string \"Main\"]:1: attempt to call a nil value (global 'prnt')");
+
+        Assert.IsTrue(e.Suggestion == null || !e.Suggestion.Contains("`print`"));
+    }
+
+    [Test]
     public void AuxiliaryWindow_LineSkipsFunctionWrapper()
     {
         // Доп. окно выполняется как "function Helper(...)\n<код>\nend": строка 3 чанка — строка 2 окна

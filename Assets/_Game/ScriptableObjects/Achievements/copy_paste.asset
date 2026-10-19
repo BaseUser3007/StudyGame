@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AchievementDefinition
   id: copy_paste
   title: "D\xE9j\xE0 Vu"
-  description: Call harvest() 10 times.
+  description: Call harvest() 6 times.
   icon: {fileID: 0}
   condition:
     type: 0
     gameEvent: 6
     filter: harvest
-    amount: 10
+    amount: 6
     maxEnergy: 10
   rewards:
   - kind: 1

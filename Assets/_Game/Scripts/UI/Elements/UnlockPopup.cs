@@ -4,9 +4,11 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Модальное окно «Unlocked: X» по <see cref="UnlockRegistry.OnUnlocked"/>: зачем это нужно и пример.
-///   • команда — Signature + Description + цена из ILuaCommand (LuaSandbox.AllCommands);
-///   • конструкция — объяснение и пример кода из <see cref="LuaConstructGuide"/>, цена из EnergyConfig;
+/// Модальное окно «Unlocked: X» по <see cref="UnlockRegistry.OnUnlocked"/>. Команды, конструкции и
+/// декомпиляции строятся по схеме Why (боль, класс unlock-pain) → What → Example → Energy (GameDesign §6.2.4):
+///   • команда — Pain/Explanation/Example/EnergyNote из <see cref="LuaCommandGuide"/> (без записи —
+///     Description), Signature и цена из ILuaCommand (LuaSandbox.AllCommands);
+///   • конструкция — тексты и пример из <see cref="LuaConstructGuide"/>, цена из EnergyConfig;
 ///   • рецепт — иконка результата (ResourceItem.Icon), ингредиенты, станция, энергия;
 ///   • постройка хаба / событие на карте — короткая строка;
 ///   • «декомпиляция» — если в очереди команды из одной записи <see cref="LuaDecompileGuide"/> и все её
@@ -248,9 +250,23 @@ public class UnlockPopup
             return;
         }
 
+        // Why → What → Example → Energy; без текста в LuaCommandGuide — описание из реестра команд
+        bool hasGuide = LuaCommandGuide.TryGet(name, out LuaCommandGuide.Entry guide);
+        if (hasGuide) AddText(guide.Pain, "unlock-pain");
+
         AddCode(command.Signature);
-        AddText(command.Description, "unlock-text");
+        AddText(hasGuide && !string.IsNullOrEmpty(guide.Explanation) ? guide.Explanation : command.Description,
+            "unlock-text");
+
+        if (hasGuide && !string.IsNullOrEmpty(guide.Example))
+        {
+            AddText("Example", "unlock-section");
+            AddCode(guide.Example);
+        }
+
+        if (hasGuide) AddText("Energy", "unlock-section");
         AddText($"Costs {Format(command.EnergyCost)} energy per call.", "unlock-cost");
+        if (hasGuide) AddText(guide.EnergyNote, "unlock-note");
         if (command.IsReadyMade)
             AddText("Ready-made command: it does what a few basic commands do, but costs more — " +
                     "your own code saves energy.", "unlock-note");
@@ -262,18 +278,22 @@ public class UnlockPopup
         string displayName = LuaConstructs.GetDisplayName(id);
         SetHeader("New language construct", Capitalize(displayName));
 
-        if (LuaConstructGuide.TryGet(id, out LuaConstructGuide.Entry entry))
-            AddText(entry.Explanation, "unlock-text");
-
-        string cost = FormatConstructCost(id, _sandbox.EnergyConfig);
-        if (cost != null)
-            AddText(cost, "unlock-cost");
+        // Why → What → Example → Energy (GameDesign §6.2.4)
+        LuaConstructGuide.TryGet(id, out LuaConstructGuide.Entry entry);
+        AddText(entry.Pain, "unlock-pain");
+        AddText(entry.Explanation, "unlock-text");
 
         if (!string.IsNullOrEmpty(entry.Example))
         {
             AddText("Example", "unlock-section");
             AddCode(entry.Example);
         }
+
+        string cost = FormatConstructCost(id, _sandbox.EnergyConfig);
+        if (cost != null || !string.IsNullOrEmpty(entry.EnergyNote))
+            AddText("Energy", "unlock-section");
+        AddText(cost, "unlock-cost");
+        AddText(entry.EnergyNote, "unlock-note");
     }
 
     /// <summary>
@@ -285,6 +305,8 @@ public class UnlockPopup
         ILuaCommand readyMade = FindCommand(entry.ReadyMade);
         SetHeader("Decompiled", $"{entry.ReadyMade}()");
 
+        // Why → What → Example → Energy (GameDesign §6.2.4)
+        AddText(entry.Pain, "unlock-pain");
         AddText(entry.Explanation, "unlock-text");
 
         AddText(newCommands.Count == 1 ? "New command" : "New commands", "unlock-section");
@@ -315,6 +337,7 @@ public class UnlockPopup
         if (saved > 0f)
             AddText($"Your own code saves {Format(saved)} energy on every pass — and you decide " +
                     "which steps you actually need.", "unlock-cost");
+        AddText(entry.EnergyNote, "unlock-note");
 
         AddText($"{entry.ReadyMade}() stays available: handy, but expensive.", "unlock-note");
         AddText("The new commands are listed in Help and suggested by autocompletion.", "unlock-note");

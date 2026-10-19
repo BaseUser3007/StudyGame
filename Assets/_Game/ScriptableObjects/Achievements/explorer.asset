@@ -27,3 +27,5 @@ MonoBehaviour:
     id: move
   - kind: 0
     id: check
+  - kind: 1
+    id: while

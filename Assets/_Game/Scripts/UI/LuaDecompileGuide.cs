@@ -17,17 +17,26 @@ public static class LuaDecompileGuide
         public readonly string ReadyMade;
         /// <summary>Базовые команды, на которые она раскладывается (в порядке показа).</summary>
         public readonly string[] Basics;
+        /// <summary>Why: сколько игрок переплатил за готовую команду (GameDesign §6.2.5).</summary>
+        public readonly string Pain;
         /// <summary>Что готовая команда делала внутри.</summary>
         public readonly string Explanation;
         /// <summary>То же на базовых командах (Lua), подсвечивается; по нему считается цена.</summary>
         public readonly string Example;
+        /// <summary>
+        /// Заметка к сравнению цены (null — только строки «X() / Your code», их UnlockPopup считает сам).
+        /// </summary>
+        public readonly string EnergyNote;
 
-        public Entry(string readyMade, string[] basics, string explanation, string example)
+        public Entry(string readyMade, string[] basics, string pain, string explanation, string example,
+            string energyNote = null)
         {
             ReadyMade = readyMade;
             Basics = basics;
+            Pain = pain;
             Explanation = explanation;
             Example = example;
+            EnergyNote = energyNote;
         }
 
         public bool IsValid => !string.IsNullOrEmpty(ReadyMade);
@@ -40,6 +49,7 @@ public static class LuaDecompileGuide
         new Entry(
             "obtain",
             new[] { "findObjects", "moveTo", "harvest" },
+            "Every obtain() cost you 8 energy — three of them, 24.",
             "obtain() was never magic. Inside, it looked for the nearest visible object it could pick up " +
             "(findObjects + getNear), walked up to it (moveTo) and picked it up (harvest). " +
             "Now you can write the same steps yourself and pay only for the ones you need.",
@@ -53,6 +63,7 @@ public static class LuaDecompileGuide
         new Entry(
             "autoExplore",
             new[] { "move", "check" },
+            "Every autoExplore() cost you 10 energy, and it only walks a few tiles.",
             "autoExplore() was a walk with a good memory. It compared the 8 directions, picked the one where " +
             "6 tiles of walking (move) would reveal the most land you had never seen, and stopped at water; " +
             "when everything around was already explored, it headed for the nearest edge of the fog. " +

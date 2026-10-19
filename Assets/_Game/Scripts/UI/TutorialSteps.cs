@@ -191,7 +191,7 @@ public static class TutorialSteps
         new TutorialStep
         {
             Id = "inventory", Mode = TutorialMode.Run, Anchor = TutorialAnchor.Inventory, After = "energy",
-            Text = "Gathered items go here. Gather 3 items to unlock cheaper commands.",
+            Text = "Gathered items go here. Gather 3 items to unlock cheaper commands and conditions.",
             Done = s => s.HasAchievement("first_harvest"),
             Waiting = "Gather 3 items — run obtain() a few times"
         },
@@ -309,11 +309,12 @@ public static class TutorialSteps
         new TutorialConcept
         {
             Id = ConceptCondition, Title = "Condition",
-            Text = GuideText(LuaConstructs.If) +
-                   " A value that is nil (nothing found) or false counts as \"no\".",
+            // Объяснение уже говорит, что nil и false — это «нет»
+            Text = GuideText(LuaConstructs.If),
             Example = GuideExample(LuaConstructs.If),
-            // Условие — стартовая конструкция без окна открытия: показываем и после первого запуска с local
-            Trigger = s => s.CodeHasKeyword("if") || s.IsStepDone("variable")
+            // if больше не стартовый (открывается за first_harvest): понятие — только после открытия,
+            // при первом использовании, как циклы и функции
+            Trigger = s => s.IsConstructUnlocked(LuaConstructs.If) && s.CodeHasKeyword("if")
         },
         // Циклы и функции подробно объясняет UnlockPopup при открытии — здесь коротко, при первом использовании
         new TutorialConcept

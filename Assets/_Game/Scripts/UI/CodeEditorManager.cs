@@ -49,6 +49,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private bool _isUIFocused;
     private bool _navigationBlocked;
     private CodeEditorContext _context;
+    // Итог последнего запуска (GameEventBus.OnRunFinished приходит до возврата ExecuteAsync)
+    private bool _hasRunReport;
+    private float _lastRunSpent;
 
     public TopBar TopBar => _topBar;
     public InventoryBar InventoryBar => _inventoryBar;
@@ -121,6 +124,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
         _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
+        _luaSandbox.OnLogMessage += HandleSandboxLogMessage;
+        GameEventBus.OnRunFinished += HandleRunFinished;
     }
 
     /// <summary>
@@ -215,7 +220,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         {
             _luaSandbox.OnRunningChanged -= HandleRunningChanged;
             _luaSandbox.OnUnlocksApplied -= HandleUnlocksApplied;
+            _luaSandbox.OnLogMessage -= HandleSandboxLogMessage;
         }
+        GameEventBus.OnRunFinished -= HandleRunFinished;
 
         if (_achievements != null)
         {
@@ -750,15 +757,41 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             if (window != _mainWindow)
                 auxiliaryWindows[window.Title] = window.Code;
 
+        _hasRunReport = false;
         ExecutionResult result = await _luaSandbox.ExecuteAsync(mainCode, auxiliaryWindows);
 
+        // Расход за запуск (CodeRunReport.EnergySpent) — бесплатный для игрока замер (GameDesign §6.2.6)
+        string spent = _hasRunReport ? $" — spent {FormatEnergy(_lastRunSpent)} energy" : string.Empty;
+
         if (result.IsSuccess)
-            UIEventBus.PublishNotification("Execution completed", LogEntryType.Success);
+            UIEventBus.PublishNotification($"Execution completed{spent}", LogEntryType.Success);
         else if (result.IsCancelled)
-            UIEventBus.PublishNotification("Execution stopped", LogEntryType.Warning);
+            UIEventBus.PublishNotification($"Execution stopped{spent}", LogEntryType.Warning);
         else
+        {
             ReportCodeError(result.ErrorMessage);
+            if (_hasRunReport)
+                UIEventBus.PublishNotification($"Run finished{spent}", LogEntryType.Info);
+        }
     }
+
+    private void HandleRunFinished(CodeRunReport report)
+    {
+        _hasRunReport = true;
+        _lastRunSpent = report.EnergySpent;
+    }
+
+    /// <summary>
+    /// Вывод Lua (print) — в лог главного окна обычной строкой. Через UIEventBus, как все уведомления:
+    /// показывает их UIManager.
+    /// </summary>
+    private void HandleSandboxLogMessage(string message, LogEntryType type)
+    {
+        UIEventBus.PublishNotification(message, type);
+    }
+
+    private static string FormatEnergy(float value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Ошибка запуска: сырой текст и, если подсказки включены, объяснение для новичка
@@ -773,8 +806,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             return;
         }
 
+        UnlockRegistry unlocks = _luaSandbox.Unlocks;
         LuaErrorExplanation error = LuaErrorExplainer.Explain(
-            errorMessage, _luaSandbox.Registry.GetAllCommands(), GetWindowFunctionNames(), LuaSandbox.MainChunkName);
+            errorMessage, _luaSandbox.Registry.GetAllCommands(), GetWindowFunctionNames(), LuaSandbox.MainChunkName,
+            unlocks != null ? unlocks.IsConstructUnlocked : (System.Func<string, bool>)null);
 
         // Ошибка «в конце» доп. окна указывает на строку закрывающего end обёртки — не дальше последней строки
         CodeEditorWindowBase window = FindWindowByTitle(error.Window);

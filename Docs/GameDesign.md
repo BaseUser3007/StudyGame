@@ -134,17 +134,20 @@
 ### Набор достижений
 
 Колонка «Этап» — когда достижение реально сможет выполниться (ассет можно завести сразу).
+Таблица — **версия 2** (2026-10-20, обоснование — §6.2): изменены строки 1, 4, 5, 8, добавлена 18,
+из стартового набора убран `if`. Было (v1): №1 без `if`; №4 порог 10; №5 без `while`; №8 N = 50 и награда
+`while` + `repeat`; №18 не было.
 
 | # | id | Название / описание (UI) | Условие | Параметры | Награды | Этап |
 |---|---|---|---|---|---|---|
-| 1 | `first_harvest` | **First Haul** — Gather 3 resources. | Counter `Harvested` | фильтр — пусто, порог 3 | Command `findObjects`, `moveTo`, `harvest` («декомпиляция» `obtain`) | 2 |
+| 1 | `first_harvest` | **First Haul** — Gather 3 resources. | Counter `Harvested` | фильтр — пусто, порог 3 | Command `findObjects`, `moveTo`, `harvest` («декомпиляция» `obtain`), **Construct `if`** (v2) | 2 |
 | 2 | `first_axe` | **Sharp Idea** — Craft an axe. | Counter `Crafted` | `axe`, 1 | Command `mine` | 2 |
 | 3 | `workbench_built` | **Workshop** — Build a workbench. | Counter `Built` | `workbench`, 1 | Recipe `bed`, Recipe `pickaxe` | 2 |
-| 4 | `copy_paste` | **Déjà Vu** — Call harvest() 10 times. | Counter `CommandUsed` | `harvest`, 10 | Construct `for` | 2 |
-| 5 | `explorer` | **Wanderer** — Use autoExplore() twice. | Counter `CommandUsed` | `autoExplore`, 2 | Command `move`, `check` («декомпиляция» `autoExplore`) | 2 |
+| 4 | `copy_paste` | **Déjà Vu** — Call harvest() 6 times. | Counter `CommandUsed` | `harvest`, **6** (v2, было 10) | Construct `for` | 2 |
+| 5 | `explorer` | **Wanderer** — Use autoExplore() twice. | Counter `CommandUsed` | `autoExplore`, 2 | Command `move`, `check` («декомпиляция» `autoExplore`), **Construct `while`** (v2) | 2 |
 | 6 | `lumberjack` | **Lumberjack** — Chop down 5 trees. | Counter `Mined` | `tree`, 5 | HubBuilding `storage` | 2 (награда — 4) |
 | 7 | `sweet_dreams` | **Sweet Dreams** — Build a bed. | Counter `Built` | `bed`, 1 | HubBuilding `shrine` | 2 (награда — 4) |
-| 8 | `efficient_logger` | **Clean Code** — Collect 4 logs in one run spending ≤ 50 energy. | EfficientGather | `log`, A = 4, N = 50 | Construct `while`, `repeat` | 2 |
+| 8 | `efficient_logger` | **Clean Code** — Chop trees and pick up 4 of their logs in one code run, spending ≤ 55 energy. | EfficientGather | `log`, A = 4, N = **55** (v2, было 50) | Construct `repeat` (v2: `while` перенесён в №5) | 2 |
 | 9 | `loop_lover` | **In the Loop** — Use a for loop in 5 code runs. | Counter `ConstructUsed` | `for`, 5 | Construct `function` | 2 |
 | 10 | `function_fan` | **Abstraction** — Use functions in 3 code runs. | Counter `ConstructUsed` | `function`, 3 | Construct `classes` (доп. окна + библиотека) | 2 |
 | 11 | `threat_survivor` | **Brace Yourself** — Survive until the threat day. | Counter `ThreatReached` | пусто, 1 | Recipe `sword` | 3 |
@@ -154,16 +157,19 @@
 | 15 | `code_solver` | **Hello, World** — Solve a code puzzle. | Counter `PuzzleSolved` | `code_task`, 1 | MapEvent `maze` | 6 |
 | 16 | `maze_runner` | **Pathfinder** — Escape a maze. | Counter `PuzzleSolved` | `maze`, 1 | HubBuilding `watchtower` | 6 |
 | 17 | `first_meal` | **Bon Appétit** — Eat something. | Counter `FoodEaten` | пусто, 1 | HubBuilding `healer_hut` | 7 |
+| 18 | `first_bug` (v2) | **Bug Report** — Get your first error in a code run. | Counter `RunFinished` | `error` (Tag, §6.2.7), 1 | Command `print` | 2 (нужен код §6.2.8) |
 
-Без этапов 3–7 выполнимы №1–10: это 10 достижений и все 5 открываемых конструкций.
+Без этапов 3–7 выполнимы №1–10 и 18: это 11 достижений и все 6 открываемых конструкций (`if` теперь тоже открывается).
 
 ### Почему так (темп)
 
-| Забег | Ожидаемые достижения | Конструкции |
+Версия 2 (§6.2.1); v1 давала в забеге 1 только `for`.
+
+| Забег | Ожидаемые достижения | Конструкции и инструменты |
 |---|---|---|
-| 1 | `first_harvest` (день 1) → `first_axe` → `workbench_built`; `copy_paste`, `explorer`; часто `lumberjack`, `sweet_dreams`; `threat_survivor` на 3-й день | `for` |
-| 2 | `efficient_logger`, `loop_lover`, `enemy_spotted`, `first_blood`, `hub_builder` (между забегами) | `while`/`repeat`, `function` |
-| 3 | `function_fan`, `code_solver`, `maze_runner`, `first_meal` | `classes` |
+| 1 | день 1: `first_harvest`, `first_bug`, `explorer`, `first_axe`; день 2: `copy_paste`, `workbench_built`; дни 2–3: часто `efficient_logger`, `lumberjack`, `sweet_dreams`, `loop_lover`; `threat_survivor` на 3-й день | `if`, `while`, `for` (+ `print`); часто `repeat`, `function` |
+| 2 | `efficient_logger`, `loop_lover` (если не в забеге 1), `enemy_spotted`, `first_blood`, `hub_builder` (между забегами), `function_fan` к концу | `repeat`, `function`, часто `classes` |
+| 3 | `function_fan` (если не в забеге 2), `code_solver`, `maze_runner`, `first_meal` | `classes` |
 
 Цепочка до верстака занимает ~110 энергии, т.е. дни 1–2 забега 1: 3 × `obtain` (24) → свой сбор
 2 палок + 2 камней (~20) → `craft` кремня и топора (5) → 2 дерева через `mine` (~34) → подбор 4 брёвен
@@ -178,16 +184,20 @@
 - **20 брёвен невозможно за один запуск ни при каком коде:** 10 деревьев × 13 = 130 > 100 (дневной лимит,
   максимум 125 с бонусом за ночёвки). Поэтому A = 4 (2 дерева, физика 26).
 
-| Вариант (A = 4 бревна) | Деревья | Подбор 4 брёвен | Итого |
-|---|---|---|---|
-| Рубка своим кодом + `obtain("log")` | 2 × (2 + 2 + 13) = 34 | 4 × 8 = 32 | **66** — не проходит |
-| Свой код «в лоб»: `findObjects():getNear()` перед каждым действием | 34 | 4 × (2 + 2 + 1) = 20 | **54** — не проходит |
-| Аккуратный свой код: один `findObjects` на список + цикл `for` | 1 + 2 × (1 + 2 + 13) = 33 | 1 + 4 × (1 + 1) = 9 | **42** — проходит |
-| То же, но брёвна откатились и к каждому нужен `moveTo` | 33 | 9 + 4 × 2 = 17 | **50** — проходит впритык |
-| Без цикла, строками подряд по одному списку | 1 + 2 × 15 = 31 | 1 + 4 = 5 | **36** — проходит |
+| Вариант (A = 4 бревна) | Деревья | Подбор 4 брёвен | Итого | N = 55 (v2) |
+|---|---|---|---|---|
+| Рубка своим кодом + `obtain("log")` | 2 × (2 + 2 + 13) = 34 | 4 × 8 = 32 | **66** | не проходит (−11) |
+| То же, но через `for` или `while` (у обоих 1 за проход) | 34 + 2 | 32 + 4 | **72** | не проходит |
+| Свой код «в лоб» + брёвна откатились (`moveTo` к каждому) | 34 | 4 × (2 + 2 + 1) + 8 = 28 | **62** | не проходит |
+| Свой код «в лоб»: `findObjects():getNear()` перед каждым действием | 34 | 4 × (2 + 2 + 1) = 20 | **54** | проходит впритык |
+| То же, но брёвна откатились и к каждому нужен `moveTo` (аккуратный код) | 33 | 9 + 4 × 2 = 17 | **50** | проходит (+5) |
+| Аккуратный свой код: один `findObjects` на список + цикл `for` | 1 + 2 × (1 + 2 + 13) = 33 | 1 + 4 × (1 + 1) = 9 | **42** | проходит (+13) |
+| Без цикла, строками подряд по одному списку | 1 + 2 × 15 = 31 | 1 + 4 = 5 | **36** | проходит (+19) |
 
-**N = 50.** `obtain` проигрывает на 16, аккуратный код проходит с запасом 0–14. Урок достижения:
-искать один раз и переиспользовать список, а не вызывать дорогое заново.
+**N = 55** (v1 — 50: аккуратный код с откатившимися брёвнами проходил ровно на пределе, разброс лута
+ломал честное решение). `obtain` проигрывает на 11 при любом цикле. Урок: своё вместо готового, искать один
+раз и переиспользовать список. Экономию дают только **меньше вызовов** (`obtain`, повторные `findObjects`,
+лишние `moveTo`), а замена `for` на `while` ничего не даёт — итерация и проверка стоят одинаково (1).
 
 ### Закрытые на старте рецепты
 
@@ -205,9 +215,242 @@
   `watchtower` (+1 день до угрозы), `healer_hut` (+25 к максимуму здоровья) — §10.3. На старте не открыта ни одна;
   первые две открываются в забеге 1, так что `hub_builder` выполним с забега 2.
 - События на карте (этап 6): `code_task`, `maze`.
-- Стартовый набор `UnlockConfig`: команды `obtain`, `autoExplore`, `craft`, `build`, `drop`,
-  `getInventory`, `getStatus`, `getPosition` (+ `eat` с этапа 7); конструкции `local`, `if`.
+- Стартовый набор `UnlockConfig` (v2): команды `obtain`, `autoExplore`, `craft`, `build`, `drop`,
+  `getInventory`, `getStatus`, `getPosition`, `eat`; конструкция `local` (`if` — за `first_harvest`, §6.2).
 - `hub_builder` дополнительно открывает команды `puzzle`, `solve` (§10.4).
+
+## 6.2. Прогрессия v2 (по мотивам TFWR)
+
+Решено 2026-10-20 автономно по отчёту [Research/FarmerWasReplaced.md](Research/FarmerWasReplaced.md) (§4) и
+прохождениям §10.6 №10–12. Таблица §6.1 уже приведена к v2.
+
+**Что взяли из TFWR и что нет.**
+
+| Приём TFWR | У нас | Решение |
+|---|---|---|
+| Первое открытие — цикл, за секунды (5 × `harvest`) | `for` за 10 вызовов `harvest`, день 2 | порог 6; плюс `while` за `explorer` и `if` за `first_harvest` — три конструкции в забеге 1 |
+| Улучшение мира создаёт боль и сразу даёт инструмент (Speed → `if`, Expand → `for`) | декомпиляция давала только команды | каждая декомпиляция несёт конструкцию, которая лечит её боль (таблица 6.2.1) |
+| Справка: что болело → почему старое плохо → что открыто → пример | попап объяснял конструкцию | новая подача 6.2.4, тексты 6.2.5 |
+| Debug / Timing — открытия | `print` не выводится в UI, замера нет | `print` за `first_bug`, `getStatus().spent` и итог запуска — сразу (6.2.6) |
+| Вызов функции бесплатный | 0,5 | оставить 0,5 (6.2.3) |
+| Сенсоры после действий | `check`/`findObjects` вместе с действиями | без изменений: без `findObjects` декомпиляция `obtain` невозможна |
+| Переменные поздно | `local` со старта | без изменений: бесплатен и нужен для списков `findObjects` |
+| Покупка открытий, уровни апгрейдов ×4 | достижения, постройки хаба по одной | без изменений в срезе; уровни построек — после среза (Roadmap этап 4) |
+
+### 6.2.1. Темп и «боль → конструкция»
+
+Правило v2: **каждое открытие лечит боль, которую игрок только что почувствовал**, и приходит в том же
+окне, что и источник боли.
+
+| Достижение | Боль (что игрок только что сделал) | Открывается | Почему именно это |
+|---|---|---|---|
+| `first_harvest` (3 подбора, день 1) | 3 × `obtain` = 24 энергии | декомпиляция `obtain` + **`if`** | свой код без `obtain` падает на `nil`, когда ничего не видно: `if` нужен в ту же минуту (аналог Speed → `if`) |
+| `first_bug` (первая ошибка, день 1) | запуск упал с ошибкой | `print` | увидеть, что видит код (аналог Debug) |
+| `explorer` (2 × `autoExplore`) | 20 энергии на разведку | декомпиляция `autoExplore` + **`while`** | идти самому «пока не упрёшься» — число шагов заранее неизвестно (аналог Expand → `move`) |
+| `first_axe` | топор есть, а `obtain`/`harvest` дерево не берут | `mine` | без изменений |
+| `copy_paste` (6 × `harvest`) | одно дерево роняет 4 предмета — 4 одинаковых блока подбора | **`for`** | обход списка лута (аналог Loops за 5 Hay); порог 6 = подбор лута первого дерева |
+| `efficient_logger` | уложился в бюджет, но цикл проверяет условие до первого шага | `repeat` | «сначала сделай, потом проверь» |
+| `loop_lover` (`for` в 5 запусках) | один и тот же блок в каждом запуске | `function` | без изменений |
+| `function_fan` (`function` в 3 запусках) | новый остров — пустой редактор, функции набираются заново | `classes` + библиотека | рогалик-боль: код — единственное, что переносится, кроме материалов |
+
+Где боль от мира ещё применима (после среза): угроза → патрули (`while` с проверкой врага уже есть —
+только пример в туториале шаг 17); лабиринт (§10.4) использует `while`, открытый раньше, — так и задумано.
+
+**Ожидаемый забег 1 (v2):** день 1 — `if`, `print`, обычно `mine` и `while`; день 2 — `for`, верстак;
+дни 2–3 — часто `repeat`, `function`. Минимум (если игрок не трогал `autoExplore` и не ошибался): `if` + `for`
+— требование «≥ 2 языковых новшества в забеге 1» выполнено в худшем случае. Забег 2 — `repeat`/`function`,
+`classes` к концу; забег 3 — `classes`, если не раньше. Темп «конструкция каждые 1–2 забега» соблюдён с запасом.
+
+**Почему `if` можно убрать из старта.** До `first_harvest` у игрока только `obtain`/`autoExplore`/`craft`/`build`:
+им условия почти не нужны (`obtain` сам ничего не делает, если нечего брать). Туториал (§10.5 шаги 3–7) `if`
+не использует. Игроки со старым сохранением `if` не теряют: `first_harvest` у них выполнено, а
+`GrantRewardsOfCompleted()` повторно выдаёт награды выполненных достижений.
+
+### 6.2.2. Пороги (v2)
+
+| id | v1 | v2 | Обоснование |
+|---|---|---|---|
+| `copy_paste` | 10 | **6** | день 1 даёт ~4 своих `harvest` (2 палки + 2 камня, §10.6 №12); 6 набирается на подборе лута первого дерева (4 предмета) — ровно когда блоки подбора копируются. При 10 открытие приходило после 8 скопированных блоков |
+| `efficient_logger` | N = 50 | **N = 55** | расчёт §6.1: аккуратный код с откатившимися брёвнами (50) проходил на пределе; `obtain` (66) по-прежнему не проходит |
+| `explorer` | 2 | 2 | 20 энергии — заметно, но окупается декомпиляцией: свой шаг разведки 2–2,5 против 10 |
+| `first_bug` | — | 1 ошибка | первая ошибка почти всегда в день 1; если игрок не ошибается, `print` ему и не горит |
+
+### 6.2.3. Цена вызова функции — оставить 0,5
+
+| Вариант | Плюсы | Минусы |
+|---|---|---|
+| **0,5 (оставить, решение)** | уже в коде; рекурсия через `and` (`return n > 0 and f(n - 1)`) стоит 0,5 за шаг — не бесплатный цикл; `code_task` (§10.4) нельзя решить даром | «налог» на декомпозицию: вызов помощника `collect()` = 0,5 при теле ≈ 5,5 (≈ 9 %) |
+| 0 + лимит глубины стека | бесплатный «красивый код», как в TFWR | хвостовой вызов Lua (`return f(n - 1)`) не растёт стек — лимит не срабатывает; watchdog ловит только зависание без `await` |
+| 0 + цена только у рекурсивного вызова | платит лишь рекурсия | инструментер видит только прямой вызов `f` внутри `function f`; псевдоним `local g = f`, взаимная рекурсия, окна-«классы» обходят; сложный код в `EnergyInstrumenter` |
+| 0 + платно после N вызовов за запуск | | непрозрачно для новичка, противоречит «цена строки в гуттере» |
+
+**Почему 0,5 не наказывает красивый код у нас.** В TFWR вызов стоил 1 тик при действии 200 — их разрыв
+200 : 1, и бесплатность вызовов была косметикой. У нас мир платный и так: типичный помощник (`collect`)
+стоит ≈ 6 за вызов, из них 0,5 — вызов; `obtain` за то же — 8. Функция выигрывает у готовой команды,
+а у копипасты проигрывает только 0,5 за вызов — мотивация к `function` идёт от повторного использования
+и библиотеки (`classes`), а не от энергии. Рекурсия на `and` остаётся самым дешёвым циклом (0,5 против 1) —
+это допустимая находка для опытного игрока, не дыра. Пересмотреть после прохождения среза, если игроки
+избегают функций из-за цены.
+
+### 6.2.4. Подача попапов «Unlocked» / «Decompiled»
+
+Порядок блоков в `UnlockPopup` (и для конструкций, и для декомпиляций, и для команд с текстом):
+
+| # | Блок | Стиль | Содержание |
+|---|---|---|---|
+| 1 | Заголовок | как сейчас | «New language construct: For» / «Decompiled: obtain()» / «New command: print» |
+| 2 | **Why** (боль) | новый класс `unlock-pain`, выделен | одна-две фразы: что игрок только что сделал и чем это плохо |
+| 3 | What | `unlock-text` | что открыто, одним абзацем |
+| 4 | Example | `unlock-section` + код | 3–7 строк с реальными командами, решающих ту самую боль |
+| 5 | Energy | `unlock-cost` | цена конструкции (как сейчас из `EnergyConfig`) + статичная заметка-сравнение; у декомпиляции — строки «obtain() 8 / Your code 5.5» (уже есть) |
+
+Награды одного достижения идут в порядке ассета: сначала окно декомпиляции, затем окно конструкции
+(`first_harvest`: `obtain()` → `if`; `explorer`: `autoExplore()` → `while`).
+
+### 6.2.5. Тексты (английский, для `LuaConstructGuide` / `LuaDecompileGuide` / команд)
+
+Поля: **Pain** (новое), **Explanation** (заменяет текущее), **Example**, **EnergyNote** (новое, статично).
+Цены в заметках посчитаны по §10.6 и должны совпадать с подсчётом `UnlockPopup` по токенам примера.
+
+**`if`** (за `first_harvest`)
+- Pain: "obtain() never complained: when nothing was in sight, it simply did nothing. Your own code is less forgiving — findObjects(\"stick\"):getNear() returns nil when there is no stick, and stick.x on nil stops the run with an error."
+- Explanation: "if runs a block only when its condition is true. nil and false count as \"no\", anything else as \"yes\". elseif and else add alternatives."
+- EnergyNote: "Each check costs 0.5. An error ends the run and wastes one of today's runs — checking first is cheaper."
+
+```lua
+local stick = findObjects("stick"):getNear()
+if stick then
+  moveTo(stick.x, stick.y)
+  harvest(stick)
+else
+  autoExplore()
+end
+```
+
+**`for`** (за `copy_paste`)
+- Pain: "You have called harvest() 6 times — line after line of the same code. One tree drops 4 items, and each of them needed its own lines."
+- Explanation: "for repeats a block a set number of times. Its variable (i) counts the passes: 1, 2, 3… Use count to go through a whole list."
+- EnergyNote: "A loop saves lines, not energy: every pass costs 1 plus everything inside. Search once before the loop — a findObjects() inside it is paid on every pass. Here: 1 + 4 per item, instead of 5 per item with a new search each time."
+
+```lua
+local logs = findObjects("log")
+for i = 1, logs.count do
+  local log = logs[i]
+  moveTo(log.x, log.y)
+  harvest(log)
+end
+```
+
+**`while`** (за `explorer`)
+- Pain: "You paid 10 energy for every autoExplore(). Walking yourself is cheaper — but you never know how far the land goes, so how many move() lines should you write?"
+- Explanation: "while repeats a block as long as its condition is true. Use it when you don't know the number of passes in advance: walk until something stops you, chop while trees are in sight."
+- EnergyNote: "Each check of the condition costs 1: here 2 energy per 6 tiles, against 10 for autoExplore(). Make sure the condition becomes false — an endless loop drains the whole day."
+
+```lua
+-- walk east until water or an obstacle stops you
+local steps = move("east", 6)
+while steps > 0 do
+  steps = move("east", 6)
+end
+```
+
+**`repeat`** (за `efficient_logger`)
+- Pain: "Clean code — 4 logs on a tight budget. But while checks before the first pass, and sometimes you have to act first and only then see whether it was enough."
+- Explanation: "repeat … until runs the body first and checks the condition after it, so the body always runs at least once. The loop stops when the until condition becomes true. Locals of the body are visible in until."
+- EnergyNote: "Each until check costs 1, like a while check. Here: 3 energy per 3 tiles walked."
+
+```lua
+-- step north until a tree comes into view (or the way is blocked)
+repeat
+  local moved = move("north", 3)
+  local trees = findObjects("tree")
+until trees.count > 0 or moved == 0
+```
+
+**`function`** (за `loop_lover`)
+- Pain: "You have written a for loop in 5 runs — probably with the same \"find, walk, pick up\" lines inside every time. A copied block has to be fixed in every copy."
+- Explanation: "function gives a name to a piece of code; call it by that name like a command. Parameters (kind) receive the arguments of the call, and return hands a value back."
+- EnergyNote: "Defining a function is free; each call costs 0.5 and its body is paid as usual. collect() below costs 6 per call — still less than obtain() at 8."
+
+```lua
+function collect(kind)
+  local obj = findObjects(kind):getNear()
+  if obj then
+    moveTo(obj.x, obj.y)
+    harvest(obj)
+  end
+  return obj
+end
+
+collect("stick")
+collect("stone")
+```
+
+**`classes`** (за `function_fan`)
+- Pain: "Every new island starts with an empty editor: the functions you wrote last run are gone, and you type them again."
+- Explanation: текущий текст `LuaConstructGuide` без изменений ("Extra code windows: press + …").
+- EnergyNote: "Calling a window costs the same as calling a function (0.5). Saved windows are kept between runs — besides materials, your code is the only thing you take home."
+- Example: текущий (окно `Gather` + `Main`).
+
+**Декомпиляция `obtain()`** (за `first_harvest`) — Explanation и Example без изменений.
+- Pain: "Every obtain() cost you 8 energy — three of them, 24."
+
+**Декомпиляция `autoExplore()`** (за `explorer`) — Explanation и Example без изменений (пример: 2,5 против 10).
+- Pain: "Every autoExplore() cost you 10 energy, and it only walks a few tiles."
+
+**Команды** (`UnlockPopup.BuildCommand`; сейчас показывает русский `ILuaCommand.Description` — нужен английский текст):
+
+| Команда | Pain | Explanation | EnergyNote |
+|---|---|---|---|
+| `mine` | "obtain() and harvest() only pick things up from the ground. A tree has to be chopped first — and now you have an axe." | "mine(obj) chops or breaks an object with the right tool (tree — axe, boulder — pickaxe). The loot falls on the ground around it: pick it up with harvest()." | "1 per call plus the loot: a tree costs 1 + 12. The axe wears out after 20 uses." |
+| `print` | "Your code stopped with an error. The quickest way to find out why is to look at what your code actually sees." | "print(...) writes values to the log under the main window: numbers, text, nil, and tables with their fields." | "0.5 per call. Remove debug prints once the code works — inside a loop they are paid on every pass." |
+| `attack` | "Goblins stand between you and the gold. You can sneak around them — or fight." | "attack(enemy) hits an enemy within 1.5 tiles: 5 damage bare-handed, 15 with a sword. It does not walk up to the enemy — use moveTo first, or wait for it to come." | "2 per hit. The real price is health: fight with a sword." |
+
+Пример для `print`:
+
+```lua
+local stick = findObjects("stick"):getNear()
+print(stick)               -- {type="stick", x=3.4, y=-1.2, ...} or nil
+print(getStatus().spent)   -- energy spent in this run so far
+```
+
+### 6.2.6. Отладка и замер
+
+| Инструмент | Нужен? | Когда | Почему |
+|---|---|---|---|
+| `print(...)` | да, **команда** 0,5 | за `first_bug` (день 1) | сейчас стандартный `print` пишет в консоль Unity — игрок его не видит. Бесплатным быть не может (принцип «ни одна команда не бесплатна»), 0,5 — как `if`, чтобы отладка не била по бюджету |
+| `getStatus().spent` | да, поле | сразу (`getStatus` в старте) | замер расхода за текущий запуск — инструмент для `efficient_logger`; цена — вызов `getStatus` (1) |
+| Итог запуска «Spent N energy» | да, UI | сразу | бесплатный для игрока замер без кода; данные уже есть (`CodeRunReport.EnergySpent`) |
+| Точки останова, пошагово | нет | после среза | дорого в реализации; подсветка выполняемой строки — кандидат после среза |
+
+### 6.2.7. Новые события и достижения (для программистов)
+
+| Что | Где | Точное поведение |
+|---|---|---|
+| Tag у `RunFinished` | `LuaSandbox.ExecuteAsync` → `GameEventBus.PublishRunFinished` | Id без изменений (`success`/`failed`); Tag: `ok`, `error` (ошибка компиляции или выполнения Lua, включая ошибки команд, дошедшие до верха), `energy` (кончилась энергия), `stopped` (Stop/watchdog), `locked` (отказ `LuaConstructGuard`) |
+| Достижение `first_bug` | новый ассет | Counter, `gameEvent` = `RunFinished`, filter `error` (сравнивается с Tag), amount 1, reward Command `print` |
+
+Других новых событий не нужно: остальные изменения v2 — пороги и награды существующих ассетов.
+
+### 6.2.8. К внедрению
+
+| Исполнитель | Система / ассет | Что поменять |
+|---|---|---|
+| asset-editor | `DefaultUnlockConfig` | `startingConstructs`: убрать `if` (остаётся `local`) |
+| asset-editor | `first_harvest.asset` | rewards: + Construct (kind 1) `if` **после** трёх команд |
+| asset-editor | `copy_paste.asset` | `condition.amount` 10 → 6; description "Call harvest() 6 times." |
+| asset-editor | `explorer.asset` | rewards: + Construct `while` после `move`, `check` |
+| asset-editor | `efficient_logger.asset` | `condition.maxEnergy` 50 → 55; rewards: убрать `while`, оставить `repeat`; description "Chop trees and pick up 4 of their logs in one code run, spending ≤ 55 energy." |
+| asset-editor | `first_bug.asset` (новый) + `AchievementCatalog` | id `first_bug`, title "Bug Report", description "Get your first error in a code run.", Counter / `RunFinished` / filter `error` / 1, reward Command `print`; в каталоге — после `first_harvest` |
+| программист | `LuaSandbox`, `GameEventBus` | Tag у `RunFinished` (6.2.7) — **сделано** (`GameEventBus.RunTag*`, `CodeRunReport.Outcome`; watchdog → `stopped`, вызов закрытой команды → `locked`; тесты `LuaDebugToolsTests`) |
+| программист | новая `PrintCommand` | `print(...)` 0,5; заменяет стандартный `print` в `RestrictStandardLibraries`; вывод в лог главного окна (через существующий неиспользуемый `LuaSandbox.OnLogMessage` → `UIManager`); таблицы — один уровень `{k=v, …}`, `LuaObjectList` — `count` + первые 3 элемента, строка до ~200 символов; регистрация в `RegisterCommands`; убрать `print` из встроенных `LuaCompletionProvider` (придёт из реестра) — **сделано** (вывод через `OnLogMessage(string, LogEntryType.Info)`, строка до 200 символов; подписка UI — за ui-programmer) |
+| программист | `GetStatusCommand` | поле `spent` — энергия, потраченная с начала текущего запуска (то же, что `CodeRunReport.EnergySpent`) — **сделано** (`LuaSandbox.EnergySpentThisRun`) |
+| программист | `CodeEditorManager.OnRun` | уведомление после запуска с расходом: "Execution completed — spent N energy" (и для stop/error) |
+| программист | `LuaConstructGuide`, `LuaDecompileGuide` | поля `Pain`, `EnergyNote`; тексты 6.2.5 |
+| программист | `UnlockPopup` | блоки по 6.2.4: Pain первым (класс `unlock-pain` в USS), EnergyNote после цены; для команд — английские Pain/Explanation/EnergyNote из нового `LuaCommandGuide` (`mine`, `print`, `attack`), иначе как сейчас |
+| программист | `TutorialSteps` | концепт «Condition»: триггер только при открытом `if` (`IsConstructUnlocked`), не по `IsStepDone("variable")`; шаг 7 (§10.5): "Gather 3 items to unlock cheaper commands and conditions." |
+| программист (тесты) | `DataIntegrityTests.AchievementCatalog_MatchesDesignIds` | + `first_bug`; `LuaSandboxUnlockTests` и др. задают стартовый набор сами — проверить, что не опираются на `if` из `DefaultUnlockConfig` |
+| вручную | прохождение от нового сохранения | проверить ожидания 6.2.1: `if` и `print` в день 1, `for` не позже дня 2, `efficient_logger` проходится аккуратным кодом |
 
 ## 7. Сооружения-головоломки (события на карте)
 
@@ -247,8 +490,9 @@
 | 8 | Команда `eat` | В стартовом наборе `UnlockConfig` (выживание, не учебная тема) |
 | 9 | Команды головоломки `puzzle`/`solve` | Открываются вместе с событием `code_task` — доп. награды `hub_builder` |
 | 10 | Восстановление здоровья без еды | Ночь у спального места (`bed`): +15 здоровья (§10.1), чтобы срез не зависел целиком от этапа 7 |
-| 11 | Цена вызова функции | 0 → **0,5**: иначе рекурсия с `and` (`return n > 0 and f(n - 1)`) — бесплатный цикл, задачи на код решались бы даром. Обоснование — §10.6 |
+| 11 | Цена вызова функции | 0 → **0,5**: иначе рекурсия с `and` (`return n > 0 and f(n - 1)`) — бесплатный цикл, задачи на код решались бы даром. Обоснование — §10.6. Пересмотрено 2026-10-20 по TFWR — **остаётся 0,5** (§6.2.3) |
 | 12 | Что делает `autoExplore` | Не случайные 5 шагов, а разведка к неизвестному (2026-10-20): из 8 направлений — то, где путь до 6 тайлов по прямой (вода останавливает) откроет больше всего ещё не виденной суши; если вокруг всё открыто — к ближайшей границе тумана. Ничья — хеш от seed и позиции. Возвращает число открытых тайлов суши. `autoExplore(type)` — до 3 шагов, пока объект/враг/головоломка типа не появится в поле зрения, вернёт ближайший или `nil, "not found"`; 10 за вызов + 10 за каждый шаг после первого. «Декомпиляция» — `check` + `move` (идти в одну сторону, пока впереди суша) |
+| 13 | Прогрессия открытий v2 (по мотивам TFWR, 2026-10-20) | `if` из старта → `first_harvest`; `while` → `explorer`; `copy_paste` 10 → 6; `efficient_logger` N 50 → 55, награда только `repeat`; новое `first_bug` → команда `print` (0,5); `getStatus().spent`; попапы «боль → что открыто → пример → энергия». Подробно — §6.2 |
 
 ### К внедрению (задачи программистам / asset-editor)
 
@@ -258,13 +502,17 @@
 | `DefaultEnergyConfig.functionCost` | 0 → 0,5 — **сделано** (и дефолт в коде, `CLAUDE.md`) | решение 11 |
 | `EnergyConfig.apiCallCost`, `variableCost` | удалены — **сделано** | мёртвые поля путают баланс |
 | `DefaultUnlockConfig` | + команда `eat` в стартовый набор — **сделано** | решение 8 |
-| `hub_builder.asset` | + награды Command `puzzle`, Command `solve` | решение 9 |
+| `hub_builder.asset` | + награды Command `puzzle`, Command `solve` — **сделано** (в ассете) | решение 9 |
+| ассеты достижений, `DefaultUnlockConfig`, `PrintCommand`, `UnlockPopup`… | список v2 — §6.2.8 | решение 13 |
 | `HubBuildingDefinition` `storage` (этап 4) | +2 слота (в §6.1 было +1, исправлено) | §10.3 |
 | `DayCycle` | ночь у `isSleepingPlace` → `PlayerHealth.Heal(15)` | решение 10 |
 | `RabbitObject` | заменить на `sheep` (у Tiny Swords есть спрайты овцы, у кролика нет) — **сделано в коде** (`SheepObject`, ассеты — asset-editor) | §10.2 |
 | `FoodResource` | превратить в `FoodItem` (+ `healthRestore`) — **сделано** | §10.2 |
 
 Открытых вопросов к автору нет. Всё, что выше, можно пересмотреть после ручного прохождения среза (этап 8).
+Проверить в прохождении (v2, §6.2): не слишком ли быстро (`if`, `while`, `for` + `print` в забеге 1 —
+новичка не перегружает ли); не избегают ли игроки функций из-за цены 0,5 (§6.2.3); проходится ли
+`efficient_logger` аккуратным кодом при разбросе лута.
 
 ## 10. Числа для среза (спецификация ассетов)
 
@@ -465,7 +713,7 @@
 | 4 | колонка цены строк | This number is the energy cost of the line. Ready-made commands like `obtain` are convenient but expensive. | Next |
 | 5 | кнопка Run | Press Run to execute your code. | `RunStarted` |
 | 6 | полоса энергии (TopBar) | Energy is your daily budget. Every command spends it, even failed ones. | `RunFinished` |
-| 7 | InventoryBar | Gathered items go here. Gather 3 items to unlock cheaper commands. | `first_harvest` выполнено |
+| 7 | InventoryBar | Gathered items go here. Gather 3 items to unlock cheaper commands and conditions. (v2, §6.2) | `first_harvest` выполнено |
 | 8 | главное окно кода | Arguments go inside the brackets: `obtain("stick")` picks up only sticks. | Next |
 | 9 | счётчик запусков/дня (TopBar) | You have 3 runs per day. After the last one the day ends and energy refills. | Next |
 | 10 | кнопка Help | Help lists every command you have and its cost. | Help открыта |

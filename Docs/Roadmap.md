@@ -66,6 +66,7 @@
       в лагере; достижения в итогах забега.)
 - [x] ★ Набор достижений для 2–3 забегов — спецификация в GameDesign.md §6.1 (17 штук; №1–10 выполнимы
       уже на этапе 2, остальные ждут этапов 3/4/6/7). Рецепты `bed`, `pickaxe` закрыты на старте.
+      (v2, §6.2: 18-е `first_bug` и правки №1, 4, 5, 8 — ещё не в ассетах, см. этап 8.)
 - [x] ★ После набора достижений выключить `unlockAll` в `DefaultUnlockConfig`.
 
 ## Этап 3. Мировая угроза и враги
@@ -182,6 +183,9 @@
 ## Этап 8. Контент и баланс среза
 
 - [ ] ★ Таблица прогрессии 2–3 забегов (ниже) воплощена в ассетах, пройдена вручную от нового сохранения.
+      Пересмотрена 2026-10-20 по мотивам TFWR — **GameDesign.md §6.2 «Прогрессия v2»** (`if` за `first_harvest`,
+      `while` за `explorer`, `copy_paste` 6, `efficient_logger` ≤ 55 → `repeat`, новое `first_bug` → `print`);
+      задачи ассетам и коду — §6.2.8 (код: Tag у `RunFinished`, `print`, `getStatus().spent` — сделано; остальное пока нет).
 - [ ] ★ Баланс: цены готовых vs базовых команд, день угрозы, стоимость построек хаба.
       Проверка по ассетам и список правок «к внедрению» (сделано: `autoExplore` 25 → 10 и `IsReadyMade`,
       `functionCost` 0 → 0,5, мёртвые `apiCallCost`/`variableCost` удалены из `EnergyConfig`; остальное —
@@ -196,6 +200,6 @@
 
 | Забег | Доступно на старте | Достижения → награды |
 |---|---|---|
-| 1 | `obtain`, `autoExplore`, `craft`, `build`, `drop`, `getInventory`, `getStatus`, `getPosition`; `local`, `if` | `first_harvest` → `findObjects`, `moveTo`, `harvest`; `first_axe` → `mine`; `workbench_built` → рецепты `bed`, `pickaxe`; `copy_paste` → `for`; `explorer` → `move`, `check`; `lumberjack` / `sweet_dreams` → постройки хаба; `threat_survivor` → рецепт `sword` |
-| 2 | + открытое в забеге 1 | `efficient_logger` (4 бревна ≤ 50 энергии) → `while`, `repeat`; `loop_lover` → `function`; `enemy_spotted` → `attack`; `first_blood` → рецепты костра и еды; `hub_builder` → событие `code_task` |
-| 3 | + `while`, `function`, задачи на код | `function_fan` → `classes`; `code_solver` → событие `maze`; `maze_runner` → `watchtower`; `first_meal` → `healer_hut` |
+| 1 | `obtain`, `autoExplore`, `craft`, `build`, `drop`, `getInventory`, `getStatus`, `getPosition`, `eat`; `local` | `first_harvest` → `findObjects`, `moveTo`, `harvest`, `if`; `first_bug` → `print`; `first_axe` → `mine`; `explorer` → `move`, `check`, `while`; `copy_paste` (6 × `harvest`) → `for`; `workbench_built` → рецепты `bed`, `pickaxe`; `lumberjack` / `sweet_dreams` → постройки хаба; `threat_survivor` → рецепт `sword`; часто уже `efficient_logger`, `loop_lover` |
+| 2 | + открытое в забеге 1 | `efficient_logger` (4 бревна ≤ 55 энергии) → `repeat`; `loop_lover` → `function`; `enemy_spotted` → `attack`; `first_blood` → рецепты костра и еды; `hub_builder` → событие `code_task`, `puzzle`, `solve`; к концу `function_fan` |
+| 3 | + `repeat`, `function`, задачи на код | `function_fan` → `classes` (если не раньше); `code_solver` → событие `maze`; `maze_runner` → `watchtower`; `first_meal` → `healer_hut` |

@@ -14,16 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AchievementDefinition
   id: efficient_logger
   title: Clean Code
-  description: "Collect 4 logs in one run spending \u2264 50 energy."
+  description: "Chop trees and pick up 4 of their logs in one code run, spending
+    \u2264 55 energy."
   icon: {fileID: 0}
   condition:
     type: 1
     gameEvent: 0
     filter: log
     amount: 4
-    maxEnergy: 50
+    maxEnergy: 55
   rewards:
-  - kind: 1
-    id: while
   - kind: 1
     id: repeat

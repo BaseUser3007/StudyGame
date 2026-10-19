@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AchievementCatalog
   achievements:
   - {fileID: 11400000, guid: 022260b7beba0924c9773adfedbb28d3, type: 2}
+  - {fileID: 11400000, guid: 95d81f429632a0f43bcc107e3f082130, type: 2}
   - {fileID: 11400000, guid: 3f6f9447dd3f8b841a943b9be39ce5a9, type: 2}
   - {fileID: 11400000, guid: f31d13fce61e8724faa10c3e3d7d5680, type: 2}
   - {fileID: 11400000, guid: a9a23fe3460e2254a9fdba269358507a, type: 2}

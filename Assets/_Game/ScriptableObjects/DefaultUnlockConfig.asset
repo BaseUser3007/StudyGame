@@ -24,5 +24,4 @@ MonoBehaviour:
   - eat
   startingConstructs:
   - local
-  - if
   unlockAll: 0

@@ -78,10 +78,11 @@ public static class LuaErrorExplainer
         "..", "...", "==", ">=", "<=", "~=", "::", "<eof>", "<number>", "<name>", "<string>"
     };
 
-    // Стандартные функции и библиотеки Lua — кандидаты для «Did you mean» (команды берутся из реестра)
+    // Стандартные функции и библиотеки Lua — кандидаты для «Did you mean» (команды берутся из реестра;
+    // print — тоже команда игры, открываемая, поэтому её здесь нет)
     private static readonly string[] LuaGlobals =
     {
-        "print", "pairs", "ipairs", "tostring", "tonumber", "type", "pcall", "error", "select", "next",
+        "pairs", "ipairs", "tostring", "tonumber", "type", "pcall", "error", "select", "next",
         "math", "string", "table", "os"
     };
 
@@ -106,6 +107,10 @@ public static class LuaErrorExplainer
         public List<string> CommandNames;
         public Dictionary<string, string> Signatures;
         public List<string> WindowNames;
+        // Конструкция открыта (null — считаем открытыми все): подсказки не советуют закрытый `if`
+        public Func<string, bool> IsConstructUnlocked;
+
+        public bool IsUnlocked(string construct) => IsConstructUnlocked == null || IsConstructUnlocked(construct);
     }
 
     private static readonly List<(Regex Pattern, Rule Explain)> Rules = new List<(Regex, Rule)>
@@ -171,15 +176,18 @@ public static class LuaErrorExplainer
     /// <param name="commands">Открытые команды (LuaSandbox.Registry) — имена и сигнатуры для подсказок.</param>
     /// <param name="windowNames">Заголовки доп. окон (их функции тоже можно вызвать).</param>
     /// <param name="mainChunkName">Имя чанка главного окна (LuaSandbox.MainChunkName).</param>
+    /// <param name="isConstructUnlocked">Открыта ли конструкция (id из LuaConstructs); null — все открыты.</param>
     public static LuaErrorExplanation Explain(
         string rawError,
         IEnumerable<ILuaCommand> commands,
         IEnumerable<string> windowNames = null,
-        string mainChunkName = "Main")
+        string mainChunkName = "Main",
+        Func<string, bool> isConstructUnlocked = null)
     {
         if (string.IsNullOrWhiteSpace(rawError)) return LuaErrorExplanation.RawOnly(rawError);
 
         Input input = BuildInput(rawError, commands, windowNames, mainChunkName);
+        input.IsConstructUnlocked = isConstructUnlocked;
 
         foreach (var (pattern, explain) in Rules)
         {
@@ -550,8 +558,16 @@ public static class LuaErrorExplainer
     {
         string name = m.Groups["name"].Success ? m.Groups["name"].Value : null;
         string what = name != null ? $"`{name}` is nil (empty)" : "A value is nil (empty)";
-        return ($"{what}, so you can't use `.` or `:` on it. This often happens when a command found nothing: " +
-                "`getNear()`, `find()` or `check()` returned nil.",
+        string explanation = $"{what}, so you can't use `.` or `:` on it. This often happens when a command found nothing: " +
+                             "`getNear()`, `find()` or `check()` returned nil.";
+
+        // Пока `if` закрыт, совет «проверь через if» бесполезен — подсказываем, что делать без условий
+        if (!i.IsUnlocked(LuaConstructs.If))
+            return (explanation,
+                "Make sure something is in sight before you look for it (`findObjects(...).count` shows how many), " +
+                "or explore first. Conditions (`if`) unlock after your first harvest.");
+
+        return (explanation,
             name != null
                 ? $"Check it before use: `if {name} then ... end`. Also check the spelling of the variable."
                 : "Check the value before use: `if obj then ... end`.");
