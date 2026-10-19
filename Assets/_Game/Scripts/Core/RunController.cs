@@ -40,6 +40,7 @@ public class RunController
         _screens.OnStartRunRequested += GameSession.StartRun;
         _screens.OnExitConfirmed += HandleExitConfirmed;
         _screens.OnReturnToHubRequested += GameSession.ReturnToHub;
+        _screens.OnResetProgressRequested += HandleResetProgressRequested;
         _topBar.OnExitRunRequested += HandleExitRunRequested;
         _health.OnDied += HandleDied;
     }
@@ -51,6 +52,20 @@ public class RunController
     }
 
     // ─── Handlers ─────────────────────────────────────────────
+
+    /// <summary>Reset progress в лагере (подтверждён в UI) — только в лагере и не во время кода.</summary>
+    private void HandleResetProgressRequested()
+    {
+        if (_mode != GameMode.Hub) return;
+
+        if (_sandbox.IsRunning)
+        {
+            UIEventBus.PublishNotification("Can't reset progress while the code is running", LogEntryType.Warning);
+            return;
+        }
+
+        GameSession.ResetProgress();
+    }
 
     private void HandleExitRunRequested()
     {

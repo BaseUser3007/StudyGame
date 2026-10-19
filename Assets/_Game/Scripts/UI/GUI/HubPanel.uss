@@ -81,6 +81,7 @@
 }
 
 .hub-settings {
+    flex-wrap: wrap;
     flex-direction: row;
     justify-content: flex-end;
     margin-top: 10px;

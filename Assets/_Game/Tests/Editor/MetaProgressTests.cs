@@ -126,4 +126,122 @@ public class MetaProgressTests
         Assert.AreEqual(0, progress.GetAchievementProgress("logs"));
         Assert.IsTrue(progress.HasAchievement("logs"));
     }
+
+    // ─── Сброс прогресса (этап 8) ─────────────────────────────
+
+    /// <summary>Прогресс со всем, что сбрасывается: открытия, достижения, склад, постройки, туториал.</summary>
+    private MetaProgress FilledProgress()
+    {
+        MetaProgress progress = _saves.Progress();
+        progress.UnlockCommand("mine");
+        progress.UnlockConstruct("for");
+        progress.UnlockRecipe("bed");
+        progress.UnlockHubBuilding("storage");
+        progress.UnlockEvent("caravan");
+        progress.CompleteAchievement("haul");
+        progress.SetAchievementProgress("logs", 3);
+        progress.SetTutorialFlag("intro");
+        progress.HintsEnabled = false;
+        progress.AddHubBuilding("storage", new UnityEngine.Vector2Int(1, 2));
+        progress.RecordRunFinished(defeated: true);
+
+        MaterialResource log = TestHelpers.Material("log");
+        progress.AddMaterial(log, 5);
+        UnityEngine.Object.DestroyImmediate(log);
+
+        Assert.IsTrue(progress.Save());
+        return progress;
+    }
+
+    private static void AssertEmpty(MetaProgress progress)
+    {
+        Assert.IsFalse(progress.IsCommandUnlocked("mine"));
+        Assert.IsFalse(progress.IsConstructUnlocked("for"));
+        Assert.IsFalse(progress.IsRecipeUnlocked("bed"));
+        Assert.IsFalse(progress.IsHubBuildingUnlocked("storage"));
+        Assert.IsFalse(progress.IsEventUnlocked("caravan"));
+        Assert.IsFalse(progress.HasAchievement("haul"));
+        Assert.AreEqual(0, progress.CompletedAchievements.Count);
+        Assert.AreEqual(0, progress.GetAchievementProgress("logs"));
+        Assert.IsFalse(progress.HasTutorialFlag("intro"));
+        Assert.IsTrue(progress.HintsEnabled, "hints are on again after a reset");
+        Assert.AreEqual(0, progress.Materials.Count);
+        Assert.AreEqual(0, progress.GetMaterialCount("log"));
+        Assert.AreEqual(0, progress.HubBuildings.Count);
+        Assert.AreEqual(0, progress.RunsFinished);
+        Assert.AreEqual(0, progress.Defeats);
+    }
+
+    [Test]
+    public void ResetAll_ClearsEverythingInMemoryAndOnDisk_KeepsBackup()
+    {
+        MetaProgress progress = FilledProgress();
+        string before = File.ReadAllText(progress.FilePath);
+
+        Assert.IsTrue(progress.ResetAll());
+
+        AssertEmpty(progress);
+        AssertEmpty(_saves.Progress());
+
+        // Прежнее сохранение отложено копией
+        string backup = progress.FilePath + MetaProgress.ResetBackupSuffix;
+        Assert.IsTrue(File.Exists(backup));
+        Assert.AreEqual(before, File.ReadAllText(backup));
+        Assert.IsTrue(new MetaProgress(backup).IsCommandUnlocked("mine"));
+    }
+
+    [Test]
+    public void ResetAll_ThenNewProgress_IsSavedNormally()
+    {
+        MetaProgress progress = FilledProgress();
+        progress.ResetAll();
+
+        Assert.IsTrue(progress.UnlockCommand("mine"), "after a reset unlocks are new again");
+        Assert.IsTrue(progress.Save());
+        Assert.IsTrue(_saves.Progress().IsCommandUnlocked("mine"));
+        Assert.IsFalse(_saves.Progress().HasAchievement("haul"));
+    }
+
+    [Test]
+    public void ResetAll_WithoutFile_WritesEmptyProgressWithoutBackup()
+    {
+        MetaProgress progress = _saves.Progress();
+
+        Assert.IsTrue(progress.ResetAll());
+
+        Assert.IsTrue(File.Exists(progress.FilePath));
+        Assert.IsFalse(File.Exists(progress.FilePath + MetaProgress.ResetBackupSuffix));
+        AssertEmpty(_saves.Progress());
+    }
+
+    [Test]
+    public void ResetAll_DoesNotTouchOtherSaveFiles()
+    {
+        // Библиотека кода (code_library.json) — код игрока, сброс прогресса её не стирает
+        string library = _saves.PathOf("code_library.json");
+        File.WriteAllText(library, "{\"entries\":[]}");
+
+        FilledProgress().ResetAll();
+
+        Assert.IsTrue(File.Exists(library));
+        Assert.AreEqual("{\"entries\":[]}", File.ReadAllText(library));
+    }
+
+    [Test]
+    public void ResetFile_MovesSaveToBackup_NextLoadIsEmpty()
+    {
+        MetaProgress progress = FilledProgress();
+        File.WriteAllText(progress.FilePath + ".tmp", "partial");
+
+        Assert.IsTrue(MetaProgress.ResetFile(progress.FilePath));
+
+        Assert.IsFalse(File.Exists(progress.FilePath));
+        Assert.IsFalse(File.Exists(progress.FilePath + ".tmp"));
+        Assert.IsTrue(File.Exists(progress.FilePath + MetaProgress.ResetBackupSuffix));
+        AssertEmpty(_saves.Progress());
+
+        // Второй сброс — файла нет, ничего не делает, старая копия цела
+        Assert.IsFalse(MetaProgress.ResetFile(progress.FilePath));
+        Assert.IsTrue(new MetaProgress(progress.FilePath + MetaProgress.ResetBackupSuffix).HasAchievement("haul"));
+    }
 }

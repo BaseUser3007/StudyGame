@@ -140,20 +140,23 @@
 Задачи `code_task` (`sum`/`max`/`count`, команды `puzzle` = 1, `solve` = 2), лабиринт 7×7 → `crystal` ×2,
 частота генерации — GameDesign.md §10.4.
 
-- [ ] ★ Каркас: `PuzzleStructure` — генерируется на карте (часть `ObjectGenerator`/отдельный генератор),
+- [x] ★ Каркас: `PuzzleStructure` — генерируется на карте (часть `ObjectGenerator`/отдельный генератор),
       тип открывается мета-прогрессом, награда по типу, отметка «решено».
-- [ ] ★ Задача на код: сооружение выдаёт входные данные, игрок возвращает ответ (команда вида
+- [x] ★ Задача на код: сооружение выдаёт входные данные, игрок возвращает ответ (команда вида
       `solve(obj, answer)` или чтение условия через `check`), проверка; награда — команда или бонус на забег.
-- [ ] ★ Лабиринт: огороженная область, дойти до центра кодом (без поиска пути — нужен свой алгоритм);
+- [x] ★ Лабиринт: огороженная область, дойти до центра кодом (без поиска пути — нужен свой алгоритм);
       награда — уникальный ресурс.
 
 **Мировая часть (C#) готова** (2026-10-19, `Scripts/Puzzles`): `PuzzleStructure` / `CodeTaskPuzzle` /
 `MazePuzzle`, `PuzzleGenerator` (только открытые типы, seed, туман, ≥ 8 от лагерей, расстояния §10.4),
 `PuzzleManager` (`Level.Puzzles`), задачи `sum`/`max`/`count` с новым входом в каждом запуске, награды на
 забег (`PuzzleRewards`), лабиринт 7×7 с «густой изгородью» тумана (`FogOfWarSystem.AddHedgeArea`) и `crystal` ×2,
-`PuzzleSolved`; EditMode-тесты `PuzzleTests`. **Ждёт:** Lua-команд `puzzle`/`solve` и типов в
-`findObjects`/`check` (lua-systems-programmer); ассетов `PuzzleConfig` (на `Level`), префабов обелиска,
-стены и `maze_chest`, предмета `crystal`; проверки в Play Mode. После этого — отметить три пункта выше.
+`PuzzleSolved`; EditMode-тесты `PuzzleTests`. **Lua-часть готова** (2026-10-19): `puzzle([obj | x, y])` = 1,
+`solve(obj, answer)` = 2 (`true` / `nil, причина`; открываются `hub_builder`), в `findObjects` типы `obelisk`/`code_task`,
+`maze`, `puzzle` (только без тумана, id = `LuaObjectList.PuzzleIdOffset` + Id; в `findObjects()` тоже), в `check` —
+`wall`/`chest`/`obelisk`, `walkable = false` на стене лабиринта, поле `puzzle`; harvest/mine/attack по головоломке —
+понятная ошибка; тесты `PuzzleCommandTests`. **Ждёт:** ассетов `PuzzleConfig` (на `Level`), префабов обелиска,
+стены и `maze_chest`, предмета `crystal`; проверки в Play Mode.
 - [ ] Перемещение предметов (сокобан): нужны команды толкать/поднять-положить.
 - [ ] Ещё типы: плиты в правильном порядке, расшифровка последовательности, оптимизационные (лимит энергии).
 - [ ] Уникальные ресурсы и что из них делается (рецепты/постройки хаба).
@@ -183,7 +186,7 @@
       Проверка по ассетам и список правок «к внедрению» (сделано: `autoExplore` 25 → 10 и `IsReadyMade`,
       `functionCost` 0 → 0,5, мёртвые `apiCallCost`/`variableCost` удалены из `EnergyConfig`; остальное —
       GameDesign.md §9, §10.6).
-- [ ] ★ Сброс прогресса (для тестов и новых игроков).
+- [x] ★ Сброс прогресса (для тестов и новых игроков): `MetaProgress.ResetAll` (копия `.reset.bak`, библиотека кода не стирается), кнопка Reset progress в лагере, меню `CodeRogue/Reset Meta Progress`, тесты в `MetaProgressTests`.
 - [ ] Обновить CLAUDE.md под новые системы.
 
 ## Прогрессия на 2–3 забега

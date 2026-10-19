@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 /// <summary>
@@ -44,6 +45,8 @@ public class AchievementProgressEntry
 public class MetaProgress
 {
     private const string FileName = "meta_progress.json";
+    /// <summary>Суффикс копии сохранения, отложенной при сбросе прогресса (ResetAll / ResetFile).</summary>
+    public const string ResetBackupSuffix = ".reset.bak";
 
     [Serializable]
     private class ProgressData
@@ -69,6 +72,9 @@ public class MetaProgress
     private readonly string _filePath;
     private ProgressData _data = new ProgressData();
 
+    /// <summary>Путь сохранения игрока (persistentDataPath) — для пункта меню редактора.</summary>
+    public static string DefaultFilePath => JsonFileStore.GetPath(FileName);
+
     public string FilePath => _filePath;
     public IReadOnlyList<StoredMaterial> Materials => _data.materials;
     public IReadOnlyList<PlacedHubBuilding> HubBuildings => _data.hubBuildings;
@@ -81,7 +87,7 @@ public class MetaProgress
         set => _data.hintsEnabled = value;
     }
 
-    public MetaProgress() : this(JsonFileStore.GetPath(FileName))
+    public MetaProgress() : this(DefaultFilePath)
     {
     }
 
@@ -256,6 +262,73 @@ public class MetaProgress
             Debug.LogException(e);
             UIEventBus.PublishNotification($"Failed to save progress: {e.Message}", LogEntryType.Error);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Сброс всего мета-прогресса (этап 8): открытия, достижения и их счётчики, склад, постройки хаба,
+    /// события, флаги туториала, статистика забегов; подсказки снова включены. Прежний файл
+    /// откладывается копией FilePath + ResetBackupSuffix (перезаписывает предыдущую), затем на диск
+    /// пишется пустой прогресс. Библиотеку кода (CodeLibrary) не трогает — это код игрока.
+    /// Объект остаётся тем же: системы сцены, держащие ссылку, видят сброшенные данные.
+    /// Возвращает false, если записать не удалось (в памяти прогресс всё равно сброшен).
+    /// </summary>
+    public bool ResetAll()
+    {
+        BackupForReset(_filePath, move: false);
+        _data = new ProgressData();
+        return Save();
+    }
+
+    /// <summary>
+    /// Сброс сохранения без загрузки (пункт меню редактора вне Play Mode): файл переносится
+    /// в копию path + ResetBackupSuffix, следующий запуск начнётся с пустого прогресса.
+    /// True — если файл был и перенесён.
+    /// </summary>
+    public static bool ResetFile(string path)
+    {
+        bool moved = BackupForReset(path, move: true);
+        // Недописанный временный файл атомарной записи больше не нужен
+        TryDelete(path + ".tmp");
+        return moved;
+    }
+
+    private static bool BackupForReset(string path, bool move)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+
+        string backupPath = path + ResetBackupSuffix;
+        try
+        {
+            if (move)
+            {
+                TryDelete(backupPath);
+                File.Move(path, backupPath);
+            }
+            else
+            {
+                File.Copy(path, backupPath, true);
+            }
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"MetaProgress: reset backup failed for {path}: {e.Message}");
+            // Без копии файл всё равно надо убрать, иначе сброс не сработает
+            if (move) TryDelete(path);
+            return false;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"MetaProgress: failed to delete {path}: {e.Message}");
         }
     }
 

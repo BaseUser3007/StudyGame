@@ -7,7 +7,9 @@ using Lua;
 /// <summary>
 /// findObjects([type]) — ресурсы и враги в поле зрения в виде LuaObjectList.
 /// Враги (тип "enemy" — все, или по EnemyDefinition.enemyId, например "goblin") попадают в список, только
-/// если стоят на видимом тайле (Enemy.IsVisible); погибшие пропускаются. Без аргумента — всё сразу.
+/// если стоят на видимом тайле (Enemy.IsVisible); погибшие пропускаются. Головоломки ("obelisk"/"code_task",
+/// "maze", "puzzle" — все) — если хоть один тайл их области без тумана; решённые остаются (solved = true).
+/// Без аргумента — всё сразу.
 /// </summary>
 public class FindObjectsCommand : PlayerCommandBase
 {
@@ -18,13 +20,17 @@ public class FindObjectsCommand : PlayerCommandBase
     public override float EnergyCost => 1f;
     public override string Signature => "findObjects([type])";
     public override string Description => "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
-                                          "враги — enemy (все) или goblin. Без аргумента — всё, что видно, вместе с врагами. " +
-                                          $"У объекта есть поля {LuaObjectList.Fields} (kind — \"object\" или \"enemy\"). " +
+                                          "враги — enemy (все) или goblin; головоломки — obelisk, maze или puzzle (все). " +
+                                          "Без аргумента — всё, что видно, вместе с врагами и головоломками. " +
+                                          $"У объекта есть поля {LuaObjectList.Fields} (kind — \"object\", \"enemy\" или \"puzzle\"; " +
+                                          "у лабиринта ещё entranceX, entranceY — тайл перед входом). " +
                                           "У массива есть count и методы для поиска, фильтрации и сортировки " +
                                           "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке";
 
     private readonly ObjectManager _objectManager;
     private readonly EnemyManager _enemies;
+    private readonly IFogProvider _fog;
+    private readonly PuzzleManager _puzzles;
     private readonly LuaObjectList _objectList;
 
     private static readonly Dictionary<string, Type> TypeMap
@@ -52,11 +58,16 @@ public class FindObjectsCommand : PlayerCommandBase
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
         ObjectManager objectManager,
-        EnemyManager enemies)
+        EnemyManager enemies,
+        IFogProvider fog = null,
+        PuzzleManager puzzles = null)
         : base(executor, mapData)
     {
         _objectManager = objectManager;
         _enemies = enemies;
+        // Головоломок может не быть (тесты без сцены); без тумана видны все
+        _fog = fog;
+        _puzzles = puzzles;
         _objectList = new LuaObjectList(executor);
     }
 
@@ -84,19 +95,24 @@ public class FindObjectsCommand : PlayerCommandBase
         bool hasArgument = context.ArgumentCount > 0 && context.GetArgument(0).Type != LuaValueType.Nil;
         string typeName = hasArgument && context.GetArgument(0).TryRead(out string name) ? name : null;
 
-        List<ResourceObject> objects;
-        List<Enemy> enemies;
+        List<ResourceObject> objects = null;
+        List<Enemy> enemies = null;
+        List<PuzzleStructure> puzzles = null;
 
         if (!hasArgument)
         {
-            // Всё в поле зрения: ресурсы любого типа и видимые враги
+            // Всё в поле зрения: ресурсы любого типа, видимые враги и головоломки
             objects = _objectManager.GetObjectsInRadius<ResourceObject>(Executor.CurrentTile, Executor.VisionRadius);
             enemies = GetVisibleEnemies(null);
+            puzzles = LuaPuzzles.GetVisible(_puzzles, _fog, Executor.Position, null);
         }
         else if (TryGetType(typeName, out Type type))
         {
             objects = _objectManager.GetObjectsByType(Executor.CurrentTile, Executor.VisionRadius, type);
-            enemies = null;
+        }
+        else if (LuaPuzzles.TryParseType(typeName, out string puzzleTypeId))
+        {
+            puzzles = LuaPuzzles.GetVisible(_puzzles, _fog, Executor.Position, puzzleTypeId);
         }
         else
         {
@@ -105,11 +121,11 @@ public class FindObjectsCommand : PlayerCommandBase
             if (enemies.Count == 0 && !IsEnemyType(typeName) && !EnemyTypeExists(typeName))
                 throw new ArgumentException(
                     $"findObjects: unknown type '{typeName}' " +
-                    $"(known: {string.Join(", ", TypeMap.Keys)}, {EnemyTypeName}, {string.Join(", ", KnownEnemyTypes)})");
-            objects = null;
+                    $"(known: {string.Join(", ", TypeMap.Keys)}, {EnemyTypeName}, {string.Join(", ", KnownEnemyTypes)}, " +
+                    $"{LuaPuzzles.KnownTypeNames})");
         }
 
-        context.Return(_objectList.Build(objects, enemies, Meter));
+        context.Return(_objectList.Build(objects, enemies, puzzles, Meter));
         return new ValueTask<int>(1);
     }
 

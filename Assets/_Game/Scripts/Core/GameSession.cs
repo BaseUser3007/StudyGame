@@ -38,6 +38,18 @@ public static class GameSession
 
     public static void ReturnToHub() => LoadMode(GameMode.Hub);
 
+    /// <summary>
+    /// Сброс мета-прогресса (кнопка Reset progress в лагере): прогресс сбрасывается в том же объекте
+    /// (системы сцены сохраняют уже пустые данные при выгрузке), затем сцена перезагружается в лагерь,
+    /// чтобы открытия, склад, постройки и туториал переинициализировались. Библиотека кода не стирается.
+    /// </summary>
+    public static void ResetProgress()
+    {
+        Progress.ResetAll();
+        Debug.Log($"GameSession: meta progress reset ({Progress.FilePath})");
+        ReturnToHub();
+    }
+
     private static void LoadMode(GameMode mode)
     {
         _requestedMode = mode;

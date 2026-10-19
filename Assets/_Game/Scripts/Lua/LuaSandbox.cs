@@ -40,6 +40,7 @@ public class LuaSandbox : MonoBehaviour
     private UnlockRegistry _unlocks;
     private EnemyManager _enemies;
     private CombatService _combat;
+    private PuzzleManager _puzzles;
 
     private LuaState _state;
     // Все команды игры; в _registry (и в Lua) попадают только открытые
@@ -76,7 +77,8 @@ public class LuaSandbox : MonoBehaviour
         DayCycle dayCycle,
         UnlockRegistry unlocks,
         EnemyManager enemies,
-        CombatService combat)
+        CombatService combat,
+        PuzzleManager puzzles = null)
     {
         _executor = executor;
         _mapData = mapData;
@@ -94,6 +96,8 @@ public class LuaSandbox : MonoBehaviour
         // Враги и бой могут отсутствовать (тесты без сцены) — команды тогда «никого не видят»
         _enemies = enemies;
         _combat = combat;
+        // Головоломок нет в лагере (пустой менеджер) и в тестах без сцены (null) — команды «ничего не видят»
+        _puzzles = puzzles;
         UnityEngine.Debug.Assert(_unlocks != null, "LuaSandbox: UnlockRegistry is not assigned");
 
         _registry = new LuaCommandRegistry();
@@ -129,13 +133,13 @@ public class LuaSandbox : MonoBehaviour
 
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
-        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager, _enemies));
-        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures, _enemies));
-        AddCommand(new HarvestCommand(_executor, _mapData, harvester, _objectManager, _enemies));
-        AddCommand(new MineCommand(_executor, _mapData, harvester, _objectManager, _enemies));
+        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager, _enemies, _fog, _puzzles));
+        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures, _enemies, _puzzles));
+        AddCommand(new HarvestCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles));
+        AddCommand(new MineCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles));
 
         // Бой (удар — CombatService, общий с будущими готовыми командами)
-        AddCommand(new AttackCommand(_executor, _mapData, _enemies, _combat));
+        AddCommand(new AttackCommand(_executor, _mapData, _enemies, _combat, _puzzles));
 
         // Готовые команды: удобнее, но дороже самописного аналога
         AddCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
@@ -155,6 +159,10 @@ public class LuaSandbox : MonoBehaviour
 
         // Состояние дня, энергии и здоровья
         AddCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
+
+        // Головоломки (этап 6): условие и ответ; открываются достижением hub_builder
+        AddCommand(new PuzzleCommand(_executor, _mapData, _puzzles));
+        AddCommand(new SolveCommand(_puzzles));
 
         // Добавляй новые команды здесь ↓ (открытость задаётся UnlockConfig / MetaProgress)
     }

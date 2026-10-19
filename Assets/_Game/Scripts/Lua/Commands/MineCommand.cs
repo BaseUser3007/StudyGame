@@ -21,18 +21,21 @@ public class MineCommand : PlayerCommandBase
     private readonly ResourceHarvester _harvester;
     private readonly ObjectManager _objectManager;
     private readonly EnemyManager _enemies;
+    private readonly PuzzleManager _puzzles;
 
     public MineCommand(
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
         ResourceHarvester harvester,
         ObjectManager objectManager,
-        EnemyManager enemies)
+        EnemyManager enemies,
+        PuzzleManager puzzles = null)
         : base(executor, mapData)
     {
         _harvester = harvester;
         _objectManager = objectManager;
         _enemies = enemies;
+        _puzzles = puzzles;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -43,7 +46,7 @@ public class MineCommand : PlayerCommandBase
             error = _harvester.TryMineNearest();
         else if (HarvestCommand.TryReadPoint(context, out Vector2 point))
             // Враг — не ресурс: подсказываем attack() вместо «no object at»
-            error = AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined")
+            error = AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined", _puzzles)
                     ?? _harvester.TryMineAt(point);
         else
             error = "usage: mine(), mine(x, y) or mine(obj)";

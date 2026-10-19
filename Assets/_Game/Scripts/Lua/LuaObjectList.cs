@@ -18,6 +18,8 @@ using UnityEngine;
 /// с id объектов (GetInstanceID объектов, созданных во время игры, отрицательные). Позиция, здоровье
 /// и состояние врага читаются методами на момент вызова (враг двигается), а distance до врага —
 /// от точной позиции персонажа, как её проверяет attack().
+/// Головоломки (kind = "puzzle", type "obelisk"/"maze", поле solved): id = <see cref="PuzzleIdOffset"/> + PuzzleStructure.Id;
+/// distance до них — от точной позиции персонажа до края области (так досягаемость проверяют puzzle()/solve()).
 /// Каждый вызов метода стоит <see cref="MethodCost"/> энергии.
 /// </summary>
 public class LuaObjectList
@@ -45,17 +47,24 @@ public class LuaObjectList
     };
 
     /// <summary>Поля объекта, с которыми работают методы.</summary>
-    public const string Fields = "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state";
+    public const string Fields = "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state; у головоломок — solved";
 
     /// <summary>Значение поля kind у ресурсов и врагов.</summary>
     public const string KindObject = "object";
     public const string KindEnemy = "enemy";
+    public const string KindPuzzle = "puzzle";
 
     /// <summary>
     /// id врага в Lua = EnemyIdOffset + Enemy.Id. Объекты карты создаются во время игры, их GetInstanceID
     /// отрицательные, так что диапазоны не пересекаются: a.id == b.id и find("id", …) работают в смешанном списке.
     /// </summary>
     public const int EnemyIdOffset = 1000000000;
+
+    /// <summary>
+    /// id головоломки в Lua = PuzzleIdOffset + PuzzleStructure.Id (Id — с 1, их единицы): не пересекается
+    /// ни с врагами, ни с объектами карты.
+    /// </summary>
+    public const int PuzzleIdOffset = 2000000000;
 
     private static readonly HashSet<string> MethodNames = new HashSet<string>();
 
@@ -70,12 +79,13 @@ public class LuaObjectList
     private readonly PlayerCommandExecutor _executor;
 
     /// <summary>
-    /// Элемент списка: ресурс или враг (ровно одно из двух) и его таблица для Lua.
+    /// Элемент списка: ресурс, враг или головоломка (ровно одно из трёх) и его таблица для Lua.
     /// </summary>
     private readonly struct Entry
     {
         public readonly ResourceObject Obj;
         public readonly Enemy Enemy;
+        public readonly PuzzleStructure Puzzle;
         // Враги берутся из пула: после гибели тот же компонент может стать другим врагом с новым Id
         public readonly int EnemyId;
         public readonly LuaTable Table;
@@ -84,6 +94,7 @@ public class LuaObjectList
         {
             Obj = obj;
             Enemy = null;
+            Puzzle = null;
             EnemyId = 0;
             Table = table;
         }
@@ -92,17 +103,29 @@ public class LuaObjectList
         {
             Obj = null;
             Enemy = enemy;
+            Puzzle = null;
             EnemyId = enemy.Id;
             Table = table;
         }
 
-        public bool IsEnemy => !ReferenceEquals(Enemy, null);
+        public Entry(PuzzleStructure puzzle, LuaTable table)
+        {
+            Obj = null;
+            Enemy = null;
+            Puzzle = puzzle;
+            EnemyId = 0;
+            Table = table;
+        }
 
+        public bool IsEnemy => !ReferenceEquals(Enemy, null);
+        public bool IsPuzzle => !ReferenceEquals(Puzzle, null);
+
+        // Головоломка остаётся на карте до конца забега (решённая — с solved = true)
         public bool IsAlive => IsEnemy
             ? Enemy != null && Enemy.IsAlive && Enemy.Id == EnemyId
-            : Obj != null && Obj.IsAvailable;
+            : IsPuzzle ? Puzzle != null : Obj != null && Obj.IsAvailable;
 
-        public Vector2 Position => IsEnemy ? Enemy.Position : Obj.Position;
+        public Vector2 Position => IsEnemy ? Enemy.Position : IsPuzzle ? Puzzle.Position : Obj.Position;
     }
 
     public LuaObjectList(PlayerCommandExecutor executor)
@@ -122,7 +145,16 @@ public class LuaObjectList
     /// </summary>
     public LuaTable Build(List<ResourceObject> objects, List<Enemy> enemies, EnergyMeter meter)
     {
-        var entries = new List<Entry>((objects?.Count ?? 0) + (enemies?.Count ?? 0));
+        return Build(objects, enemies, null, meter);
+    }
+
+    /// <summary>
+    /// Смешанный список: ресурсы, живые враги, затем головоломки (видимость проверяет вызывающий).
+    /// </summary>
+    public LuaTable Build(
+        List<ResourceObject> objects, List<Enemy> enemies, List<PuzzleStructure> puzzles, EnergyMeter meter)
+    {
+        var entries = new List<Entry>((objects?.Count ?? 0) + (enemies?.Count ?? 0) + (puzzles?.Count ?? 0));
         if (objects != null)
             foreach (ResourceObject obj in objects)
                 entries.Add(new Entry(obj, BuildObjectTable(obj)));
@@ -130,8 +162,50 @@ public class LuaObjectList
             foreach (Enemy enemy in enemies)
                 if (enemy != null && enemy.IsAlive)
                     entries.Add(new Entry(enemy, BuildEnemyTable(enemy)));
+        if (puzzles != null)
+            foreach (PuzzleStructure puzzle in puzzles)
+                if (puzzle != null)
+                    entries.Add(new Entry(puzzle, BuildPuzzleTable(puzzle)));
 
         return BuildList(entries, meter);
+    }
+
+    /// <summary>
+    /// Таблица головоломки (kind = "puzzle") — элемент findObjects, поле puzzle у check.
+    /// </summary>
+    public LuaTable BuildPuzzleTable(PuzzleStructure puzzle)
+    {
+        LuaTable table = new LuaTable();
+
+        table["id"] = (double)(PuzzleIdOffset + puzzle.Id);
+        table["kind"] = KindPuzzle;
+        table["type"] = LuaPuzzles.GetTypeName(puzzle);
+        // Обелиск — основание, лабиринт — центральный тайл (цель)
+        table["x"] = (double)puzzle.Position.x;
+        table["y"] = (double)puzzle.Position.y;
+        // Не добывается — энергии на «добычу» 0, как у врагов
+        table["durability"] = 0d;
+        if (puzzle is MazePuzzle maze && maze.Layout != null)
+        {
+            // Тайл снаружи перед входом: moveTo(maze.entranceX, maze.entranceY)
+            table["entranceX"] = (double)maze.ApproachTile.x;
+            table["entranceY"] = (double)maze.ApproachTile.y;
+        }
+        RefreshPuzzle(table, puzzle);
+        return table;
+    }
+
+    /// <summary>
+    /// Таблица — головоломка из findObjects/check (kind = "puzzle"): возвращает PuzzleStructure.Id.
+    /// </summary>
+    public static bool TryGetPuzzleId(LuaTable table, out int puzzleId)
+    {
+        puzzleId = 0;
+        if (table == null || !table["kind"].TryRead(out string kind) || kind != KindPuzzle) return false;
+        if (!table["id"].TryRead(out double id)) return false;
+
+        puzzleId = (int)(id - PuzzleIdOffset);
+        return true;
     }
 
     /// <summary>
@@ -356,6 +430,13 @@ public class LuaObjectList
         table["distance"] = (double)Distance(enemy);
     }
 
+    /// <summary>Изменчивые поля головоломки: решена ли, расстояние.</summary>
+    private void RefreshPuzzle(LuaTable table, PuzzleStructure puzzle)
+    {
+        table["solved"] = puzzle.IsSolved;
+        table["distance"] = (double)Distance(puzzle);
+    }
+
     private float Distance(ResourceObject obj)
     {
         return Vector2.Distance(_executor.CurrentTile, obj.Position);
@@ -367,9 +448,15 @@ public class LuaObjectList
         return Vector2.Distance(_executor.Position, enemy.Position);
     }
 
+    // До головоломки — от точной позиции персонажа до края области: так досягаемость проверяет PuzzleManager
+    private float Distance(PuzzleStructure puzzle)
+    {
+        return _executor != null ? puzzle.DistanceTo(_executor.Position) : 0f;
+    }
+
     private float Distance(Entry e)
     {
-        return e.IsEnemy ? Distance(e.Enemy) : Distance(e.Obj);
+        return e.IsEnemy ? Distance(e.Enemy) : e.IsPuzzle ? Distance(e.Puzzle) : Distance(e.Obj);
     }
 
     private LuaValue GetField(Entry e, string field)
@@ -387,6 +474,9 @@ public class LuaObjectList
                 case "state": return e.Enemy.StateName;
             }
         }
+
+        // Головоломку могли решить после поиска
+        if (e.IsPuzzle && field == "solved") return e.Puzzle.IsSolved;
 
         return e.Table[field];
     }
@@ -410,6 +500,7 @@ public class LuaObjectList
         foreach (Entry e in entries)
         {
             if (e.IsEnemy) RefreshEnemy(e.Table, e.Enemy);
+            else if (e.IsPuzzle) RefreshPuzzle(e.Table, e.Puzzle);
             else e.Table["distance"] = (double)Distance(e.Obj);
         }
         return entries;

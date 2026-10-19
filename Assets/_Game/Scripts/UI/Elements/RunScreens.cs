@@ -39,6 +39,10 @@ public class RunScreens : VisualElement
     private bool _resetArmed;
     private IVisualElementScheduledItem _resetDisarm;
     private const long ResetConfirmMs = 3000;
+    private Button _btnHubResetProgress;
+    // Сброс всего прогресса — так же, вторым кликом в течение ResetConfirmMs
+    private bool _resetProgressArmed;
+    private IVisualElementScheduledItem _resetProgressDisarm;
 
     private VisualElement _exitConfirm;
     private Button _btnExitConfirm;
@@ -63,6 +67,8 @@ public class RunScreens : VisualElement
     public event Action OnHintsToggleRequested;
     /// <summary>Reset tutorial в лагере, подтверждён вторым кликом.</summary>
     public event Action OnResetTutorialRequested;
+    /// <summary>Reset progress в лагере, подтверждён вторым кликом (сброс и перезагрузку делает RunController).</summary>
+    public event Action OnResetProgressRequested;
 
     public RunScreens(VisualTreeAsset template)
     {
@@ -87,12 +93,14 @@ public class RunScreens : VisualElement
         foreach (Button button in new[]
                  {
                      _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubResetTutorial,
+                     _btnHubResetProgress,
                      _btnExitConfirm, _btnExitCancel, _btnToHub
                  })
             button.focusable = false;
 
         _btnHubHints.clicked += () => OnHintsToggleRequested?.Invoke();
         _btnHubResetTutorial.clicked += HandleResetTutorialClicked;
+        _btnHubResetProgress.clicked += HandleResetProgressClicked;
 
         _btnStartRun.clicked += () => OnStartRunRequested?.Invoke();
         _btnExitCancel.clicked += HideExitConfirm;
@@ -113,6 +121,7 @@ public class RunScreens : VisualElement
         _btnHubAchievements = root.Q<Button>("btn-hub-achievements");
         _btnHubHints = root.Q<Button>("btn-hub-hints");
         _btnHubResetTutorial = root.Q<Button>("btn-hub-reset-tutorial");
+        _btnHubResetProgress = root.Q<Button>("btn-hub-reset-progress");
 
         _exitConfirm = root.Q<VisualElement>("exit-confirm");
         _btnExitConfirm = root.Q<Button>("btn-exit-confirm");
@@ -134,7 +143,7 @@ public class RunScreens : VisualElement
         Debug.Assert(_hubScreen != null && _hubStats != null && _hubMaterials != null
                      && _hubMaterialsEmpty != null && _btnStartRun != null && _btnHubAchievements != null,
             "RunScreens: hub elements not found");
-        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null,
+        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null && _btnHubResetProgress != null,
             "RunScreens: hub tutorial settings not found");
         Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
             "RunScreens: exit confirmation elements not found");
@@ -268,6 +277,34 @@ public class RunScreens : VisualElement
         _resetDisarm = null;
         _btnHubResetTutorial.text = "Reset tutorial";
         _btnHubResetTutorial.RemoveFromClassList("screen-btn--confirm");
+    }
+
+    /// <summary>
+    /// Первый клик — «Click again to reset ALL» на несколько секунд, второй — сброс всего прогресса.
+    /// </summary>
+    private void HandleResetProgressClicked()
+    {
+        if (!_resetProgressArmed)
+        {
+            _resetProgressArmed = true;
+            _btnHubResetProgress.text = "Click again to reset ALL";
+            _btnHubResetProgress.AddToClassList("screen-btn--confirm");
+            _resetProgressDisarm?.Pause();
+            _resetProgressDisarm = _btnHubResetProgress.schedule.Execute(DisarmResetProgress).StartingIn(ResetConfirmMs);
+            return;
+        }
+
+        DisarmResetProgress();
+        OnResetProgressRequested?.Invoke();
+    }
+
+    private void DisarmResetProgress()
+    {
+        _resetProgressArmed = false;
+        _resetProgressDisarm?.Pause();
+        _resetProgressDisarm = null;
+        _btnHubResetProgress.text = "Reset progress";
+        _btnHubResetProgress.RemoveFromClassList("screen-btn--confirm");
     }
 
     private void HandleExitConfirmed()

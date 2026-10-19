@@ -16,10 +16,12 @@
                 <ui:Button name="btn-hub-achievements" class="screen-btn screen-btn--secondary hub-btn" text="Achievements"/>
                 <ui:Button name="btn-start-run" class="screen-btn screen-btn--primary hub-btn" text="Start Run"/>
             </ui:VisualElement>
-            <!-- Подсказки вкл/выкл, сброс туториала (второй клик — подтверждение) -->
+            <!-- Подсказки вкл/выкл, сброс туториала и всего прогресса (второй клик — подтверждение) -->
             <ui:VisualElement class="hub-settings">
                 <ui:Button name="btn-hub-hints" class="screen-btn screen-btn--small" text="Hints: On"/>
                 <ui:Button name="btn-hub-reset-tutorial" class="screen-btn screen-btn--small" text="Reset tutorial"/>
+                <!-- Сброс всего мета-прогресса (библиотека кода остаётся), второй клик — подтверждение -->
+                <ui:Button name="btn-hub-reset-progress" class="screen-btn screen-btn--small" text="Reset progress"/>
             </ui:VisualElement>
         </ui:VisualElement>
 

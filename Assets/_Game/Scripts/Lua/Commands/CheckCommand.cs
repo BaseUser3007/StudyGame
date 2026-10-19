@@ -8,6 +8,9 @@ using UnityEngine;
 /// <summary>
 /// check(x, y) / check(obj) / check("direction", [distance]) — что находится в тайле.
 /// Тайл должен быть виден: под туманом (в том числе полупрозрачным, уже исследованным) не проверить.
+/// Головоломки: стена лабиринта — type/structure "wall" и walkable = false (сам тайл проходим, стоит
+/// препятствие с коллайдером), обелиск — "obelisk", центр лабиринта — "chest"; поле puzzle — таблица
+/// головоломки, если тайл в её области.
 /// </summary>
 public class CheckCommand : PlayerCommandBase
 {
@@ -17,9 +20,11 @@ public class CheckCommand : PlayerCommandBase
     public override string Description =>
         "Что находится в тайле: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
         "(направления как у move, дистанция в тайлах, по умолчанию 1, по диагонали — шаги по обеим осям). " +
-        "Только тайлы без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies } " +
-        "или nil и причину. type — главное в тайле: постройка, иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
-        "objects — массив ресурсов тайла, enemies — массив врагов в нём (с теми же методами, что у findObjects)";
+        "Только тайлы без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
+        "или nil и причину. type — главное в тайле: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\"), " +
+        "иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
+        "на стене лабиринта walkable = false; objects — массив ресурсов тайла, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
+        "puzzle — головоломка, в область которой входит тайл (как элемент findObjects), или nil";
 
     private const string UsageMessage = "usage: check(x, y), check(obj) or check(direction, [distance])";
 
@@ -27,6 +32,7 @@ public class CheckCommand : PlayerCommandBase
     private readonly ObjectManager _objectManager;
     private readonly StructureManager _structures;
     private readonly EnemyManager _enemies;
+    private readonly PuzzleManager _puzzles;
     private readonly LuaObjectList _objectList;
 
     public CheckCommand(
@@ -35,13 +41,15 @@ public class CheckCommand : PlayerCommandBase
         IFogProvider fog,
         ObjectManager objectManager,
         StructureManager structures,
-        EnemyManager enemies)
+        EnemyManager enemies,
+        PuzzleManager puzzles = null)
         : base(executor, mapData)
     {
         _fog = fog;
         _objectManager = objectManager;
         _structures = structures;
         _enemies = enemies;
+        _puzzles = puzzles;
         _objectList = new LuaObjectList(executor);
     }
 
@@ -106,8 +114,11 @@ public class CheckCommand : PlayerCommandBase
     private LuaTable BuildTileTable(Vector2Int tile)
     {
         bool water = MapData.GetTileType(tile.x, tile.y) == TileType.Water;
-        Structure structure = _structures.GetStructureAt(tile);
-        List<ResourceObject> objects = _objectManager.GetObjectsAtTile(tile);
+        Structure structure = _structures != null ? _structures.GetStructureAt(tile) : null;
+        List<ResourceObject> objects = _objectManager != null ? _objectManager.GetObjectsAtTile(tile) : new List<ResourceObject>();
+        // Стена лабиринта: тайл карты проходим, но на нём препятствие с коллайдером
+        PuzzleStructure puzzle = _puzzles?.GetPuzzleAt(tile);
+        bool mazeWall = _puzzles != null && _puzzles.IsMazeWall(tile);
         LuaTable objectList = _objectList.Build(objects, Meter);
         // Тайл виден (проверено выше) — враги в нём видны тоже
         List<Enemy> enemies = _enemies != null ? _enemies.GetEnemiesAtTile(tile) : new List<Enemy>();
@@ -117,7 +128,7 @@ public class CheckCommand : PlayerCommandBase
         table["x"] = (double)tile.x;
         table["y"] = (double)tile.y;
         table["terrain"] = water ? "water" : "grass";
-        table["walkable"] = MapData.IsWalkable(tile.x, tile.y);
+        table["walkable"] = MapData.IsWalkable(tile.x, tile.y) && !mazeWall;
         table["player"] = Executor.CurrentTile == tile;
         table["objects"] = objectList;
         table["enemies"] = enemyList;
@@ -126,7 +137,11 @@ public class CheckCommand : PlayerCommandBase
         if (biome != null)
             table["biome"] = biome.name;
 
-        string structureName = structure != null ? GetStructureName(structure) : null;
+        if (puzzle != null)
+            table["puzzle"] = _objectList.BuildPuzzleTable(puzzle);
+
+        string structureName = GetPuzzleStructureName(puzzle, tile, mazeWall)
+            ?? (structure != null ? GetStructureName(structure) : null);
         if (structureName != null)
             table["structure"] = structureName;
 
@@ -138,6 +153,18 @@ public class CheckCommand : PlayerCommandBase
             ?? (water ? "water" : "empty");
 
         return table;
+    }
+
+    /// <summary>
+    /// Часть головоломки на тайле: "wall" (стена лабиринта), "chest" (центр лабиринта), "obelisk"; иначе null
+    /// (проходы лабиринта — обычные тайлы).
+    /// </summary>
+    private static string GetPuzzleStructureName(PuzzleStructure puzzle, Vector2Int tile, bool mazeWall)
+    {
+        if (mazeWall) return LuaPuzzles.WallName;
+        if (puzzle is MazePuzzle maze && maze.Layout != null && maze.CenterTile == tile) return LuaPuzzles.ChestName;
+        if (puzzle is CodeTaskPuzzle) return LuaPuzzles.ObeliskTypeName;
+        return null;
     }
 
     private static string GetStructureName(Structure structure)

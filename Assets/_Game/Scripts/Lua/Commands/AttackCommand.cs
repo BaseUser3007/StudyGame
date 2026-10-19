@@ -24,16 +24,19 @@ public class AttackCommand : PlayerCommandBase
 
     private readonly EnemyManager _enemies;
     private readonly CombatService _combat;
+    private readonly PuzzleManager _puzzles;
 
     public AttackCommand(
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
         EnemyManager enemies,
-        CombatService combat)
+        CombatService combat,
+        PuzzleManager puzzles = null)
         : base(executor, mapData)
     {
         _enemies = enemies;
         _combat = combat;
+        _puzzles = puzzles;
     }
 
     protected override async ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
@@ -59,24 +62,28 @@ public class AttackCommand : PlayerCommandBase
     // ─── Public API ───────────────────────────────────────────
 
     /// <summary>
-    /// Для harvest/mine: цель — враг (таблица врага или точка, где нет ресурса, но стоит враг)?
-    /// Возвращает причину «use attack()» или null, если это не враг. action — "harvested" / "mined".
+    /// Для harvest/mine: цель — враг (таблица врага или точка, где нет ресурса, но стоит враг) или головоломка
+    /// (таблица головоломки, стена лабиринта или обелиск в точке без ресурса)?
+    /// Возвращает понятную причину или null, если цель обычная. action — "harvested" / "mined".
     /// </summary>
     public static string GetNotHarvestableError(
         LuaFunctionExecutionContext context, Vector2 point, ObjectManager objects, EnemyManager enemies,
-        string action)
+        string action, PuzzleManager puzzles = null)
     {
         if (context.GetArgument(0).TryRead(out LuaTable table) && LuaObjectList.TryGetEnemyId(table, out _))
             return $"{ReadType(table)} can't be {action} — use attack()";
 
-        if (enemies == null) return null;
+        string puzzleError = LuaPuzzles.GetNotTargetError(context, point, puzzles, action, checkPoint: false);
+        if (puzzleError != null) return puzzleError;
 
         // Ресурс в точке важнее: harvest(x, y) по камню рядом с гоблином работает как раньше
         ResourceObject obj = objects != null ? objects.GetNearestObjectAt(point, 0.5f) : null;
         if (obj != null && obj.Variant != null) return null;
 
-        Enemy enemy = enemies.GetNearestEnemy(point, PickTolerance);
-        return enemy != null ? $"{enemy.TypeId} can't be {action} — use attack()" : null;
+        Enemy enemy = enemies?.GetNearestEnemy(point, PickTolerance);
+        if (enemy != null) return $"{enemy.TypeId} can't be {action} — use attack()";
+
+        return LuaPuzzles.GetNotTargetError(context, point, puzzles, action, checkPoint: true);
     }
 
     // ─── Helpers ──────────────────────────────────────────────
@@ -101,10 +108,16 @@ public class AttackCommand : PlayerCommandBase
             return target;
         }
 
+        // attack(obelisk) / attack(maze) — головоломку не бьют
+        error = LuaPuzzles.GetNotTargetError(context, default, _puzzles, "attacked", checkPoint: false);
+        if (error != null) return null;
+
         if (HarvestCommand.TryReadPoint(context, out Vector2 point))
         {
             target = _enemies?.GetNearestEnemy(point, PickTolerance);
-            if (target == null) error = $"no enemy at ({point.x:0.##}, {point.y:0.##})";
+            if (target == null)
+                error = LuaPuzzles.GetNotTargetError(context, point, _puzzles, "attacked", checkPoint: true)
+                        ?? $"no enemy at ({point.x:0.##}, {point.y:0.##})";
             return target;
         }
 

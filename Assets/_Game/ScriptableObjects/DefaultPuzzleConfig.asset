@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18bb4830dbbfbb34d84fb076bae51447, type: 3}
+  m_Name: DefaultPuzzleConfig
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleConfig
+  minDistanceFromCamps: 8
+  minDistanceBetweenAreas: 3
+  obeliskPrefab: {fileID: 6633531821602847955, guid: 5304d2c196b331b4ba645f3e2182ba43, type: 3}
+  codeTaskCount: 2
+  codeTaskMinDistanceFromSpawn: 12
+  codeTaskMinSpacing: 15
+  energyLimitBonus: 10
+  maxHealthBonus: 20
+  threatDelayDays: 1
+  mazeWallPrefab: {fileID: 6483108530028809589, guid: 9929de57c6a0975459858f3ad554ad39, type: 3}
+  mazeChestPrefab: {fileID: 1775300983560671842, guid: e42606ffecee2f046950f31b1c47e201, type: 3}
+  mazeChestOpenedSprite: {fileID: 1716962820, guid: f40dddcd280a80d4daa0578769d7e4d8, type: 3}
+  mazeCount: 1
+  mazeMinDistanceFromSpawn: 20
+  mazeMinPathLength: 7
+  mazeVisionRadius: 1
+  crystalItem: {fileID: 11400000, guid: a7c5864a5dba5f744b1dc85986538286, type: 2}
+  crystalAmount: 2

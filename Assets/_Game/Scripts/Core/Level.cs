@@ -187,7 +187,7 @@ public class Level : MonoBehaviour
         luaSandbox.Initialize(
             executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
             inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks,
-            _enemyManager, combat);
+            _enemyManager, combat, _puzzleManager);
         dayCycle.Attach(luaSandbox);
         _enemyManager.Attach(luaSandbox);
 
