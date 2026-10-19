@@ -231,7 +231,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _hubPanel?.Dispose();
         _hubPanel = null;
         if (_uiManager != null)
+        {
             _uiManager.SetNotificationDisplay(null);
+            _uiManager.SetCodeErrorDisplay(null);
+        }
 
         // Туториал подписан на статическую GameEventBus
         _tutorial?.Dispose();
@@ -592,6 +595,11 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _uiManager.RegisterWindow(_mainWindow);
         _windowLayer.Add(_mainWindow);
         _windows.Add(_mainWindow);
+
+        // В забеге уведомления и ошибки запуска — в логе главного окна (в лагере CreateHub
+        // переназначает уведомления на панель построек)
+        _uiManager.SetNotificationDisplay(_mainWindow);
+        _uiManager.SetCodeErrorDisplay(_mainWindow);
     }
 
     public void CreateAuxiliaryWindow()
@@ -749,12 +757,59 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         else if (result.IsCancelled)
             UIEventBus.PublishNotification("Execution stopped", LogEntryType.Warning);
         else
-            UIEventBus.PublishNotification(result.ErrorMessage, LogEntryType.Error);
+            ReportCodeError(result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Ошибка запуска: сырой текст и, если подсказки включены, объяснение для новичка
+    /// (имена для «Did you mean» — из реестра открытых команд и заголовков доп. окон).
+    /// </summary>
+    private void ReportCodeError(string errorMessage)
+    {
+        bool hintsEnabled = _tutorial == null || _tutorial.HintsEnabled;
+        if (!hintsEnabled)
+        {
+            UIEventBus.PublishCodeError(LuaErrorExplanation.RawOnly(errorMessage));
+            return;
+        }
+
+        LuaErrorExplanation error = LuaErrorExplainer.Explain(
+            errorMessage, _luaSandbox.Registry.GetAllCommands(), GetWindowFunctionNames(), LuaSandbox.MainChunkName);
+
+        // Ошибка «в конце» доп. окна указывает на строку закрывающего end обёртки — не дальше последней строки
+        CodeEditorWindowBase window = FindWindowByTitle(error.Window);
+        if (window != null) error.ClampLine(CountLines(window.Code));
+
+        UIEventBus.PublishCodeError(error);
+    }
+
+    private CodeEditorWindowBase FindWindowByTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return null;
+        foreach (CodeEditorWindowBase window in _windows)
+            if (window.Title == title) return window;
+        return null;
+    }
+
+    private static int CountLines(string code)
+    {
+        int lines = 1;
+        if (code == null) return lines;
+        foreach (char c in code)
+            if (c == '\n') lines++;
+        return lines;
     }
 
     private void HandleRunningChanged(bool running)
     {
         _topBar?.SetRunning(running);
+        // Новый запуск: лог и выделенная строка ошибки прошлого запуска уже не нужны
+        if (running)
+        {
+            _mainWindow?.ClearLog();
+            foreach (CodeEditorWindowBase window in _windows)
+                window.SetErrorLine(0);
+        }
         // «Unlocked: X» — только между запусками: модальное окно не должно появляться посреди работы кода
         _unlockPopup?.SetSuspended(running);
         // Подсказки туториала тоже ждут конца запуска (кроме шагов, которые объясняют сам запуск)

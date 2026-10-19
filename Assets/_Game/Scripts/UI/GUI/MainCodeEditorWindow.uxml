@@ -1,6 +1,7 @@
 ﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="MainCodeEditorWindow.uss"/>
     <Style src="CodeEditorCommon.uss"/>
+    <Style src="RunLog.uss"/>
     <ui:VisualElement name="window" class="window window-main">
         <ui:VisualElement name="header" class="window-header">
             <ui:Label name="title" class="window-title" text="Main"/>
@@ -17,6 +18,13 @@
             <ui:VisualElement class="gutter gutter-costs" tooltip="Energy cost of each line">
                 <ui:Label name="line-costs" class="line-costs gutter-label" text=""/>
             </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="run-log" class="run-log hidden">
+            <ui:VisualElement class="run-log-header">
+                <ui:Label class="run-log-title" text="Log"/>
+                <ui:Button name="btn-run-log-clear" class="run-log-clear" text="×" tooltip="Clear the log"/>
+            </ui:VisualElement>
+            <ui:ScrollView name="run-log-entries" class="run-log-entries" mode="Vertical" horizontal-scroller-visibility="Hidden"/>
         </ui:VisualElement>
         <ui:VisualElement name="resize-handle" class="resize-handle"/>
     </ui:VisualElement>

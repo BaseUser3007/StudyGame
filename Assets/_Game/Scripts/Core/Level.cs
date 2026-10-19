@@ -126,6 +126,8 @@ public class Level : MonoBehaviour
         // 3. Компоненты игрока
         PlayerCommandExecutor executor = player.GetComponent<PlayerCommandExecutor>();
         executor.Initialize(tilemapGenerator, playerConfig, startTile);
+        // Анимация и разворот спрайта (Animator на Visual необязателен)
+        player.GetComponent<PlayerAnimator>().Initialize(executor);
 
         // 4. Туман войны
         fogOfWarSystem.Initialize(tilemapGenerator, playerConfig, startTile);
@@ -290,6 +292,10 @@ public class Level : MonoBehaviour
             depthSorting = player.AddComponent<DepthSortedSprite>();
         depthSorting.Dynamic = true;
         depthSorting.Refresh();
+
+        // Анимация движения/действий — как у врагов, параметры Animator необязательны
+        if (!player.TryGetComponent(out PlayerAnimator _))
+            player.AddComponent<PlayerAnimator>();
 
         return player;
     }

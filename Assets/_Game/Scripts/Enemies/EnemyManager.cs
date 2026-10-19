@@ -204,17 +204,19 @@ public class EnemyManager : IEnemyWorld, IDisposable
             if (valuable != null)
                 _objects.Spawn(valuable, center);
 
+            bool hasLeader = spec.leader != null && spec.leader.prefab != null;
             int placed = 0;
             for (int i = 0; i < spec.enemyCount; i++)
             {
+                EnemyDefinition enemyKind = hasLeader && i == 0 ? spec.leader : kind;
                 for (int attempt = 0; attempt < PlaceAttempts; attempt++)
                 {
                     Vector2 position = valuable == null && i == 0 && attempt == 0
                         ? center
                         : center + RandomInCircle(random, _config.campRadius);
-                    if (!IsValidPlacement(kind.prefab, position, spawn, 0f)) continue;
+                    if (!IsValidPlacement(enemyKind.prefab, position, spawn, 0f)) continue;
 
-                    Spawn(kind, position, patrol: false);
+                    Spawn(enemyKind, position, patrol: false);
                     placed++;
                     break;
                 }

@@ -61,7 +61,7 @@ public class FindObjectsCommand : PlayerCommandBase
     };
 
     // Типы врагов, известные заранее (для подсказки в ошибке); остальные определяются по EnemyDefinition.enemyId
-    private static readonly string[] KnownEnemyTypes = { "goblin" };
+    private static readonly string[] KnownEnemyTypes = { "goblin", "goblin_guard" };
 
     public FindObjectsCommand(
         PlayerCommandExecutor executor,

@@ -18,6 +18,11 @@ public static class UIEventBus
     // ─── Уведомления ──────────────────────────────────────────
     public static event Action<string, LogEntryType> OnNotificationRequested;
 
+    // ─── Ошибка запуска кода ──────────────────────────────────
+    // Публикует CodeEditorManager после неудачного Run: сырой текст + объяснение LuaErrorExplainer
+    // (без объяснения, если подсказки выключены)
+    public static event Action<LuaErrorExplanation> OnCodeErrorReported;
+
     // ─── День ─────────────────────────────────────────────────
     public static event Action<DayInfo> OnDayChanged;
 
@@ -40,4 +45,7 @@ public static class UIEventBus
 
     public static void PublishNotification(string message, LogEntryType type)
         => OnNotificationRequested?.Invoke(message, type);
+
+    public static void PublishCodeError(LuaErrorExplanation error)
+        => OnCodeErrorReported?.Invoke(error);
 }

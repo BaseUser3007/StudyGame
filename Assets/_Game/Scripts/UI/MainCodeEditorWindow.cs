@@ -2,12 +2,17 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay
+/// <summary>
+/// Главное окно кода. Внизу — лог запуска (RunLog): итог Run, уведомления забега и ошибки
+/// с объяснением для новичка.
+/// </summary>
+public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay, INotificationDisplay, ICodeErrorDisplay
 {
     public event Action OnAddMethodRequested;
 
     private Label _energyCostLabel;
     private Button _btnAddMethod;
+    private RunLog _runLog;
 
     public MainCodeEditorWindow(
         string windowId,
@@ -30,6 +35,8 @@ public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay
 
         // Кнопка лежит в заголовке — нажатие не должно начинать перетаскивание окна
         _btnAddMethod.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
+
+        _runLog = new RunLog(_window.Q<VisualElement>("run-log"), _context?.Theme);
     }
 
     /// <summary>
@@ -45,4 +52,13 @@ public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay
         if (_energyCostLabel == null) return;
         _energyCostLabel.text = $"Cost {cost:0.#}";
     }
+
+    // ─── Лог запуска ──────────────────────────────────────────
+
+    public void ShowNotification(string message, LogEntryType type) => _runLog?.AddMessage(message, type);
+
+    public void ShowCodeError(LuaErrorExplanation error) => _runLog?.AddCodeError(error);
+
+    /// <summary>Новый запуск — старые записи уже не нужны.</summary>
+    public void ClearLog() => _runLog?.Clear();
 }

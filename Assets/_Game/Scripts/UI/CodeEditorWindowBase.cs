@@ -116,6 +116,12 @@ public abstract class CodeEditorWindowBase : VisualElement
         _codeEditor?.RefreshView();
     }
 
+    /// <summary>Выделить номер строки с ошибкой запуска (0 — снять).</summary>
+    public void SetErrorLine(int line)
+    {
+        _codeEditor?.SetErrorLine(line);
+    }
+
     public void SetPosition(float left, float top)
     {
         _window.style.left = left;

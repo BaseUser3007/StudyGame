@@ -13,6 +13,8 @@ public struct EnemyCampSpec
     [Min(0f)] public float minDistanceFromSpawn;
     [Tooltip("Поставить в центр лагеря EnemyConfig.campValuablePrefab (gold_ore) — «охраняют ценное место»")]
     public bool valuableInCenter;
+    [Tooltip("Необязательный вожак: ставится первым вместо одного из обычных врагов (например, goblin_guard)")]
+    public EnemyDefinition leader;
 }
 
 /// <summary>

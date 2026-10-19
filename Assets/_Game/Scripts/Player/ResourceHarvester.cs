@@ -82,7 +82,9 @@ public class ResourceHarvester
         if (problem != null) return problem;
 
         // Подбор с земли дешёвый: энергия — только плата за вызов команды, прочность тратится при mine
+        Vector2 pickPosition = obj.Position;
         var drop = obj.Interact();
+        _executor.PlayAction(PlayerActionKind.Interact, pickPosition);
         if (drop.HasValue && drop.Value.item != null)
         {
             // Выброшенное игроком — не новая добыча (достижения такие события пропускают)
@@ -157,6 +159,7 @@ public class ResourceHarvester
         string typeName = LuaObjectList.GetTypeName(obj);
         obj.Interact();
         GameEventBus.Publish(GameEventType.Mined, typeName);
+        _executor.PlayAction(PlayerActionKind.Interact, origin);
 
         foreach (LootEntry entry in variant.MiningLoot)
             DropLoot(entry.item, entry.amount, origin);

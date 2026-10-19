@@ -24,6 +24,15 @@ public class PlayerCommandExecutor : MonoBehaviour
     // Буфер физического запроса — без аллокаций на каждый шаг
     private readonly List<RaycastHit2D> _hits = new List<RaycastHit2D>();
 
+    // Сколько MoveTowardsAsync идёт сейчас (счётчик, а не флаг — на случай наложения команд)
+    private int _activeMoves;
+
+    /// <summary>
+    /// Действие персонажа для анимации (PlayerAnimator): что сделали и куда смотреть
+    /// (мировая точка; null — не разворачиваться).
+    /// </summary>
+    public event System.Action<PlayerActionKind, Vector2?> OnActionPlayed;
+
     // ─── Инициализация ────────────────────────────────────────
 
     public void Initialize(IMapDataProvider mapData, PlayerConfig playerConfig, Vector2Int startTile)
@@ -94,6 +103,18 @@ public class PlayerCommandExecutor : MonoBehaviour
         return MoveTowardsAsync(target, ct, stopWhen);
     }
 
+    /// <summary>
+    /// Сообщить анимации о действии (добыча, крафт, постройка, удар). mapTarget — точка карты в тайлах,
+    /// к которой персонаж поворачивается; null — без разворота. На логику не влияет.
+    /// </summary>
+    public void PlayAction(PlayerActionKind kind, Vector2? mapTarget = null)
+    {
+        Vector2? world = null;
+        if (mapTarget.HasValue && _mapData != null)
+            world = _mapData.MapToWorld(mapTarget.Value);
+        OnActionPlayed?.Invoke(kind, world);
+    }
+
     // ─── Private Movement ─────────────────────────────────────
 
     /// <summary>
@@ -110,6 +131,8 @@ public class PlayerCommandExecutor : MonoBehaviour
         float speed = 1f / Mathf.Max(_playerConfig.moveSpeed, 0.0001f);
 
         int tilesChanged = 0;
+        _activeMoves++;
+        MoveTarget = target;
         float bestDistance = Vector2.Distance(transform.position, target);
         float stuckTime = 0f;
 
@@ -155,6 +178,10 @@ public class PlayerCommandExecutor : MonoBehaviour
             // Остановка — персонаж остаётся там, где был; тайл уже актуален
             UpdateCurrentTile();
             throw;
+        }
+        finally
+        {
+            _activeMoves--;
         }
 
         return tilesChanged;
@@ -322,6 +349,17 @@ public class PlayerCommandExecutor : MonoBehaviour
     /// </summary>
     public Vector2 Position => MapPosition.FromWorld(_mapData, transform.position);
     public int VisionRadius => _playerConfig.visionRadius;
+    /// <summary>Персонаж сейчас выполняет движение (для анимации; может стоять, упёршись в препятствие).</summary>
+    public bool IsMoving => _activeMoves > 0;
+    /// <summary>Мировая точка, к которой идёт (или шёл последним) персонаж.</summary>
+    public Vector2 MoveTarget { get; private set; }
+}
+
+/// <summary>Действия персонажа, у которых есть анимация.</summary>
+public enum PlayerActionKind
+{
+    Interact,
+    Attack
 }
 
 public enum Direction

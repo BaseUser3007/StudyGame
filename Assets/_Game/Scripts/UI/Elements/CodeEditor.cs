@@ -35,6 +35,9 @@ public class CodeEditor
     // позицией считается _pendingCursor.
     private int _pendingCursor = -1;
 
+    // Строка последней ошибки запуска (номер в колонке слева выделен цветом); 0 — нет
+    private int _errorLine;
+
     private int CursorIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.cursorIndex;
     private int SelectIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.selectIndex;
 
@@ -109,6 +112,8 @@ public class CodeEditor
     {
         _codeField.RegisterValueChangedCallback(evt =>
         {
+            // Код изменился — место ошибки прошлого запуска уже может быть не там
+            _errorLine = 0;
             Refresh();
             OnCodeChanged?.Invoke(evt.newValue);
 
@@ -482,9 +487,15 @@ public class CodeEditor
         if (_lineNumbers != null)
         {
             var sb = new StringBuilder();
+            string errorColor = ColorUtility.ToHtmlStringRGB(
+                _context.Theme != null ? _context.Theme.logColorError : Color.red);
             for (int i = 1; i <= lineCount; i++)
             {
-                sb.Append(i);
+                // В колонке только цифры и теги цвета — номер строки с ошибкой выделен
+                if (i == _errorLine)
+                    sb.Append("<color=#").Append(errorColor).Append('>').Append(i).Append("</color>");
+                else
+                    sb.Append(i);
                 if (i < lineCount) sb.Append('\n');
             }
             _lineNumbers.text = sb.ToString();
@@ -575,5 +586,15 @@ public class CodeEditor
     {
         if (_codeField == null) return;
         Refresh();
+    }
+
+    /// <summary>
+    /// Выделяет номер строки с ошибкой последнего запуска (0 — снять). Снимается сам при правке кода.
+    /// </summary>
+    public void SetErrorLine(int line)
+    {
+        if (_codeField == null) return;
+        _errorLine = Mathf.Max(0, line);
+        UpdateGutters(Code);
     }
 }

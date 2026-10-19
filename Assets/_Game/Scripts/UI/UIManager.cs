@@ -10,8 +10,10 @@ public class UIManager : MonoBehaviour
     private TopBar _topBar;
     private InventoryBar _inventoryBar;
     private CraftingPanel _craftingPanel;
-    // Куда выводить уведомления (в лагере — строка под панелью построек); null — только в лог
+    // Куда выводить уведомления (в забеге — лог главного окна, в лагере — строка под панелью построек); null — только в консоль
     private INotificationDisplay _notificationDisplay;
+    // Куда выводить ошибки запуска с объяснением (лог главного окна); null — как обычное уведомление
+    private ICodeErrorDisplay _codeErrorDisplay;
     private Dictionary<string, CodeEditorWindowBase> _windows
         = new Dictionary<string, CodeEditorWindowBase>();
 
@@ -28,6 +30,7 @@ public class UIManager : MonoBehaviour
         UIEventBus.OnWindowEnergyCostChanged += HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged += HandleInventoryChanged;
         UIEventBus.OnNotificationRequested += HandleNotificationRequested;
+        UIEventBus.OnCodeErrorReported += HandleCodeErrorReported;
         UIEventBus.OnDayChanged += HandleDayChanged;
     }
 
@@ -38,6 +41,7 @@ public class UIManager : MonoBehaviour
         UIEventBus.OnWindowEnergyCostChanged -= HandleWindowEnergyCostChanged;
         UIEventBus.OnInventoryChanged -= HandleInventoryChanged;
         UIEventBus.OnNotificationRequested -= HandleNotificationRequested;
+        UIEventBus.OnCodeErrorReported -= HandleCodeErrorReported;
         UIEventBus.OnDayChanged -= HandleDayChanged;
     }
 
@@ -47,6 +51,12 @@ public class UIManager : MonoBehaviour
     public void SetNotificationDisplay(INotificationDisplay display)
     {
         _notificationDisplay = display;
+    }
+
+    /// <summary>Элемент, который показывает ошибки запуска с объяснением (null — снять).</summary>
+    public void SetCodeErrorDisplay(ICodeErrorDisplay display)
+    {
+        _codeErrorDisplay = display;
     }
 
     // ─── Регистрация окон ─────────────────────────────────────
@@ -96,7 +106,24 @@ public class UIManager : MonoBehaviour
     private void HandleNotificationRequested(string message, LogEntryType type)
     {
         Debug.Log($"[{type}] {message}");
-        // В забеге всплывающих уведомлений пока нет; в лагере — строка под панелью построек
+        // В забеге — лог главного окна, в лагере — строка под панелью построек
         _notificationDisplay?.ShowNotification(message, type);
+    }
+
+    private void HandleCodeErrorReported(LuaErrorExplanation error)
+    {
+        if (error == null) return;
+        Debug.Log($"[{LogEntryType.Error}] {error.Raw}");
+
+        if (_codeErrorDisplay != null)
+            _codeErrorDisplay.ShowCodeError(error);
+        else
+            _notificationDisplay?.ShowNotification(error.Raw, LogEntryType.Error);
+
+        // Номер строки с ошибкой выделяется в окне, где она случилась
+        if (!error.HasLine) return;
+        foreach (CodeEditorWindowBase window in _windows.Values)
+            if (window.Title == error.Window)
+                window.SetErrorLine(error.Line);
     }
 }

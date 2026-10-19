@@ -105,6 +105,8 @@ public class CombatService
         int damage = weapon != null ? weapon.Damage : FistDamage;
 
         bool broken = weapon != null && _inventory.WearTool(slot, weapon.wearPerUse);
+        // Анимация удара с разворотом к врагу (позиция — до смерти и возврата в пул)
+        _executor.PlayAction(PlayerActionKind.Attack, target.Position);
         bool killed = target.TakeDamage(damage);
 
         result = new AttackResult(target, damage, killed, weapon, broken);
