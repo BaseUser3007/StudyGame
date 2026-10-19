@@ -46,7 +46,7 @@ public enum GameEventType
     PuzzleSolved,
     /// <summary>Этап 3–5: съедена еда. Id — ключ предмета.</summary>
     FoodEaten,
-    /// <summary>Этап 4: поставлена постройка хаба. Id — id постройки.</summary>
+    /// <summary>Этап 4: поставлена постройка хаба (HubService.TryBuild). Id — id постройки, Amount — 1.</summary>
     HubBuildingBuilt
 }
 

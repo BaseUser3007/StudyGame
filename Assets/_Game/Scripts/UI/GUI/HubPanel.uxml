@@ -1,0 +1,44 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="HubPanel.uss"/>
+    <!-- Лагерь (этап 4): карта с сеткой видна, интерфейс — боковые панели.
+         Корень и середина не ловят мышь — клики по сетке доходят до HubPlacementController,
+         а IPointerOverUIProvider считает «над UI» только сами панели -->
+    <ui:VisualElement name="hub-root" class="hub-root" picking-mode="Ignore">
+
+        <!-- Слева: лагерь, склад материалов, старт забега, настройки обучения -->
+        <ui:VisualElement name="hub-sidebar" class="hub-panel hub-sidebar">
+            <ui:Label class="hub-title" text="Camp"/>
+            <ui:Label name="hub-stats" class="hub-text" text=""/>
+            <ui:Label class="hub-section" text="Material stock"/>
+            <ui:ScrollView name="hub-materials" class="hub-materials"/>
+            <ui:Label name="hub-materials-empty" class="hub-empty" text="Empty for now — bring materials back from runs"/>
+            <ui:VisualElement class="hub-buttons">
+                <ui:Button name="btn-hub-achievements" class="screen-btn screen-btn--secondary hub-btn" text="Achievements"/>
+                <ui:Button name="btn-start-run" class="screen-btn screen-btn--primary hub-btn" text="Start Run"/>
+            </ui:VisualElement>
+            <!-- Подсказки вкл/выкл, сброс туториала (второй клик — подтверждение) -->
+            <ui:VisualElement class="hub-settings">
+                <ui:Button name="btn-hub-hints" class="screen-btn screen-btn--small" text="Hints: On"/>
+                <ui:Button name="btn-hub-reset-tutorial" class="screen-btn screen-btn--small" text="Reset tutorial"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Справа: постройки лагеря. Карточки строит HubBuildPanel из HubService.Definitions -->
+        <ui:VisualElement name="hub-buildings" class="hub-panel hub-buildings">
+            <ui:Label class="hub-title" text="Buildings"/>
+            <ui:Label class="hub-text hub-text--muted" text="Buildings are paid with the material stock and make every next run stronger."/>
+            <ui:ScrollView name="hub-buildings-list" class="hub-buildings-list"/>
+            <ui:Label name="hub-buildings-empty" class="hub-empty hidden" text="No buildings to build"/>
+        </ui:VisualElement>
+
+        <!-- Внизу по центру: подсказка размещения и последнее сообщение (мышь не ловит) -->
+        <ui:VisualElement name="hub-hint-row" class="hub-hint-row" picking-mode="Ignore">
+            <ui:VisualElement name="hub-hint" class="hub-hint hidden" picking-mode="Ignore">
+                <ui:Label name="hub-hint-title" class="hub-hint-title" picking-mode="Ignore" text=""/>
+                <ui:Label name="hub-hint-text" class="hub-hint-text" picking-mode="Ignore" text="Click a cell to build · Right click / Esc to cancel"/>
+                <ui:Label name="hub-status" class="hub-status hidden" picking-mode="Ignore" text=""/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

@@ -35,11 +35,28 @@ public class PlayerHealth
         }
     }
 
-    public void Heal(float amount)
+    /// <summary>
+    /// Лечит не выше максимума. Возвращает, сколько здоровья реально добавлено (мёртвого не лечит).
+    /// </summary>
+    public float Heal(float amount)
     {
-        if (IsDead || amount <= 0f) return;
+        if (IsDead || amount <= 0f) return 0f;
 
-        Current = Mathf.Min(Max, Current + amount);
+        float healed = Mathf.Min(amount, Mathf.Max(0f, Max - Current));
+        if (healed <= 0f) return 0f;
+
+        Current += healed;
+        Publish();
+        return healed;
+    }
+
+    /// <summary>
+    /// Новый максимум (бонус на забег). healToFull — вылечить до нового максимума (мёртвого не лечит).
+    /// </summary>
+    public void SetMax(float max, bool healToFull)
+    {
+        Max = Mathf.Max(1f, max);
+        Current = healToFull && !IsDead ? Max : Mathf.Min(Current, Max);
         Publish();
     }
 

@@ -11,7 +11,7 @@ public class UnlockConfig : ScriptableObject
     [Tooltip("Имена Lua-команд (ILuaCommand.Name), открытых с самого начала")]
     public List<string> startingCommands = new List<string>
     {
-        "obtain", "autoExplore", "craft", "build", "drop", "getInventory", "getStatus", "getPosition"
+        "obtain", "autoExplore", "craft", "build", "drop", "getInventory", "getStatus", "getPosition", "eat"
     };
 
     [Tooltip("Id конструкций языка (LuaConstructs: local, if, for, while, repeat, function, classes), открытых с начала")]

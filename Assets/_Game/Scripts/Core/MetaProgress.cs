@@ -14,7 +14,8 @@ public class StoredMaterial
 }
 
 /// <summary>
-/// Сооружение, поставленное в хабе (этап 4): id определения и клетка.
+/// Сооружение, поставленное в хабе (этап 4): id определения (HubBuildingDefinition.Id) и клетка сетки
+/// хаба — левый нижний угол занимаемой области (0,0 — левый нижний угол сетки).
 /// </summary>
 [Serializable]
 public class PlacedHubBuilding
@@ -184,10 +185,50 @@ public class MetaProgress
     }
 
     /// <summary>
+    /// Списывает материал со склада (оплата постройки хаба). False — если на складе меньше count,
+    /// тогда склад не меняется. Запись с нулём удаляется.
+    /// </summary>
+    public bool RemoveMaterial(string itemId, int count)
+    {
+        if (count <= 0) return true;
+
+        StoredMaterial stored = FindMaterial(itemId);
+        if (stored == null || stored.count < count) return false;
+
+        stored.count -= count;
+        if (stored.count <= 0) _data.materials.Remove(stored);
+        return true;
+    }
+
+    /// <summary>
     /// Ключ предмета на складе: itemId, у предметов без него — имя ассета.
     /// </summary>
     public static string GetItemKey(ResourceItem item) =>
         string.IsNullOrEmpty(item.itemId) ? item.name : item.itemId;
+
+    // ─── Постройки хаба ───────────────────────────────────────
+
+    /// <summary>Постройка с этим id уже стоит в хабе (в срезе каждая — один раз).</summary>
+    public bool HasHubBuilding(string buildingId) => FindHubBuilding(buildingId) != null;
+
+    public PlacedHubBuilding FindHubBuilding(string buildingId)
+    {
+        foreach (PlacedHubBuilding placed in _data.hubBuildings)
+            if (placed.buildingId == buildingId) return placed;
+        return null;
+    }
+
+    /// <summary>
+    /// Записывает постройку в расстановку хаба (клетка — левый нижний угол). False — если пустой id
+    /// или постройка с таким id уже есть. Проверки места и оплату делает HubService.
+    /// </summary>
+    public bool AddHubBuilding(string buildingId, Vector2Int cell)
+    {
+        if (string.IsNullOrEmpty(buildingId) || HasHubBuilding(buildingId)) return false;
+
+        _data.hubBuildings.Add(new PlacedHubBuilding { buildingId = buildingId, x = cell.x, y = cell.y });
+        return true;
+    }
 
     // ─── Забеги ───────────────────────────────────────────────
 
@@ -236,6 +277,9 @@ public class MetaProgress
         _data.hubBuildings ??= new List<PlacedHubBuilding>();
         _data.materials.RemoveAll(m => m == null || string.IsNullOrEmpty(m.itemId) || m.count <= 0);
         _data.hubBuildings.RemoveAll(b => b == null || string.IsNullOrEmpty(b.buildingId));
+        // Каждая постройка стоит один раз — дубли (правка файла руками) отбрасываем, первая остаётся
+        var placedIds = new HashSet<string>(StringComparer.Ordinal);
+        _data.hubBuildings.RemoveAll(b => !placedIds.Add(b.buildingId));
         _data.achievementProgress.RemoveAll(p => p == null || string.IsNullOrEmpty(p.achievementId) || p.value <= 0);
     }
 

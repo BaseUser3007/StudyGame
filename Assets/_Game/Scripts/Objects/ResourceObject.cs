@@ -74,6 +74,14 @@ public abstract class ResourceObject : MonoBehaviour
 
     protected abstract (ResourceItem item, int amount)? OnInteract();
 
+    /// <summary>
+    /// Убрать объект с карты без добычи (место под головоломку и т.п.): возвращается в пул, без событий GameEventBus.
+    /// </summary>
+    public void Despawn()
+    {
+        if (IsAvailable) Consume();
+    }
+
     protected void Consume()
     {
         IsAvailable = false;

@@ -1,0 +1,304 @@
+/* Лагерь (этап 4). Кнопки screen-btn и строки item-row — из RunScreens.uss (шаблон вложен в RunScreens.uxml) */
+
+/* ── Root ────────────────────────────────────────────────── */
+/* Растянут на весь экран, но мышь не ловит (picking-mode в UXML) — карта с сеткой видна и кликается */
+.hub-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* ── Panels ──────────────────────────────────────────────── */
+.hub-panel {
+    position: absolute;
+    top: 12px;
+    max-height: 94%;
+    padding: 12px;
+    background-color: rgba(30, 30, 30, 0.95);
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    border-radius: 6px;
+}
+
+.hub-sidebar {
+    left: 12px;
+    width: 280px;
+}
+
+.hub-buildings {
+    right: 12px;
+    width: 340px;
+}
+
+.hub-title {
+    font-size: 18px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    margin-bottom: 6px;
+}
+
+.hub-text {
+    font-size: 12px;
+    color: rgb(200, 200, 200);
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.hub-text--muted {
+    color: rgb(140, 140, 140);
+}
+
+.hub-section {
+    font-size: 12px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+    margin: 6px 0 4px 0;
+}
+
+.hub-empty {
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    white-space: normal;
+    padding: 4px 0;
+}
+
+.hub-materials {
+    flex-shrink: 1;
+    max-height: 260px;
+}
+
+/* ── Sidebar buttons ─────────────────────────────────────── */
+.hub-buttons {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-top: 12px;
+}
+
+.hub-buttons .hub-btn {
+    margin: 0;
+}
+
+.hub-settings {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+/* ── Building cards ──────────────────────────────────────── */
+.hub-buildings-list {
+    flex-shrink: 1;
+}
+
+.hub-card {
+    margin: 0 0 6px 0;
+    padding: 8px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgb(60, 60, 60);
+    background-color: rgb(40, 40, 40);
+}
+
+.hub-card--ready {
+    border-color: rgb(70, 120, 70);
+}
+
+.hub-card--placing {
+    border-color: rgb(110, 170, 240);
+    background-color: rgb(36, 46, 60);
+}
+
+.hub-card--built {
+    background-color: rgb(34, 44, 34);
+}
+
+.hub-card--locked {
+    background-color: rgb(34, 34, 34);
+}
+
+.hub-card--locked .hub-card-icon {
+    opacity: 0.35;
+}
+
+.hub-card-header {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hub-card-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hub-card-heading {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.hub-card-title {
+    font-size: 13px;
+    color: rgb(220, 220, 170);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.hub-card-size {
+    font-size: 11px;
+    color: rgb(130, 130, 130);
+    padding: 0;
+    margin: 0;
+}
+
+.hub-card-description {
+    font-size: 11px;
+    color: rgb(190, 190, 190);
+    white-space: normal;
+    margin: 4px 0 0 0;
+    padding: 0;
+}
+
+.hub-card-effect {
+    font-size: 11px;
+    color: rgb(150, 220, 150);
+    white-space: normal;
+    margin: 2px 0 0 0;
+    padding: 0;
+}
+
+.hub-card-cost {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.hub-cost-chip {
+    flex-direction: row;
+    align-items: center;
+    margin: 0 4px 4px 0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: rgb(52, 52, 52);
+}
+
+.hub-cost-chip--missing {
+    background-color: rgb(70, 40, 40);
+}
+
+.hub-cost-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hub-cost-text {
+    font-size: 11px;
+    color: rgb(150, 220, 150);
+    padding: 0;
+    margin: 0;
+}
+
+.hub-cost-chip--missing .hub-cost-text {
+    color: rgb(240, 140, 140);
+}
+
+.hub-card-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.hub-card-state {
+    flex-shrink: 1;
+    font-size: 11px;
+    color: rgb(170, 170, 170);
+    white-space: normal;
+    padding: 0;
+    margin: 0 6px 0 0;
+}
+
+.hub-card-state--locked {
+    color: rgb(230, 200, 110);
+}
+
+.hub-card-state--built {
+    color: rgb(150, 220, 150);
+}
+
+.hub-card-state--missing {
+    color: rgb(240, 140, 140);
+}
+
+/* Две части селектора — сильнее отступов .screen-btn--primary/--danger из RunScreens.uss */
+.hub-card .hub-card-build {
+    height: 24px;
+    padding: 0 14px;
+    margin: 0;
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.hub-card .hub-card-build:disabled {
+    opacity: 0.4;
+}
+
+/* ── Placement hint ──────────────────────────────────────── */
+.hub-hint-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 24px;
+    align-items: center;
+}
+
+.hub-hint {
+    max-width: 520px;
+    padding: 8px 14px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(70, 90, 120);
+    background-color: rgba(25, 30, 40, 0.92);
+    align-items: center;
+}
+
+.hub-hint-title {
+    font-size: 13px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.hub-hint-text {
+    font-size: 12px;
+    color: rgb(200, 200, 200);
+    padding: 0;
+    margin: 2px 0 0 0;
+}
+
+.hub-status {
+    font-size: 12px;
+    color: rgb(200, 200, 200);
+    white-space: normal;
+    -unity-text-align: middle-center;
+    padding: 0;
+    margin: 4px 0 0 0;
+}
+
+.hub-status--success {
+    color: rgb(150, 220, 150);
+}
+
+.hub-status--warning {
+    color: rgb(230, 200, 110);
+}
+
+.hub-status--error {
+    color: rgb(240, 140, 140);
+}

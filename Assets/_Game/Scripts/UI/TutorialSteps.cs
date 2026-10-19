@@ -29,7 +29,9 @@ public enum TutorialAnchor
     ExitRunButton,
     AddWindowButton,
     LibraryTab,
-    ThreatLabel
+    ThreatLabel,
+    /// <summary>Панель построек лагеря (этап 4).</summary>
+    HubBuildPanel
 }
 
 /// <summary>
@@ -48,6 +50,8 @@ public static class TutorialFacts
     public const string AuxWindowCreated = "aux_window";
     public const string Mined = "mined";
     public const string EnemyFound = "enemy_found";
+    /// <summary>В лагере поставлена постройка (GameEventBus HubBuildingBuilt).</summary>
+    public const string HubBuilt = "hub_built";
 
     /// <summary>Конструкция была в коде запуска (GameEventBus ConstructUsed), id — из LuaConstructs.</summary>
     public static string ConstructUsed(string constructId) => "construct:" + constructId;
@@ -130,6 +134,16 @@ public static class TutorialSteps
             Text = "Achievements unlock new commands and language features. Take a look at what to aim for.",
             Done = s => s.Has(TutorialFacts.AchievementsOpened), AllowNext = true,
             Waiting = "Open Achievements or press Next"
+        },
+        // Только когда есть что строить (открыто достижением и хватает материалов) — в первом лагере не мешает
+        new TutorialStep
+        {
+            Id = "hub_build", Mode = TutorialMode.Hub, Anchor = TutorialAnchor.HubBuildPanel,
+            Text = "Spend materials from your runs on camp buildings: each one makes every next run stronger. " +
+                   "Press Build, then click a free cell on the grid.",
+            Requires = s => s.CanBuildInHub,
+            Done = s => s.Has(TutorialFacts.HubBuilt) || s.HasHubBuilding, AllowNext = true,
+            Waiting = "Build something or press Next"
         },
         new TutorialStep
         {

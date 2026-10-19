@@ -41,6 +41,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private TutorialController _tutorial;
     private readonly Dictionary<TutorialAnchor, VisualElement> _tutorialAnchors =
         new Dictionary<TutorialAnchor, VisualElement>();
+    // Лагерь (этап 4): null в забеге
+    private HubService _hubService;
+    private HubPlacementController _hubPlacement;
+    private HubBuildPanel _hubPanel;
     private int _windowCount = 0;
     private bool _isUIFocused;
     private bool _navigationBlocked;
@@ -51,11 +55,17 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     public CraftingPanel CraftingPanel => _craftingPanel;
     public RunScreens RunScreens => _runScreens;
 
+    /// <summary>Сцена — лагерь: код не пишется и не выполняется, вместо окон — панель построек.</summary>
+    public bool IsHub => _hubService != null;
+
     // ─── Инициализация ────────────────────────────────────────
 
+    /// <param name="hubService">Логика лагеря (Level.HubService); null — забег.</param>
+    /// <param name="hubPlacement">Размещение построек мышью (Level.HubPlacement); null — забег.</param>
     public void Initialize(
         LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook, IStationProvider stations,
-        DayCycle dayCycle, AchievementTracker achievements)
+        DayCycle dayCycle, AchievementTracker achievements,
+        HubService hubService = null, HubPlacementController hubPlacement = null)
     {
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
@@ -63,6 +73,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _stations = stations;
         _dayCycle = dayCycle;
         _achievements = achievements;
+        _hubService = hubService;
+        _hubPlacement = hubPlacement;
         _unlocks = luaSandbox != null ? luaSandbox.Unlocks : null;
         _uiDocument = GetComponent<UIDocument>();
 
@@ -104,6 +116,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _runScreens = new RunScreens(runScreensTemplate);
         _container.Add(_runScreens);
         CreateAchievementOverlays();
+        if (IsHub) CreateHub();
         CreateTutorial();
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
@@ -213,6 +226,13 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         if (_unlocks != null)
             _unlocks.OnUnlocked -= HandleUnlocked;
 
+        if (_hubService != null)
+            _hubService.OnBuilt -= HandleHubBuilt;
+        _hubPanel?.Dispose();
+        _hubPanel = null;
+        if (_uiManager != null)
+            _uiManager.SetNotificationDisplay(null);
+
         // Туториал подписан на статическую GameEventBus
         _tutorial?.Dispose();
         _tutorial = null;
@@ -239,6 +259,47 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         Debug.Assert(_uiManager != null, "CodeEditorManager: UIManager is not assigned");
         if (_achievements == null)
             Debug.LogWarning("CodeEditorManager: AchievementTracker is null — the achievements panel will be empty");
+        if (_hubService != null)
+            Debug.Assert(_hubPlacement != null, "CodeEditorManager: HubPlacementController is null in the camp");
+    }
+
+    // ─── Лагерь ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Лагерь (этап 4): карта с сеткой видна, слева склад и старт забега, справа панель построек.
+    /// Код в лагере не выполняется — окна кода, верхняя панель (Run, энергия, день), инвентарь, крафт
+    /// и библиотека скрыты; уведомления выводятся строкой внизу панели построек.
+    /// </summary>
+    private void CreateHub()
+    {
+        _hubPanel = new HubBuildPanel(_runScreens.HubRoot, _hubService, _hubPlacement, _achievements);
+        _runScreens.HubIconResolver = FindHubMaterialIcon;
+        _uiManager.SetNotificationDisplay(_hubPanel);
+        _hubService.OnBuilt += HandleHubBuilt;
+
+        foreach (VisualElement element in new VisualElement[]
+                 { _windowLayer, _topBar, _inventoryBar, _craftingPanel, _codeLibraryPanel })
+            element.style.display = DisplayStyle.None;
+    }
+
+    /// <summary>Постройка поставлена (оплачена и сохранена): склад уменьшился, карточки — в HubBuildPanel.</summary>
+    private void HandleHubBuilt(HubBuildingDefinition definition, Vector2Int cell)
+    {
+        _runScreens.RefreshHub(_hubService.Progress);
+        _hubPanel?.Refresh();
+        UIEventBus.PublishNotification($"{definition.Title} built", LogEntryType.Success);
+    }
+
+    /// <summary>Иконка материала склада: предмет ищется среди стоимостей построек (ResourceItem.Icon).</summary>
+    private Sprite FindHubMaterialIcon(string key)
+    {
+        if (_hubService == null || string.IsNullOrEmpty(key)) return null;
+
+        foreach (HubBuildingDefinition definition in _hubService.Definitions)
+            foreach (HubBuildingCost cost in definition.GetCost())
+                if (cost.Key == key && cost.Item != null)
+                    return cost.Item.Icon;
+        return null;
     }
 
     // ─── Достижения и открытия ────────────────────────────────
@@ -286,7 +347,12 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     /// Открытие (обычно награда достижения). Во время выполнения кода окно ждёт конца запуска —
     /// см. HandleRunningChanged.
     /// </summary>
-    private void HandleUnlocked(UnlockKind kind, string id) => _unlockPopup.Enqueue(kind, id);
+    private void HandleUnlocked(UnlockKind kind, string id)
+    {
+        _unlockPopup.Enqueue(kind, id);
+        // Открыта постройка (например, награда выданная заново в лагере) — карточка уже не Locked
+        if (kind == UnlockKind.HubBuilding) _hubPanel?.Refresh();
+    }
 
     // ─── Туториал и подсказки ─────────────────────────────────
 
@@ -300,6 +366,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         _tutorialOverlay = new TutorialOverlay(_runScreens.GetOverlay("tutorial-overlay"), _context.Highlighter);
         var state = new TutorialState(progress, _unlocks, _dayCycle, IsKeywordLocked);
+        if (_hubPanel != null) state.HubBuildAvailable = _hubPanel.IsAnyBuildAvailable;
         _tutorial = new TutorialController(_tutorialOverlay, progress, state, ResolveTutorialAnchor, IsTutorialBlocked);
         _tutorial.OnHintsChanged += HandleHintsChanged;
         HandleHintsChanged(_tutorial.HintsEnabled);
@@ -327,7 +394,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         return (_unlockPopup != null && _unlockPopup.IsOpen)
             || (_achievementsPanel != null && _achievementsPanel.IsOpen)
             || _runScreens.IsExitConfirmOpen
-            || _runScreens.IsSummaryShown;
+            || _runScreens.IsSummaryShown
+            // Во время размещения постройки карточка не должна закрывать клетки сетки
+            || (_hubPanel != null && _hubPanel.IsPlacing);
     }
 
     private VisualElement ResolveTutorialAnchor(TutorialAnchor anchor)
@@ -347,6 +416,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         {
             case TutorialAnchor.StartRunButton: return _runScreens.FindElement("btn-start-run");
             case TutorialAnchor.HubAchievementsButton: return _runScreens.FindElement("btn-hub-achievements");
+            case TutorialAnchor.HubBuildPanel: return _runScreens.FindElement("hub-buildings");
             case TutorialAnchor.MainWindow: return _mainWindow?.Q<VisualElement>("window");
             case TutorialAnchor.LineCosts: return _mainWindow?.Q<VisualElement>(className: "gutter-costs");
             case TutorialAnchor.AddWindowButton: return _mainWindow?.Q<VisualElement>("btn-add-method");
@@ -654,6 +724,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private async void HandleRunRequested()
     {
         if (_mainWindow == null || _luaSandbox == null) return;
+        // В лагере код не выполняется (кнопка Run скрыта вместе с верхней панелью — проверка на всякий случай)
+        if (IsHub) return;
 
         // Повторное нажатие во время выполнения — остановка
         if (_luaSandbox.IsRunning)

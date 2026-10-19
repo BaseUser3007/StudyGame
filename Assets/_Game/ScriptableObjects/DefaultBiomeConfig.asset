@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DefaultBiomeConfig
   m_EditorClassIdentifier: Assembly-CSharp::BiomeConfig
   biomes:
-  - name: "Лес"
+  - name: "\u041B\u0435\u0441"
     weight: 1
     resources:
     - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}
@@ -24,7 +24,11 @@ MonoBehaviour:
       density: 2
     - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
       density: 0.3
-  - name: "Луг"
+    - prefab: {fileID: 7950772735525105805, guid: f98f5c418649fc74db082eb6715c6ddb, type: 3}
+      density: 0.3
+    - prefab: {fileID: 8176388962828375036, guid: 60dc0ad2c3d45c943a1fb4faa5666ab2, type: 3}
+      density: 0.1
+  - name: "\u041B\u0443\u0433"
     weight: 1.5
     resources:
     - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}
@@ -35,7 +39,11 @@ MonoBehaviour:
       density: 1
     - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
       density: 0.5
-  - name: "Скалы"
+    - prefab: {fileID: 7950772735525105805, guid: f98f5c418649fc74db082eb6715c6ddb, type: 3}
+      density: 0.4
+    - prefab: {fileID: 8176388962828375036, guid: 60dc0ad2c3d45c943a1fb4faa5666ab2, type: 3}
+      density: 0.3
+  - name: "\u0421\u043A\u0430\u043B\u044B"
     weight: 0.8
     resources:
     - prefab: {fileID: 1852307222561421786, guid: 8596258047044874823910bd413ae320, type: 3}

@@ -61,3 +61,35 @@ MonoBehaviour:
     station: 1
     energyCost: 3
     locked: 1
+  - result: {fileID: 11400000, guid: cc12f5ab3ae347b4fb737a1daa2bed00, type: 2}
+    resultAmount: 1
+    ingredients:
+    - item: {fileID: 11400000, guid: 2c8f1bead1764530bc429718b1b60ecb, type: 2}
+      amount: 2
+    - item: {fileID: 11400000, guid: ad1aaa5f4f90415e85b04ff35862c16c, type: 2}
+      amount: 3
+    - item: {fileID: 11400000, guid: e85d713056c947c7a0ad9567d8d11ec8, type: 2}
+      amount: 1
+    station: 1
+    energyCost: 3
+    locked: 1
+  - result: {fileID: 11400000, guid: 703f5fddfa80b9c41983de38ea6de02d, type: 2}
+    resultAmount: 1
+    ingredients:
+    - item: {fileID: 11400000, guid: f65700c717ab8fa4589e0c7a1f8fa961, type: 2}
+      amount: 1
+    - item: {fileID: 11400000, guid: 2c8f1bead1764530bc429718b1b60ecb, type: 2}
+      amount: 2
+    - item: {fileID: 11400000, guid: ad1aaa5f4f90415e85b04ff35862c16c, type: 2}
+      amount: 2
+    station: 0
+    energyCost: 2
+    locked: 1
+  - result: {fileID: 11400000, guid: 238a7b51d2bf0dd4192fb191b6dcfe51, type: 2}
+    resultAmount: 1
+    ingredients:
+    - item: {fileID: 11400000, guid: 9bb2ee5d1d4703f46a6752ed2cfd49c5, type: 2}
+      amount: 1
+    station: 3
+    energyCost: 1
+    locked: 1

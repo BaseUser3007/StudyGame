@@ -256,12 +256,12 @@
 | `AutoExploreCommand.EnergyCost` | 25 → 10, `IsReadyMade` — **сделано** | решение 3 |
 | `DefaultEnergyConfig.functionCost` | 0 → 0,5 — **сделано** (и дефолт в коде, `CLAUDE.md`) | решение 11 |
 | `EnergyConfig.apiCallCost`, `variableCost` | удалены — **сделано** | мёртвые поля путают баланс |
-| `DefaultUnlockConfig` | + команда `eat` в стартовый набор (когда появится) | решение 8 |
+| `DefaultUnlockConfig` | + команда `eat` в стартовый набор — **сделано** | решение 8 |
 | `hub_builder.asset` | + награды Command `puzzle`, Command `solve` | решение 9 |
 | `HubBuildingDefinition` `storage` (этап 4) | +2 слота (в §6.1 было +1, исправлено) | §10.3 |
 | `DayCycle` | ночь у `isSleepingPlace` → `PlayerHealth.Heal(15)` | решение 10 |
-| `RabbitObject` | заменить на `sheep` (у Tiny Swords есть спрайты овцы, у кролика нет) | §10.2 |
-| `FoodResource` | превратить в `FoodItem` (+ `healthRestore`) | §10.2 |
+| `RabbitObject` | заменить на `sheep` (у Tiny Swords есть спрайты овцы, у кролика нет) — **сделано в коде** (`SheepObject`, ассеты — asset-editor) | §10.2 |
+| `FoodResource` | превратить в `FoodItem` (+ `healthRestore`) — **сделано** | §10.2 |
 
 Открытых вопросов к автору нет. Всё, что выше, можно пересмотреть после ручного прохождения среза (этап 8).
 
@@ -364,7 +364,7 @@
 
 | Объект | Класс | Добыча | Плотность (на 100 тайлов биома) | Спрайт |
 |---|---|---|---|---|
-| `berry_bush` | `HarvestableResource` (`BushObject`), исчезает | `harvest` → `berries` ×2 | Луг 0,4, Лес 0,3, Скалы 0 (~20 на карту) | `Terrain/Decorations/Bushes` |
+| `berry_bush` | `HarvestableResource` (`BerryBushObject`), исчезает | `harvest` → `berries` ×2 | Луг 0,4, Лес 0,3, Скалы 0 (~20 на карту) | `Terrain/Decorations/Bushes` |
 | `sheep` (вместо `rabbit`) | `ExtractableResource`, инструмент — топор | `mine` → loot `raw_meat` ×2 (durability 3) = 1 + 6 = 7 энергии | Луг 0,3, Лес 0,1 (~12 на карту) | `Pawn and Resources/Meat/Sheep` |
 
 | Рецепт | Ингредиенты | Станция | `energyCost` | Закрыт до |

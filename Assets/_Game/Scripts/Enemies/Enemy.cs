@@ -41,6 +41,12 @@ public class Enemy : MonoBehaviour
     // Подходим чуть ближе радиуса атаки, чтобы игрок не выходил из него от дрожания
     private const float AttackApproach = 0.85f;
     private const int SlideIterations = 2;
+    // Сдвиг за тик меньше этого (в тайлах) — враг стоит (для анимации)
+    private const float MovingThreshold = 0.0005f;
+
+    // Параметры Animator (необязательны: отсутствующие просто не выставляются)
+    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+    private static readonly int AttackHash = Animator.StringToHash("Attack");
 
     public int Id { get; private set; }
     public EnemyDefinition Definition { get; private set; }
@@ -87,6 +93,15 @@ public class Enemy : MonoBehaviour
     private DepthSortedSprite _depthSorting;
     private readonly List<RaycastHit2D> _hits = new List<RaycastHit2D>();
 
+    // Анимация: Animator на враге или в детях (обычно на дочернем Visual), может отсутствовать
+    private Animator _animator;
+    private bool _hasIsMovingParam;
+    private bool _hasAttackParam;
+    private bool _animParamsResolved;
+    // Кадр последнего Tick: в кадре без Tick мир стоит — анимация замирает
+    private int _lastTickFrame = -1;
+    private bool _movedThisTick;
+
     private float _attackTimer;
     private bool _inAttackRange;
     // Получил удар — преследует дольше (до aggroRadius × loseAggroMultiplier), даже если игрок бил издалека
@@ -105,6 +120,7 @@ public class Enemy : MonoBehaviour
         _depthSorting.Dynamic = true;
 
         _renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        _animator = GetComponentInChildren<Animator>(true);
         _body = FindBodyCollider();
         if (_body == null)
             Debug.LogWarning($"Enemy: на {name} нет Collider2D (не триггер) — враг проходит сквозь объекты", this);
@@ -141,6 +157,19 @@ public class Enemy : MonoBehaviour
         SetPosition(position);
         SetVisible(true);
         _depthSorting.Refresh();
+        ResetAnimation();
+    }
+
+    /// <summary>
+    /// Анимация идёт только в кадрах, где был Tick (код игрока выполняется); иначе Animator.speed = 0 —
+    /// «замороженный» мир: враг застывает в текущей позе, а не бежит на месте между запусками.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (_animator == null) return;
+
+        bool timeRunning = IsAlive && _lastTickFrame == Time.frameCount;
+        _animator.speed = timeRunning ? 1f : 0f;
     }
 
     // ─── Public API ───────────────────────────────────────────
@@ -179,6 +208,17 @@ public class Enemy : MonoBehaviour
     {
         if (!IsAlive || _world == null || deltaTime <= 0f) return;
 
+        // Время идёт — Animator оживает сразу в этом кадре (замирает в LateUpdate кадра без Tick)
+        _lastTickFrame = Time.frameCount;
+        if (_animator != null) _animator.speed = 1f;
+
+        _movedThisTick = false;
+        TickBehaviour(deltaTime);
+        SetIsMoving(_movedThisTick);
+    }
+
+    private void TickBehaviour(float deltaTime)
+    {
         _attackTimer = Mathf.Max(0f, _attackTimer - deltaTime);
 
         Vector2 player = _world.PlayerPosition;
@@ -231,6 +271,7 @@ public class Enemy : MonoBehaviour
             {
                 _world.DamagePlayer(this, Stats.Damage);
                 _attackTimer = Stats.AttackCooldown;
+                PlayAttackAnimation();
             }
             return;
         }
@@ -322,6 +363,7 @@ public class Enemy : MonoBehaviour
         SetPosition(MoveWithSlide(Position, move, toTarget));
 
         float moved = Vector2.Distance(before, Position);
+        if (moved > MovingThreshold) _movedThisTick = true;
         _stuckTime = moved < step * 0.25f ? _stuckTime + deltaTime : 0f;
 
         return Vector2.Distance(Position, target) <= stopDistance + 0.001f;
@@ -425,6 +467,57 @@ public class Enemy : MonoBehaviour
         foreach (SpriteRenderer sr in _renderers)
             if (sr != null)
                 sr.flipX = flip;
+    }
+
+    // ─── Animation ────────────────────────────────────────────
+
+    /// <summary>
+    /// Выдача из пула: позу Idle с начала, параметры сброшены, до первого Tick анимация стоит.
+    /// </summary>
+    private void ResetAnimation()
+    {
+        _lastTickFrame = -1;
+        _movedThisTick = false;
+        if (_animator == null || !_animator.isActiveAndEnabled) return;
+
+        _animator.Rebind();
+        _animator.Update(0f);
+        ResolveAnimatorParameters();
+        SetIsMoving(false);
+        if (_hasAttackParam) _animator.ResetTrigger(AttackHash);
+        _animator.speed = 0f;
+    }
+
+    private void PlayAttackAnimation()
+    {
+        if (_animator == null || !_animator.isActiveAndEnabled) return;
+        ResolveAnimatorParameters();
+        if (_hasAttackParam) _animator.SetTrigger(AttackHash);
+    }
+
+    private void SetIsMoving(bool moving)
+    {
+        if (_animator == null || !_animator.isActiveAndEnabled) return;
+        ResolveAnimatorParameters();
+        if (_hasIsMovingParam && _animator.GetBool(IsMovingHash) != moving)
+            _animator.SetBool(IsMovingHash, moving);
+    }
+
+    /// <summary>
+    /// Какие параметры есть в контроллере (без них SetBool/SetTrigger сыплют предупреждениями).
+    /// </summary>
+    private void ResolveAnimatorParameters()
+    {
+        if (_animParamsResolved || _animator.runtimeAnimatorController == null) return;
+
+        foreach (AnimatorControllerParameter p in _animator.parameters)
+        {
+            if (p.nameHash == IsMovingHash && p.type == AnimatorControllerParameterType.Bool)
+                _hasIsMovingParam = true;
+            else if (p.nameHash == AttackHash && p.type == AnimatorControllerParameterType.Trigger)
+                _hasAttackParam = true;
+        }
+        _animParamsResolved = true;
     }
 
     private Collider2D FindBodyCollider()

@@ -158,6 +158,22 @@ public class ObjectManager : MonoBehaviour
         return new List<ResourceObject>(EnumerateObjectsAround(tile, 0));
     }
 
+    /// <summary>
+    /// Убирает с карты все объекты, чья точка лежит в прямоугольнике тайлов (место под головоломку).
+    /// Возвращает, сколько убрано.
+    /// </summary>
+    public int RemoveObjectsInArea(RectInt tiles)
+    {
+        var buffer = new List<ResourceObject>();
+        for (int x = tiles.xMin; x < tiles.xMax; x++)
+            for (int y = tiles.yMin; y < tiles.yMax; y++)
+                buffer.AddRange(GetObjectsAtTile(new Vector2Int(x, y)));
+
+        foreach (ResourceObject obj in buffer)
+            obj.Despawn();
+        return buffer.Count;
+    }
+
     public List<ResourceObject> GetObjectsByType(Vector2Int center, int radius, Type type)
     {
         List<ResourceObject> result = new List<ResourceObject>();

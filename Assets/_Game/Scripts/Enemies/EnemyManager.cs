@@ -48,6 +48,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
     private readonly List<Enemy> _tickBuffer = new List<Enemy>();
     private readonly List<Enemy> _visibilityBuffer = new List<Enemy>();
     private readonly List<Collider2D> _overlaps = new List<Collider2D>();
+    private readonly List<Vector2> _campCenters = new List<Vector2>();
     private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
     private LuaSandbox _sandbox;
@@ -61,6 +62,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
     /// <summary>Живые враги на карте.</summary>
     public IReadOnlyList<Enemy> Enemies => _enemies;
     public int Count => _enemies.Count;
+    /// <summary>Центры поставленных лагерей (позиции карты) — головоломки держатся от них подальше.</summary>
+    public IReadOnlyList<Vector2> CampCenters => _campCenters;
     /// <summary>Идёт игровое время (выполняется код игрока).</summary>
     public bool IsTimeRunning => _clock != null;
 
@@ -166,6 +169,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
                 continue;
             }
             centers.Add(center);
+            _campCenters.Add(center);
 
             if (valuable != null)
                 _objects.Spawn(valuable, center);

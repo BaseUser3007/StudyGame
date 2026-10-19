@@ -197,6 +197,22 @@ public class CameraController : MonoBehaviour
             followSpeed * Time.deltaTime);
     }
 
+    // ─── Public API ───────────────────────────────────────────
+
+    /// <summary>
+    /// Ставит камеру на точку (хаб — центр сетки) и перестаёт следовать за игроком,
+    /// пока не нажата клавиша возврата к игроку. snap — сразу, без плавного перелёта.
+    /// </summary>
+    public void FocusOn(Vector3 worldPosition, bool snap = true)
+    {
+        _currentMode = CameraMode.Panning;
+        _targetPosition = ClampToBounds(worldPosition);
+
+        if (snap)
+            mainCamera.transform.position = new Vector3(
+                _targetPosition.x, _targetPosition.y, mainCamera.transform.position.z);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────
 
     private Vector3 ClampToBounds(Vector3 position)

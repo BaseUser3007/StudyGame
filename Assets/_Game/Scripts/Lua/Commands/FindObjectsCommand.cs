@@ -17,7 +17,7 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Name => "findObjects";
     public override float EnergyCost => 1f;
     public override string Signature => "findObjects([type])";
-    public override string Description => "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, bush, mushroom, rabbit, stick, pebble, log, flint (выброшенные); " +
+    public override string Description => "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
                                           "враги — enemy (все) или goblin. Без аргумента — всё, что видно, вместе с врагами. " +
                                           $"У объекта есть поля {LuaObjectList.Fields} (kind — \"object\" или \"enemy\"). " +
                                           "У массива есть count и методы для поиска, фильтрации и сортировки " +
@@ -32,15 +32,17 @@ public class FindObjectsCommand : PlayerCommandBase
     {
         { "tree",     typeof(TreeObject)     },
         { "stone",    typeof(StoneObject)    },
-        { "bush",     typeof(BushObject)     },
+        { "berry_bush", typeof(BerryBushObject) },
         { "mushroom", typeof(MushroomObject) },
-        { "rabbit",   typeof(RabbitObject)   },
+        { "sheep",    typeof(SheepObject)    },
         { "stick",    typeof(StickObject)    },
         { "pebble",   typeof(PebbleObject)   },
         { "boulder",  typeof(BoulderObject)  },
         { "gold_ore", typeof(GoldOreObject)  },
+        { "gold",     typeof(GoldObject)     },
         { "log",      typeof(LogObject)      },
-        { "flint",    typeof(FlintObject)    }
+        { "flint",    typeof(FlintObject)    },
+        { "meat",     typeof(MeatObject)     }
     };
 
     // Типы врагов, известные заранее (для подсказки в ошибке); остальные определяются по EnemyDefinition.enemyId

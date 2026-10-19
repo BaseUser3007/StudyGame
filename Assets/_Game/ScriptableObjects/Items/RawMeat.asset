@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5470f316ea64594ab4922edc5baaafc, type: 3}
+  m_Name: RawMeat
+  m_EditorClassIdentifier: Assembly-CSharp::FoodItem
+  itemId: raw_meat
+  displayName: Raw Meat
+  worldPrefab: {fileID: 9001078756521178862, guid: fd53464d3e9ed2e478b1e1a69ddff11f, type: 3}
+  iconPrefab: {fileID: 0}
+  sprite: {fileID: 21300000, guid: 7ae60e0e3b7fd419aa2a0b999da0fb07, type: 3}
+  durability: 3
+  maxStackSize: 10
+  energyRestore: 0
+  healthRestore: 5

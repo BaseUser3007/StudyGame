@@ -21,6 +21,7 @@ MonoBehaviour:
   - getInventory
   - getStatus
   - getPosition
+  - eat
   startingConstructs:
   - local
   - if

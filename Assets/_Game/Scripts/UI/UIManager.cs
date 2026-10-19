@@ -10,6 +10,8 @@ public class UIManager : MonoBehaviour
     private TopBar _topBar;
     private InventoryBar _inventoryBar;
     private CraftingPanel _craftingPanel;
+    // Куда выводить уведомления (в лагере — строка под панелью построек); null — только в лог
+    private INotificationDisplay _notificationDisplay;
     private Dictionary<string, CodeEditorWindowBase> _windows
         = new Dictionary<string, CodeEditorWindowBase>();
 
@@ -37,6 +39,14 @@ public class UIManager : MonoBehaviour
         UIEventBus.OnInventoryChanged -= HandleInventoryChanged;
         UIEventBus.OnNotificationRequested -= HandleNotificationRequested;
         UIEventBus.OnDayChanged -= HandleDayChanged;
+    }
+
+    // ─── Уведомления ──────────────────────────────────────────
+
+    /// <summary>Элемент, который показывает уведомления UIEventBus (null — снять).</summary>
+    public void SetNotificationDisplay(INotificationDisplay display)
+    {
+        _notificationDisplay = display;
     }
 
     // ─── Регистрация окон ─────────────────────────────────────
@@ -86,6 +96,7 @@ public class UIManager : MonoBehaviour
     private void HandleNotificationRequested(string message, LogEntryType type)
     {
         Debug.Log($"[{type}] {message}");
-        // Позже заменим на всплывающее окно
+        // В забеге всплывающих уведомлений пока нет; в лагере — строка под панелью построек
+        _notificationDisplay?.ShowNotification(message, type);
     }
 }

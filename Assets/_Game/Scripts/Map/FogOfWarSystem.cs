@@ -17,6 +17,9 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
     private FogState[,] _fogMap;
     private Vector2Int _lastPlayerTile;
     private TileBase _fogTile;
+    // Области, где обзор ограничен (лабиринт), — см. AddHedgeArea
+    private readonly System.Collections.Generic.List<HedgeArea> _hedges
+        = new System.Collections.Generic.List<HedgeArea>();
 
     private static readonly Color ColorUnexplored = new Color(0f, 0f, 0f, 1f);
     private static readonly Color ColorExplored = new Color(0f, 0f, 0f, 0.5f);
@@ -106,6 +109,7 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
                 int tileY = centerTile.y + y;
 
                 if (!IsInBounds(tileX, tileY)) continue;
+                if (IsHiddenByHedge(tileX, tileY, centerTile)) continue;
                 SetTileState(tileX, tileY, FogState.Visible);
             }
     }
@@ -165,6 +169,21 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
             && y >= 0 && y < _mapData.MapHeight;
     }
 
+    /// <summary>
+    /// Тайл внутри «изгороди» и дальше её радиуса от игрока (по Чебышёву) — обзор его не открывает.
+    /// </summary>
+    private bool IsHiddenByHedge(int x, int y, Vector2Int playerTile)
+    {
+        foreach (HedgeArea hedge in _hedges)
+        {
+            if (!hedge.Tiles.Contains(new Vector2Int(x, y))) continue;
+
+            int distance = Mathf.Max(Mathf.Abs(x - playerTile.x), Mathf.Abs(y - playerTile.y));
+            if (distance > hedge.Radius) return true;
+        }
+        return false;
+    }
+
     // ─── Public API ───────────────────────────────────────────
 
     public FogState GetFogState(int x, int y)
@@ -174,5 +193,45 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
     }
 
     public bool IsVisible(int x, int y) => GetFogState(x, y) == FogState.Visible;
+
+    /// <summary>
+    /// Открывает прямоугольник тайлов (хаб — площадка с сеткой) с полями margin.
+    /// Состояние Visible сохраняется, пока на него не наступит уход игрока из радиуса обзора.
+    /// </summary>
+    public void RevealRect(RectInt tiles, int margin = 0)
+    {
+        for (int x = tiles.xMin - margin; x < tiles.xMax + margin; x++)
+            for (int y = tiles.yMin - margin; y < tiles.yMax + margin; y++)
+                if (IsInBounds(x, y))
+                    SetTileState(x, y, FogState.Visible);
+    }
     public bool IsExplored(int x, int y) => GetFogState(x, y) != FogState.Unexplored;
+
+    /// <summary>
+    /// «Густая изгородь» (лабиринт): внутри tiles туман снимается только в radius тайлов от игрока, а не
+    /// во всём радиусе обзора, — check() видит лишь соседние тайлы. Видимые сейчас тайлы области
+    /// закрываются (Explored), если игрок не рядом.
+    /// </summary>
+    public void AddHedgeArea(RectInt tiles, int radius)
+    {
+        _hedges.Add(new HedgeArea(tiles, Mathf.Max(0, radius)));
+        if (_fogMap == null) return;
+
+        for (int x = tiles.xMin; x < tiles.xMax; x++)
+            for (int y = tiles.yMin; y < tiles.yMax; y++)
+                if (IsInBounds(x, y) && _fogMap[x, y] == FogState.Visible && IsHiddenByHedge(x, y, _lastPlayerTile))
+                    SetTileState(x, y, FogState.Explored);
+    }
+
+    private readonly struct HedgeArea
+    {
+        public readonly RectInt Tiles;
+        public readonly int Radius;
+
+        public HedgeArea(RectInt tiles, int radius)
+        {
+            Tiles = tiles;
+            Radius = radius;
+        }
+    }
 }

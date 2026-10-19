@@ -59,6 +59,14 @@ public class TutorialState
     public bool IsConstructUnlocked(string id) => _unlocks == null || _unlocks.IsConstructUnlocked(id);
     public bool HasAchievement(string id) => _progress != null && _progress.HasAchievement(id);
 
+    /// <summary>Есть ли постройка, которую можно поставить сейчас (задаёт CodeEditorManager в лагере).</summary>
+    public Func<bool> HubBuildAvailable { get; set; }
+
+    public bool CanBuildInHub => HubBuildAvailable != null && HubBuildAvailable();
+
+    /// <summary>В лагере уже стоит хоть одна постройка (из сохранения).</summary>
+    public bool HasHubBuilding => _progress != null && _progress.HubBuildings.Count > 0;
+
     public bool IsStepDone(string stepId) => _progress != null && _progress.HasTutorialFlag(TutorialController.StepFlag(stepId));
 
     // ─── Код ──────────────────────────────────────────────────
@@ -491,6 +499,7 @@ public class TutorialController : IDisposable
             case GameEventType.Mined: fact = TutorialFacts.Mined; break;
             case GameEventType.ConstructUsed: fact = TutorialFacts.ConstructUsed(gameEvent.Id); break;
             case GameEventType.EnemyFound: fact = TutorialFacts.EnemyFound; break;
+            case GameEventType.HubBuildingBuilt: fact = TutorialFacts.HubBuilt; break;
         }
 
         if (fact != null) Notify(fact);

@@ -38,18 +38,43 @@ public class Level : MonoBehaviour
     [Tooltip("Все достижения игры (AchievementDefinition). Без каталога достижений нет, игра запускается")]
     [SerializeField] private AchievementCatalog achievementCatalog;
 
+    [Header("Puzzles")]
+    [Tooltip("Головоломки на карте (обелиски code_task, лабиринт maze). Пусто — забег без головоломок (предупреждение)")]
+    [SerializeField] private PuzzleConfig puzzleConfig;
+
+    [Header("Hub")]
+    [Tooltip("Постройки лагеря и размер его сетки (HubBuildingCatalog). Без каталога в лагере ничего не построить, " +
+             "бонусов построек в забеге нет (предупреждение)")]
+    [SerializeField] private HubBuildingCatalog hubBuildingCatalog;
+
     [Header("UI")]
     [SerializeField] private CodeEditorManager codeEditorManager;
     [SerializeField] private UIManager uiManager;
 
     private AchievementTracker _achievementTracker;
     private EnemyManager _enemyManager;
+    private HubService _hubService;
+    private HubGrid _hubGrid;
+    private HubPlacementController _hubPlacement;
+    private PuzzleManager _puzzleManager;
 
     /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
     public AchievementTracker AchievementTracker => _achievementTracker;
 
     /// <summary>Враги забега (в лагере — пустой список).</summary>
     public EnemyManager Enemies => _enemyManager;
+
+    /// <summary>Логика лагеря: каталог, склад, проверка и постройка (для панели построек). В забеге — null.</summary>
+    public HubService HubService => _hubService;
+
+    /// <summary>Мировая сетка лагеря: координаты клеток, призрак. В забеге — null.</summary>
+    public HubGrid HubGrid => _hubGrid;
+
+    /// <summary>Установка постройки мышью: Begin(definition) из панели. В забеге — null.</summary>
+    public HubPlacementController HubPlacement => _hubPlacement;
+
+    /// <summary>Головоломки забега (в лагере — пустой список, но не null).</summary>
+    public PuzzleManager Puzzles => _puzzleManager;
 
     private void Awake()
     {
@@ -77,6 +102,14 @@ public class Level : MonoBehaviour
         // Без конфига врагов игра работает (до привязки ассетов), враги просто не появляются
         if (enemyConfig == null)
             Debug.LogWarning("Level: enemyConfig is not assigned — no enemies in the run");
+
+        // Без каталога построек лагерь пуст, а бонусы построек в забеге не применяются
+        if (hubBuildingCatalog == null)
+            Debug.LogWarning("Level: hubBuildingCatalog is not assigned — no camp buildings and no their bonuses");
+
+        // Без конфига головоломок забег идёт без обелисков и лабиринта
+        if (puzzleConfig == null)
+            Debug.LogWarning("Level: puzzleConfig is not assigned — no puzzles in the run");
     }
 
     private void InitializeLevel()
@@ -106,9 +139,15 @@ public class Level : MonoBehaviour
         // 7. Параметры забега (база из PlayerConfig + постройки лагеря), открытия, энергия, здоровье, инвентарь
         GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
         MetaProgress progress = GameSession.Progress;
-        RunModifiers modifiers = RunModifiers.Create(playerConfig, progress);
+        RunModifiers modifiers = RunModifiers.Create(playerConfig, progress, hubBuildingCatalog);
         UnlockRegistry unlocks = new UnlockRegistry(unlockConfig, progress);
         unlocks.SetKnownRecipes(GetRecipeKeys());
+        // Постройки лагеря открываются достижениями и в забеге — каталог нужен в обоих режимах,
+        // иначе открытия остаются отложенными (без всплывашки)
+        if (hubBuildingCatalog != null)
+            unlocks.SetKnownHubBuildings(hubBuildingCatalog.GetIds());
+        // Типы головоломок — события на карте; известны всегда (их открывают достижения в обоих режимах)
+        unlocks.SetKnownMapEvents(PuzzleTypes.All);
 
         PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);
         PlayerHealth playerHealth = new PlayerHealth(modifiers.MaxHealth);
@@ -133,6 +172,17 @@ public class Level : MonoBehaviour
         // Удар по врагу (attack) — общий сервис, как ResourceHarvester; Lua-команда attack оборачивает его
         CombatService combat = new CombatService(executor, inventory, _enemyManager);
 
+        // 9b. Головоломки: только в забеге и только открытые типы, после врагов (держатся от лагерей
+        // подальше), до песочницы (Lua-команды puzzle/solve получают PuzzleManager)
+        PuzzleRewards puzzleRewards = new PuzzleRewards(
+            puzzleConfig, modifiers, playerEnergy, playerHealth, dayCycle, inventory, objectManager);
+        _puzzleManager = new PuzzleManager(
+            () => executor.Position, playerConfig.structureInteractionRadius, puzzleRewards);
+        if (mode == GameMode.Run)
+            PuzzleGenerator.Generate(
+                puzzleConfig, tilemapGenerator, fogOfWarSystem, objectManager, _enemyManager.CampCenters, startTile,
+                unlocks.IsMapEventUnlocked, _puzzleManager, salt: new System.Random().Next());
+
         // 10. Lua песочница
         luaSandbox.Initialize(
             executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
@@ -144,9 +194,14 @@ public class Level : MonoBehaviour
         // 10a. Достижения: после песочницы (известны все команды для проверки наград), до UI
         _achievementTracker = new AchievementTracker(achievementCatalog, progress, unlocks, playerEnergy);
 
+        // 10b. Лагерь: сетка с постройками у точки спавна (только в режиме Hub)
+        if (mode == GameMode.Hub)
+            InitializeHub(progress, unlocks, startTile, player);
+
         // 11. UI
         codeEditorManager.Initialize(
-            luaSandbox, uiManager, recipeBook, structures, dayCycle, _achievementTracker);
+            luaSandbox, uiManager, recipeBook, structures, dayCycle, _achievementTracker,
+            _hubService, _hubPlacement);
         uiManager.Initialize(
             codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
 
@@ -175,6 +230,46 @@ public class Level : MonoBehaviour
         // Останавливает игровое время врагов и отписывается от песочницы и дня
         _enemyManager?.Dispose();
         _enemyManager = null;
+
+        // Отписка от HubService и runtime-текстура площадки
+        _hubGrid?.Dispose();
+        _hubGrid = null;
+
+        // Отписка лабиринта от статической PlayerEventBus
+        _puzzleManager?.Dispose();
+        _puzzleManager = null;
+    }
+
+    /// <summary>
+    /// Лагерь поверх сгенерированной карты: площадка с сеткой над точкой спавна (игрок стоит у её
+    /// нижнего края), туман над ней снят, объекты карты на ней скрыты, камера — на центре сетки.
+    /// </summary>
+    private void InitializeHub(MetaProgress progress, UnlockRegistry unlocks, Vector2Int startTile, GameObject player)
+    {
+        _hubService = new HubService(hubBuildingCatalog, progress, unlocks);
+
+        Vector2Int origin = HubGrid.ChooseOrigin(tilemapGenerator, startTile, _hubService.GridSize);
+        SpriteRenderer playerRenderer = player.GetComponentInChildren<SpriteRenderer>();
+        _hubGrid = new HubGrid(
+            tilemapGenerator, _hubService, origin, playerRenderer != null ? playerRenderer.sharedMaterial : null);
+
+        RectInt area = _hubGrid.TileArea;
+        fogOfWarSystem.RevealRect(area, margin: 2);
+        HideObjectsOnHubArea(area, margin: 1);
+
+        _hubPlacement = _hubGrid.Root.gameObject.AddComponent<HubPlacementController>();
+        _hubPlacement.Initialize(_hubService, _hubGrid, codeEditorManager);
+
+        cameraController.FocusOn(_hubGrid.WorldCenter);
+    }
+
+    /// <summary>Объекты карты на площадке лагеря не нужны — выключаем (сцена перезагрузится к забегу).</summary>
+    private void HideObjectsOnHubArea(RectInt area, int margin)
+    {
+        for (int x = area.xMin - margin; x < area.xMax + margin; x++)
+            for (int y = area.yMin - margin; y < area.yMax + margin; y++)
+                foreach (ResourceObject obj in objectManager.GetObjectsAtTile(new Vector2Int(x, y)))
+                    obj.gameObject.SetActive(false);
     }
 
     private System.Collections.Generic.IEnumerable<string> GetRecipeKeys()

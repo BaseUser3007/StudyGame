@@ -626,11 +626,13 @@ MonoBehaviour:
   playerConfig: {fileID: 11400000, guid: 2eced05f7cae29e4d9481813334997cb, type: 2}
   cameraController: {fileID: 519420033}
   objectManager: {fileID: 1192878285}
+  enemyConfig: {fileID: 11400000, guid: 8b5ef0324a8eb6d49b488bddfd3cdc08, type: 2}
   recipeBook: {fileID: 11400000, guid: 4c6f87a956204f5e9350bbd8079becbe, type: 2}
   luaSandbox: {fileID: 427823870}
   energyConfig: {fileID: 11400000, guid: 926d6cba6aff6f748bb67fb43261e229, type: 2}
   unlockConfig: {fileID: 11400000, guid: 5e9632ab30adae646b23387af9dc4d54, type: 2}
   achievementCatalog: {fileID: 11400000, guid: 50d1cfd6d8156eb4ab5e0c4e75ca23d5, type: 2}
+  hubBuildingCatalog: {fileID: 11400000, guid: e2abd2ba9a3312247a3edc26ca766a7c, type: 2}
   codeEditorManager: {fileID: 655539405}
   uiManager: {fileID: 701634680}
 --- !u!4 &731203615

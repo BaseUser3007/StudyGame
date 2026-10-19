@@ -11,7 +11,8 @@ public class GetInventoryCommand : LuaCommandBase
     public override float EnergyCost => 1f;
     public override string Signature => "getInventory()";
     public override string Description => "Содержимое инвентаря: список занятых ячеек { slot, name, count }, " +
-                                          "у инструментов ещё tool, durability и maxDurability. " +
+                                          "у инструментов ещё tool, durability и maxDurability, " +
+                                          "у еды — food = true, energy и health (сколько восстанавливает eat). " +
                                           "У результата есть count (занято ячеек) и free (свободно)";
 
     private readonly PlayerInventory _inventory;
@@ -59,6 +60,14 @@ public class GetInventoryCommand : LuaCommandBase
             table["tool"] = slot.Tool.toolType.ToString().ToLower();
             table["durability"] = (double)slot.Durability;
             table["maxDurability"] = (double)slot.MaxDurability;
+        }
+
+        // Еда: сколько восстанавливает одна штука (eat)
+        if (slot.Item is FoodItem food)
+        {
+            table["food"] = true;
+            table["energy"] = (double)food.EnergyRestore;
+            table["health"] = (double)food.HealthRestore;
         }
 
         return table;

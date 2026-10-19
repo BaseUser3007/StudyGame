@@ -150,6 +150,9 @@ public class LuaSandbox : MonoBehaviour
         AddCommand(new DropCommand(_executor, _mapData, _inventory, _objectManager));
         AddCommand(new GetInventoryCommand(_inventory));
 
+        // Еда: энергия и здоровье (не выше максимума)
+        AddCommand(new EatCommand(_playerEnergy, _playerHealth, _inventory));
+
         // Состояние дня, энергии и здоровья
         AddCommand(new GetStatusCommand(_playerEnergy, _playerHealth, _dayCycle));
 

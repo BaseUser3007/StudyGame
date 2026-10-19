@@ -50,6 +50,22 @@ public class PlayerEnergy
     }
 
     /// <summary>
+    /// Добавляет энергию (еда) не выше максимума. В отличие от Refund, не уменьшает TotalSpent:
+    /// съеденное — новая энергия, а не отмена траты. Возвращает, сколько реально добавлено.
+    /// </summary>
+    public float Restore(float amount)
+    {
+        if (amount <= 0f) return 0f;
+
+        float restored = Mathf.Min(amount, Mathf.Max(0f, Max - Current));
+        if (restored <= 0f) return 0f;
+
+        Current += restored;
+        Publish();
+        return restored;
+    }
+
+    /// <summary>
     /// Новый максимум (начало дня). refill — заполнить запас до нового максимума.
     /// </summary>
     public void SetMax(float max, bool refill)

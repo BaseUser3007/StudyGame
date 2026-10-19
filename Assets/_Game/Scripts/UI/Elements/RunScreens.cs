@@ -19,7 +19,8 @@ public class RunSummary
 }
 
 /// <summary>
-/// Полноэкранные экраны режима игры: лагерь (хаб), подтверждение выхода из забега, итоги забега.
+/// Экраны режима игры: лагерь (хаб — боковые панели поверх карты с сеткой, HubPanel.uxml; панель построек —
+/// HubBuildPanel), подтверждение выхода из забега, итоги забега.
 /// Только показывает и сообщает о нажатиях — логика переходов в RunController.
 /// </summary>
 public class RunScreens : VisualElement
@@ -78,6 +79,9 @@ public class RunScreens : VisualElement
         style.top = 0;
         style.right = 0;
         style.bottom = 0;
+
+        // Лагерь не закрывает карту: мышь ловят только его панели, клики по сетке доходят до размещения
+        _hubScreen.pickingMode = PickingMode.Ignore;
 
         // UI управляется только мышью — кнопки не должны забирать фокус
         foreach (Button button in new[]
@@ -171,18 +175,38 @@ public class RunScreens : VisualElement
         return host;
     }
 
+    /// <summary>Корень экрана лагеря (экземпляр HubPanel.uxml) — для HubBuildPanel.</summary>
+    public VisualElement HubRoot => _hubScreen;
+
+    /// <summary>
+    /// Иконка материала склада по ключу (MetaProgress.GetItemKey). Склад хранит только ключ и имя —
+    /// предметы знает CodeEditorManager (стоимости построек). null — склад без иконок.
+    /// </summary>
+    public Func<string, Sprite> HubIconResolver { get; set; }
+
     public void ShowHub(MetaProgress progress)
     {
+        RefreshHub(progress);
+        _hubScreen.RemoveFromClassList(HiddenClass);
+    }
+
+    /// <summary>Перерисовать статистику и склад лагеря (после постройки склад уменьшился).</summary>
+    public void RefreshHub(MetaProgress progress)
+    {
+        if (progress == null) return;
+
         _hubStats.text = progress.RunsFinished == 0
             ? "No runs yet"
             : $"Runs finished: {progress.RunsFinished} (defeats: {progress.Defeats})";
 
         _hubMaterials.Clear();
         foreach (StoredMaterial stored in progress.Materials)
-            _hubMaterials.Add(CreateItemRow(null, stored.displayName ?? stored.itemId, stored.count));
-        _hubMaterialsEmpty.EnableInClassList(HiddenClass, progress.Materials.Count > 0);
-
-        _hubScreen.RemoveFromClassList(HiddenClass);
+        {
+            if (stored.count <= 0) continue;
+            Sprite icon = HubIconResolver?.Invoke(stored.itemId);
+            _hubMaterials.Add(CreateItemRow(icon, stored.displayName ?? stored.itemId, stored.count));
+        }
+        _hubMaterialsEmpty.EnableInClassList(HiddenClass, _hubMaterials.childCount > 0);
     }
 
     public void ShowExitConfirm() => _exitConfirm.RemoveFromClassList(HiddenClass);

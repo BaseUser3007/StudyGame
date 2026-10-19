@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d3e753aeb062e43864599e1e5f7d58, type: 3}
+  m_Name: GoldOre_Common
+  m_EditorClassIdentifier: Assembly-CSharp::ResourceVariant
+  variantId: gold_ore_common
+  displayName: Gold Ore
+  drop: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
+  dropAmount: 3
+  loot:
+  - item: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
+    amount: 3
+  idleAnimation: {fileID: 0}
+  harvestAnimation: {fileID: 0}
+  destroyAnimation: {fileID: 0}

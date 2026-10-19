@@ -101,14 +101,25 @@
 
 Числа (сетка 8×6, размеры, стоимость, эффекты `storage`/`shrine`/`watchtower`/`healer_hut`) — GameDesign.md §10.3.
 
-- [ ] ★ Сцена хаба: отдельная локация-поле с клетками, куда ставятся сооружения; склад материалов,
+- [x] ★ Сцена хаба: отдельная локация-поле с клетками, куда ставятся сооружения; склад материалов,
       кнопка «Начать забег».
-- [ ] ★ `HubBuildingDefinition` (ScriptableObject): спрайт/префаб, размер, стоимость в материалах,
-      эффект → `RunModifiers`, условие открытия (достижение).
-- [ ] ★ Размещение сооружений: выбор из панели, установка мышью на свободную клетку сетки (без кода),
+      Код: `HubGrid` рисует площадку 8×6 над точкой спавна сгенерированной карты (туман снят, объекты
+      скрыты, камера на центре сетки) и постройки из сохранения. UI: лагерь — боковые панели поверх карты
+      (`HubPanel.uxml`: склад + Start Run слева, `HubBuildPanel` справа), код/инвентарь/крафт/верхняя панель
+      в лагере скрыты. Проверить в Play Mode; отдельная генерация площадки — при необходимости.
+- [x] ★ `HubBuildingDefinition` (ScriptableObject): спрайт/префаб, размер, стоимость в материалах,
+      эффект → `RunModifiers`, условие открытия (достижение). Код + `HubBuildingCatalog` на `Level`,
+      `RunModifiers.Create(config, progress, catalog)`, тесты `HubServiceTests`; ассеты — за asset-editor.
+- [x] ★ Размещение сооружений: выбор из панели, установка мышью на свободную клетку сетки (без кода),
       сохранение расстановки в `MetaProgress`.
+      Код готов: `HubService` (границы, пересечения, оплата со склада, однократность, `Save`),
+      `HubPlacementController` (призрак за мышью, ЛКМ — поставить, ПКМ/Esc — отмена), панель `HubBuildPanel`
+      (карточки, Build → `Begin`, подсказка размещения, причины отказа). Проверить в Play Mode.
 - [ ] ★ 3–4 сооружения для среза: + энергия, + день до угрозы, + здоровье, + слот инвентаря.
+      Эффекты в коде (`HubEffectType`); осталось завести ассеты `storage`/`shrine`/`watchtower`/`healer_hut` (§10.3).
 - [ ] ★ Достижение «построить здание в хабе» работает.
+      `HubService.TryBuild` публикует `GameEventBus` `HubBuildingBuilt` (Id = id постройки); осталось условие
+      `hub_builder` в ассете (Counter `HubBuildingBuilt`, пустой фильтр, 1 — §6.1) и проверка в Play Mode.
 - [ ] Бонусы за соседство сооружений (как в Loop Hero), уровни сооружений.
 
 ## Этап 5. Туториал и подсказки
@@ -135,6 +146,14 @@
       `solve(obj, answer)` или чтение условия через `check`), проверка; награда — команда или бонус на забег.
 - [ ] ★ Лабиринт: огороженная область, дойти до центра кодом (без поиска пути — нужен свой алгоритм);
       награда — уникальный ресурс.
+
+**Мировая часть (C#) готова** (2026-10-19, `Scripts/Puzzles`): `PuzzleStructure` / `CodeTaskPuzzle` /
+`MazePuzzle`, `PuzzleGenerator` (только открытые типы, seed, туман, ≥ 8 от лагерей, расстояния §10.4),
+`PuzzleManager` (`Level.Puzzles`), задачи `sum`/`max`/`count` с новым входом в каждом запуске, награды на
+забег (`PuzzleRewards`), лабиринт 7×7 с «густой изгородью» тумана (`FogOfWarSystem.AddHedgeArea`) и `crystal` ×2,
+`PuzzleSolved`; EditMode-тесты `PuzzleTests`. **Ждёт:** Lua-команд `puzzle`/`solve` и типов в
+`findObjects`/`check` (lua-systems-programmer); ассетов `PuzzleConfig` (на `Level`), префабов обелиска,
+стены и `maze_chest`, предмета `crystal`; проверки в Play Mode. После этого — отметить три пункта выше.
 - [ ] Перемещение предметов (сокобан): нужны команды толкать/поднять-положить.
 - [ ] Ещё типы: плиты в правильном порядке, расшифровка последовательности, оптимизационные (лимит энергии).
 - [ ] Уникальные ресурсы и что из них делается (рецепты/постройки хаба).
@@ -144,11 +163,18 @@
 Числа (`berries` +6 энергии, `raw_meat` +5 / `cooked_meat` +25 здоровья, `berry_bush`, `sheep`, `campfire`,
 `eat` = 1) — GameDesign.md §10.2.
 
-- [ ] ★ `FoodItem` с полями «восстанавливает энергию» и «восстанавливает здоровье».
+- [x] ★ `FoodItem` с полями «восстанавливает энергию» и «восстанавливает здоровье»
+      (`energyRestore`, `healthRestore`; бывший `FoodResource`, GUID скрипта сохранён).
 - [ ] ★ Еда для энергии (например, ягоды с куста, грибы) и отдельная еда для здоровья (например,
-      мясо кролика, приготовленное у костра).
-- [ ] ★ Команда `eat("name" | slot)` → `PlayerEnergy` / `PlayerHealth` (не выше максимума),
-      учёт в достижениях.
+      мясо овцы, приготовленное у костра). **Код готов** (2026-10-19): `BerryBushObject` (`berry_bush`,
+      harvest), `SheepObject` (`sheep`, mine топором, стоит на месте; бывший `RabbitObject`),
+      `CraftingStation.Campfire`, записи в `FindObjectsCommand.TypeMap`. **Ждёт ассетов**: `FoodItem`
+      `berries`/`raw_meat`/`cooked_meat`, префабы и варианты `berry_bush`/`sheep` в `BiomeConfig`, постройка
+      `campfire` (`StructureItem` + префаб `Structure` со станцией Campfire), рецепты `campfire`/`cooked_meat`
+      (закрыты до `first_blood`) в `RecipeBook` — числа в GameDesign.md §10.2.
+- [x] ★ Команда `eat("name" | slot)` → `PlayerEnergy.Restore` / `PlayerHealth.Heal` (не выше максимума),
+      «already full» не тратит еду, `GameEventBus` `FoodEaten` (учёт в достижениях); в стартовом наборе
+      `DefaultUnlockConfig`; `getInventory()` отдаёт у еды `food`, `energy`, `health`. Тесты — `FoodTests`.
 
 ## Этап 8. Контент и баланс среза
 

@@ -5,7 +5,9 @@ public enum CraftingStation
 {
     None,
     Workbench,
-    Furnace
+    Furnace,
+    // Новые значения — только в конец: enum сериализуется числом
+    Campfire
 }
 
 public static class CraftingStationExtensions
@@ -20,6 +22,7 @@ public static class CraftingStationExtensions
             case CraftingStation.None: return "нет";
             case CraftingStation.Workbench: return "Верстак";
             case CraftingStation.Furnace: return "Печь";
+            case CraftingStation.Campfire: return "Костёр";
             default: return station.ToString();
         }
     }
