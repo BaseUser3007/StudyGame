@@ -45,6 +45,7 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
 
         // Коллайдер новой постройки должен сразу участвовать в проверках движения
         Physics2D.SyncTransforms();
+        GameEventBus.Publish(GameEventType.Built, MetaProgress.GetItemKey(item), 1, placed.Station.ToString());
         return null;
     }
 

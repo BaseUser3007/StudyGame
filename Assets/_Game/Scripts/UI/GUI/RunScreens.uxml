@@ -1,27 +1,33 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Template name="AchievementsPanel" src="AchievementsPanel.uxml"/>
+    <ui:Template name="UnlockPopup" src="UnlockPopup.uxml"/>
+    <ui:Template name="AchievementToast" src="AchievementToast.uxml"/>
     <Style src="RunScreens.uss"/>
     <ui:VisualElement name="run-screens" class="run-screens" picking-mode="Ignore">
 
         <!-- Лагерь (хаб): склад материалов и старт забега. Поле с постройками — этап 4 -->
         <ui:VisualElement name="hub-screen" class="screen-backdrop hub-screen hidden">
             <ui:VisualElement class="screen-card hub-card">
-                <ui:Label class="screen-title" text="Лагерь"/>
+                <ui:Label class="screen-title" text="Camp"/>
                 <ui:Label name="hub-stats" class="screen-text" text=""/>
-                <ui:Label class="screen-section" text="Склад материалов"/>
+                <ui:Label class="screen-section" text="Material stock"/>
                 <ui:ScrollView name="hub-materials" class="item-list"/>
-                <ui:Label name="hub-materials-empty" class="screen-empty" text="Пока пусто — материалы приносят из забегов"/>
-                <ui:Button name="btn-start-run" class="screen-btn screen-btn--primary" text="Начать забег"/>
+                <ui:Label name="hub-materials-empty" class="screen-empty" text="Empty for now — bring materials back from runs"/>
+                <ui:VisualElement class="screen-buttons screen-buttons--spread">
+                    <ui:Button name="btn-hub-achievements" class="screen-btn screen-btn--secondary" text="Achievements"/>
+                    <ui:Button name="btn-start-run" class="screen-btn screen-btn--primary" text="Start Run"/>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- Подтверждение выхода из забега -->
         <ui:VisualElement name="exit-confirm" class="screen-backdrop hidden">
             <ui:VisualElement class="screen-card dialog-card">
-                <ui:Label class="screen-title" text="Выйти из забега?"/>
-                <ui:Label class="screen-text" text="В лагерь перенесутся только материалы. Инструменты, постройки и еда останутся здесь."/>
+                <ui:Label class="screen-title" text="Leave the run?"/>
+                <ui:Label class="screen-text" text="Only materials are carried to the camp. Tools, buildings and food stay here."/>
                 <ui:VisualElement class="screen-buttons">
-                    <ui:Button name="btn-exit-cancel" class="screen-btn" text="Остаться"/>
-                    <ui:Button name="btn-exit-confirm" class="screen-btn screen-btn--danger" text="Выйти"/>
+                    <ui:Button name="btn-exit-cancel" class="screen-btn" text="Stay"/>
+                    <ui:Button name="btn-exit-confirm" class="screen-btn screen-btn--danger" text="Leave"/>
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
@@ -29,17 +35,24 @@
         <!-- Итоги забега (выход или поражение) -->
         <ui:VisualElement name="run-summary" class="screen-backdrop hidden">
             <ui:VisualElement class="screen-card summary-card">
-                <ui:Label name="summary-title" class="screen-title" text="Забег завершён"/>
+                <ui:Label name="summary-title" class="screen-title" text="Run complete"/>
                 <ui:Label name="summary-stats" class="screen-text" text=""/>
-                <ui:Label class="screen-section" text="Переносится в лагерь"/>
+                <ui:Label class="screen-section" text="Carried to the camp"/>
                 <ui:ScrollView name="summary-loot" class="item-list"/>
-                <ui:Label name="summary-loot-empty" class="screen-empty" text="Ничего"/>
+                <ui:Label name="summary-loot-empty" class="screen-empty" text="Nothing"/>
                 <ui:Label name="summary-lost" class="screen-text screen-text--muted" text=""/>
-                <ui:Label class="screen-section" text="Достижения"/>
-                <ui:Label name="summary-achievements" class="screen-empty" text="—"/>
-                <ui:Button name="btn-to-hub" class="screen-btn screen-btn--primary" text="В лагерь"/>
+                <ui:Label class="screen-section" text="Achievements"/>
+                <ui:ScrollView name="summary-achievements" class="item-list summary-achievements"/>
+                <ui:Label name="summary-achievements-empty" class="screen-empty" text="None this run"/>
+                <ui:Button name="btn-to-hub" class="screen-btn screen-btn--primary" text="To the Camp"/>
             </ui:VisualElement>
         </ui:VisualElement>
+
+        <!-- Поверх экранов: панель достижений, окно «Unlocked: X», тосты достижений (в этом порядке по глубине).
+             Контроллеры (AchievementsPanel, UnlockPopup, AchievementToasts) создаёт CodeEditorManager -->
+        <ui:Instance template="AchievementsPanel" name="achievements-overlay" class="screen-overlay" picking-mode="Ignore"/>
+        <ui:Instance template="UnlockPopup" name="unlock-overlay" class="screen-overlay" picking-mode="Ignore"/>
+        <ui:Instance template="AchievementToast" name="toast-overlay" class="screen-overlay" picking-mode="Ignore"/>
 
     </ui:VisualElement>
 </ui:UXML>

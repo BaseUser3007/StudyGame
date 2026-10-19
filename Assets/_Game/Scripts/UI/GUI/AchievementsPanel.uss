@@ -1,0 +1,187 @@
+/* ── Backdrop ────────────────────────────────────────────── */
+/* Затемнение под панелью — клик мимо карточки закрывает панель */
+.achievements-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.achievements-card {
+    width: 540px;
+    max-height: 85%;
+    background-color: rgba(30, 30, 30, 0.98);
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    border-radius: 6px;
+    padding: 14px;
+}
+
+.achievements-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.achievements-title {
+    flex-grow: 1;
+    font-size: 18px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.achievements-count {
+    font-size: 13px;
+    color: rgb(150, 220, 150);
+    margin: 0 10px 0 0;
+    padding: 0;
+}
+
+.achievements-close {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(60, 60, 60);
+    color: rgb(220, 220, 220);
+    font-size: 14px;
+}
+
+.achievements-close:hover {
+    background-color: rgb(80, 80, 80);
+}
+
+.achievements-note {
+    font-size: 11px;
+    color: rgb(140, 140, 140);
+    white-space: normal;
+    margin: 0 0 8px 0;
+    padding: 0;
+}
+
+.achievements-list {
+    flex-shrink: 1;
+}
+
+.achievements-empty {
+    font-size: 12px;
+    color: rgb(120, 120, 120);
+    padding: 4px 0;
+}
+
+/* ── Entry ───────────────────────────────────────────────── */
+.achievement-entry {
+    flex-direction: row;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgb(50, 50, 50);
+    background-color: rgb(40, 40, 40);
+}
+
+.achievement-entry--done {
+    border-color: rgb(80, 140, 80);
+    background-color: rgb(36, 48, 36);
+}
+
+.achievement-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.achievement-body {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.achievement-title-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.achievement-title {
+    flex-grow: 1;
+    font-size: 13px;
+    color: rgb(220, 220, 170);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.achievement-entry--done .achievement-title {
+    color: rgb(170, 230, 170);
+}
+
+.achievement-status {
+    font-size: 11px;
+    color: rgb(170, 170, 170);
+    padding: 0;
+    margin: 0 0 0 8px;
+}
+
+.achievement-entry--done .achievement-status {
+    color: rgb(130, 220, 130);
+    -unity-font-style: bold;
+}
+
+.achievement-description {
+    font-size: 11px;
+    color: rgb(190, 190, 190);
+    white-space: normal;
+    padding: 0;
+    margin: 2px 0 0 0;
+}
+
+.achievement-condition {
+    font-size: 11px;
+    color: rgb(140, 190, 230);
+    white-space: normal;
+    padding: 0;
+    margin: 2px 0 0 0;
+}
+
+.achievement-rewards {
+    font-size: 11px;
+    color: rgb(230, 200, 110);
+    white-space: normal;
+    padding: 0;
+    margin: 3px 0 0 0;
+}
+
+/* ── Progress bar ────────────────────────────────────────── */
+.achievement-progress {
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 3px;
+    background-color: rgb(25, 25, 25);
+    overflow: hidden;
+}
+
+.achievement-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background-color: rgb(110, 160, 220);
+}
+
+.achievement-entry--done .achievement-progress-fill {
+    background-color: rgb(90, 180, 90);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

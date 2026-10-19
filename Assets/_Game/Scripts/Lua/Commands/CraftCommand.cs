@@ -16,14 +16,17 @@ public class CraftCommand : LuaCommandBase
     private readonly PlayerEnergy _playerEnergy;
     private readonly PlayerInventory _inventory;
     private readonly IStationProvider _stations;
+    private readonly UnlockRegistry _unlocks;
 
     public CraftCommand(
-        RecipeBook recipeBook, PlayerEnergy playerEnergy, PlayerInventory inventory, IStationProvider stations)
+        RecipeBook recipeBook, PlayerEnergy playerEnergy, PlayerInventory inventory, IStationProvider stations,
+        UnlockRegistry unlocks)
     {
         _recipeBook = recipeBook;
         _playerEnergy = playerEnergy;
         _inventory = inventory;
         _stations = stations;
+        _unlocks = unlocks;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -54,6 +57,10 @@ public class CraftCommand : LuaCommandBase
         if (recipe == null || recipe.result == null)
             return $"unknown recipe: {itemName}";
 
+        // Закрытые рецепты открываются достижениями
+        if (_unlocks != null && !_unlocks.IsRecipeAvailable(recipe))
+            return $"recipe `{recipe.DisplayName}` is not unlocked yet";
+
         // Станция — постройка рядом с персонажем (верстак и т.д.)
         if (recipe.NeedsStation && !_stations.IsStationNearPlayer(recipe.station))
             return $"station required: {recipe.station.ToString().ToLower()} nearby (build one with build())";
@@ -71,10 +78,17 @@ public class CraftCommand : LuaCommandBase
         if (!_playerEnergy.CanSpend(recipe.energyCost))
             return $"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}";
 
-        if (!_inventory.TryExchange(requirements, recipe.result, recipe.resultAmount))
-            return "inventory is full";
+        // Энергия — до обмена: обмен публикует ItemObtained, к этому моменту крафт уже оплачен
+        if (!_playerEnergy.TrySpend(recipe.energyCost))
+            return $"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}";
 
-        _playerEnergy.TrySpend(recipe.energyCost);
+        if (!_inventory.TryExchange(requirements, recipe.result, recipe.resultAmount))
+        {
+            _playerEnergy.Refund(recipe.energyCost);
+            return "inventory is full";
+        }
+
+        GameEventBus.Publish(GameEventType.Crafted, recipe.Key, recipe.resultAmount);
         return null;
     }
 

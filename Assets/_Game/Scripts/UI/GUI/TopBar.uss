@@ -153,6 +153,10 @@
     color: rgb(150, 190, 240);
 }
 
+.btn-achievements {
+    color: rgb(230, 200, 110);
+}
+
 .btn-help--active {
     background-color: rgb(50, 70, 100);
 }

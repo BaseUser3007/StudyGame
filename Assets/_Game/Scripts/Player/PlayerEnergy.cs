@@ -8,6 +8,11 @@ public class PlayerEnergy
 {
     public float Current { get; private set; }
     public float Max { get; private set; }
+    /// <summary>
+    /// Сколько всего потрачено с начала загрузки сцены — разница двух значений даёт расход
+    /// за отрезок (запуск кода, окно достижения «собрать за ≤ N энергии»).
+    /// </summary>
+    public float TotalSpent { get; private set; }
 
     public PlayerEnergy(float max)
     {
@@ -27,8 +32,21 @@ public class PlayerEnergy
         if (!CanSpend(amount)) return false;
 
         Current -= amount;
+        TotalSpent += amount;
         Publish();
         return true;
+    }
+
+    /// <summary>
+    /// Возвращает списанное, если действие после оплаты не удалось (крафт без места в инвентаре).
+    /// </summary>
+    public void Refund(float amount)
+    {
+        if (amount <= 0f) return;
+
+        Current = Mathf.Min(Max, Current + amount);
+        TotalSpent = Mathf.Max(0f, TotalSpent - amount);
+        Publish();
     }
 
     /// <summary>

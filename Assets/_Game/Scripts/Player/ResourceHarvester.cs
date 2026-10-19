@@ -83,8 +83,16 @@ public class ResourceHarvester
 
         // Подбор с земли дешёвый: энергия — только плата за вызов команды, прочность тратится при mine
         var drop = obj.Interact();
-        if (drop.HasValue)
-            _inventory.Add(drop.Value.item, drop.Value.amount);
+        if (drop.HasValue && drop.Value.item != null)
+        {
+            // Выброшенное игроком — не новая добыча (достижения такие события пропускают)
+            bool recycled = obj.DroppedByPlayer;
+            // Для EfficientGather: объект появился в этом же запуске кода (лут от mine в нём)
+            bool fromThisRun = GameEventBus.IsFromActiveRun(obj.SpawnRunId);
+            _inventory.Add(drop.Value.item, drop.Value.amount, recycled, fromThisRun);
+            GameEventBus.Publish(new GameEvent(GameEventType.Harvested, MetaProgress.GetItemKey(drop.Value.item),
+                drop.Value.amount, LuaObjectList.GetTypeName(obj), recycled, fromThisRun));
+        }
 
         return null;
     }
@@ -146,7 +154,9 @@ public class ResourceHarvester
 
         Vector2 origin = obj.Position;
         ResourceVariant variant = obj.Variant;
+        string typeName = LuaObjectList.GetTypeName(obj);
         obj.Interact();
+        GameEventBus.Publish(GameEventType.Mined, typeName);
 
         foreach (LootEntry entry in variant.MiningLoot)
             DropLoot(entry.item, entry.amount, origin);
@@ -232,7 +242,11 @@ public class ResourceHarvester
         }
 
         for (int i = 0; i < amount; i++)
-            _objectManager.Spawn(item.worldPrefab, FindLootPoint(origin));
+        {
+            ResourceObject loot = _objectManager.Spawn(item.worldPrefab, FindLootPoint(origin));
+            // Лут помечается запуском: подобрать его «эффективно» можно только в этом же запуске
+            if (loot != null) loot.SpawnRunId = GameEventBus.ActiveRunId;
+        }
     }
 
     /// <summary>

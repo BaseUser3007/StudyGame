@@ -25,8 +25,18 @@ public class PlacedHubBuilding
 }
 
 /// <summary>
-/// Мета-прогресс — всё, что переживает забеги: открытые команды и конструкции, достижения,
-/// склад и постройки хаба, события на карте, флаги туториала, настройки.
+/// Прогресс счётчика незавершённого достижения (JsonUtility не умеет Dictionary — список пар).
+/// </summary>
+[Serializable]
+public class AchievementProgressEntry
+{
+    public string achievementId;
+    public int value;
+}
+
+/// <summary>
+/// Мета-прогресс — всё, что переживает забеги: открытые команды, конструкции, рецепты и постройки хаба,
+/// достижения и их прогресс, склад и постройки хаба, события на карте, флаги туториала, настройки.
 /// Хранится в JSON-файле в Application.persistentDataPath (по образцу CodeLibrary).
 /// Изменения пишутся на диск только по Save().
 /// </summary>
@@ -39,7 +49,13 @@ public class MetaProgress
     {
         public List<string> unlockedCommands = new List<string>();
         public List<string> unlockedConstructs = new List<string>();
+        // Ключи результатов открытых рецептов (itemId, иначе имя ассета — GetItemKey)
+        public List<string> unlockedRecipes = new List<string>();
+        // Id открытых (доступных для постройки) сооружений хаба — этап 4
+        public List<string> unlockedHubBuildings = new List<string>();
         public List<string> achievements = new List<string>();
+        // Счётчики незавершённых достижений; у выполненных запись удаляется
+        public List<AchievementProgressEntry> achievementProgress = new List<AchievementProgressEntry>();
         public List<string> unlockedEvents = new List<string>();
         public List<string> tutorialFlags = new List<string>();
         public List<StoredMaterial> materials = new List<StoredMaterial>();
@@ -85,14 +101,61 @@ public class MetaProgress
     public bool IsConstructUnlocked(string keyword) => _data.unlockedConstructs.Contains(keyword);
     public bool UnlockConstruct(string keyword) => AddUnique(_data.unlockedConstructs, keyword);
 
-    public bool HasAchievement(string id) => _data.achievements.Contains(id);
-    public bool CompleteAchievement(string id) => AddUnique(_data.achievements, id);
+    public bool IsRecipeUnlocked(string key) => _data.unlockedRecipes.Contains(key);
+    public bool UnlockRecipe(string key) => AddUnique(_data.unlockedRecipes, key);
+
+    public bool IsHubBuildingUnlocked(string id) => _data.unlockedHubBuildings.Contains(id);
+    public bool UnlockHubBuilding(string id) => AddUnique(_data.unlockedHubBuildings, id);
 
     public bool IsEventUnlocked(string id) => _data.unlockedEvents.Contains(id);
     public bool UnlockEvent(string id) => AddUnique(_data.unlockedEvents, id);
 
     public bool HasTutorialFlag(string flag) => _data.tutorialFlags.Contains(flag);
     public bool SetTutorialFlag(string flag) => AddUnique(_data.tutorialFlags, flag);
+
+    // ─── Достижения ───────────────────────────────────────────
+
+    public IReadOnlyList<string> CompletedAchievements => _data.achievements;
+
+    public bool HasAchievement(string id) => _data.achievements.Contains(id);
+
+    /// <summary>
+    /// Отмечает достижение выполненным (счётчик прогресса больше не нужен и удаляется).
+    /// True — если выполнено впервые.
+    /// </summary>
+    public bool CompleteAchievement(string id)
+    {
+        if (!AddUnique(_data.achievements, id)) return false;
+        _data.achievementProgress.RemoveAll(p => p.achievementId == id);
+        return true;
+    }
+
+    /// <summary>Сохранённое значение счётчика достижения (0 — нет записи).</summary>
+    public int GetAchievementProgress(string id)
+    {
+        AchievementProgressEntry entry = FindProgress(id);
+        return entry != null ? entry.value : 0;
+    }
+
+    /// <summary>Значение счётчика достижения; 0 и меньше — запись удаляется.</summary>
+    public void SetAchievementProgress(string id, int value)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+
+        AchievementProgressEntry entry = FindProgress(id);
+        if (value <= 0)
+        {
+            if (entry != null) _data.achievementProgress.Remove(entry);
+            return;
+        }
+
+        if (entry == null)
+        {
+            entry = new AchievementProgressEntry { achievementId = id };
+            _data.achievementProgress.Add(entry);
+        }
+        entry.value = value;
+    }
 
     // ─── Склад хаба ───────────────────────────────────────────
 
@@ -161,13 +224,17 @@ public class MetaProgress
         // Старый или отредактированный руками файл мог потерять списки
         _data.unlockedCommands ??= new List<string>();
         _data.unlockedConstructs ??= new List<string>();
+        _data.unlockedRecipes ??= new List<string>();
+        _data.unlockedHubBuildings ??= new List<string>();
         _data.achievements ??= new List<string>();
+        _data.achievementProgress ??= new List<AchievementProgressEntry>();
         _data.unlockedEvents ??= new List<string>();
         _data.tutorialFlags ??= new List<string>();
         _data.materials ??= new List<StoredMaterial>();
         _data.hubBuildings ??= new List<PlacedHubBuilding>();
         _data.materials.RemoveAll(m => m == null || string.IsNullOrEmpty(m.itemId) || m.count <= 0);
         _data.hubBuildings.RemoveAll(b => b == null || string.IsNullOrEmpty(b.buildingId));
+        _data.achievementProgress.RemoveAll(p => p == null || string.IsNullOrEmpty(p.achievementId) || p.value <= 0);
     }
 
     // ─── Helpers ──────────────────────────────────────────────
@@ -176,6 +243,13 @@ public class MetaProgress
     {
         foreach (StoredMaterial stored in _data.materials)
             if (stored.itemId == itemId) return stored;
+        return null;
+    }
+
+    private AchievementProgressEntry FindProgress(string id)
+    {
+        foreach (AchievementProgressEntry entry in _data.achievementProgress)
+            if (entry.achievementId == id) return entry;
         return null;
     }
 

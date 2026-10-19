@@ -32,6 +32,11 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private RecipeBook _recipeBook;
     private IStationProvider _stations;
     private DayCycle _dayCycle;
+    private AchievementTracker _achievements;
+    private UnlockRegistry _unlocks;
+    private AchievementsPanel _achievementsPanel;
+    private AchievementToasts _achievementToasts;
+    private UnlockPopup _unlockPopup;
     private int _windowCount = 0;
     private bool _isUIFocused;
     private bool _navigationBlocked;
@@ -46,13 +51,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     public void Initialize(
         LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook, IStationProvider stations,
-        DayCycle dayCycle)
+        DayCycle dayCycle, AchievementTracker achievements)
     {
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
         _recipeBook = recipeBook;
         _stations = stations;
         _dayCycle = dayCycle;
+        _achievements = achievements;
+        _unlocks = luaSandbox != null ? luaSandbox.Unlocks : null;
         _uiDocument = GetComponent<UIDocument>();
 
         ValidateReferences();
@@ -92,6 +99,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         // Лагерь, диалоги и итоги забега — поверх всего, включая верхнюю панель
         _runScreens = new RunScreens(runScreensTemplate);
         _container.Add(_runScreens);
+        CreateAchievementOverlays();
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
         _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
@@ -190,6 +198,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             _luaSandbox.OnRunningChanged -= HandleRunningChanged;
             _luaSandbox.OnUnlocksApplied -= HandleUnlocksApplied;
         }
+
+        if (_achievements != null)
+        {
+            _achievements.OnAchievementCompleted -= HandleAchievementCompleted;
+            _achievements.OnProgressChanged -= HandleAchievementProgressChanged;
+        }
+
+        if (_unlocks != null)
+            _unlocks.OnUnlocked -= HandleUnlocked;
     }
 
     private void HandleUIFocused() => _isUIFocused = true;
@@ -211,7 +228,52 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         Debug.Assert(theme != null, "CodeEditorManager: theme is not assigned");
         Debug.Assert(_luaSandbox != null, "CodeEditorManager: LuaSandbox is not assigned");
         Debug.Assert(_uiManager != null, "CodeEditorManager: UIManager is not assigned");
+        if (_achievements == null)
+            Debug.LogWarning("CodeEditorManager: AchievementTracker is null — the achievements panel will be empty");
     }
+
+    // ─── Достижения и открытия ────────────────────────────────
+
+    /// <summary>
+    /// Панель достижений, окно «Unlocked: X» и тосты — шаблоны внутри RunScreens.uxml (поверх экранов
+    /// лагеря и итогов). Панель открывается кнопкой Achievements в верхней панели и в лагере.
+    /// </summary>
+    private void CreateAchievementOverlays()
+    {
+        _achievementsPanel = new AchievementsPanel(_runScreens.GetOverlay("achievements-overlay"), _achievements);
+        _unlockPopup = new UnlockPopup(
+            _runScreens.GetOverlay("unlock-overlay"), _luaSandbox, _recipeBook, _context.Highlighter);
+        _achievementToasts = new AchievementToasts(_runScreens.GetOverlay("toast-overlay"));
+
+        _topBar.OnAchievementsRequested += HandleAchievementsRequested;
+        _runScreens.OnAchievementsRequested += HandleAchievementsRequested;
+
+        if (_achievements != null)
+        {
+            _achievements.OnAchievementCompleted += HandleAchievementCompleted;
+            _achievements.OnProgressChanged += HandleAchievementProgressChanged;
+        }
+
+        if (_unlocks != null)
+            _unlocks.OnUnlocked += HandleUnlocked;
+    }
+
+    private void HandleAchievementsRequested() => _achievementsPanel.Toggle();
+
+    private void HandleAchievementCompleted(AchievementDefinition definition)
+    {
+        _achievementToasts.Enqueue(definition);
+        _achievementsPanel.MarkDirty();
+    }
+
+    private void HandleAchievementProgressChanged(AchievementDefinition definition) =>
+        _achievementsPanel.MarkDirty();
+
+    /// <summary>
+    /// Открытие (обычно награда достижения). Во время выполнения кода окно ждёт конца запуска —
+    /// см. HandleRunningChanged.
+    /// </summary>
+    private void HandleUnlocked(UnlockKind kind, string id) => _unlockPopup.Enqueue(kind, id);
 
     // ─── Window Layer ─────────────────────────────────────────
 
@@ -253,7 +315,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     private void CreateCraftingPanel()
     {
-        _craftingPanel = new CraftingPanel(craftingPanelTemplate, _recipeBook.Recipes, _stations);
+        // Закрытые рецепты (CraftRecipe.locked) не показываются, пока не открыты достижением
+        _craftingPanel = new CraftingPanel(
+            craftingPanelTemplate, _recipeBook.Recipes, _stations, _luaSandbox.Unlocks.IsRecipeAvailable);
         // Панели занимают одно место справа — открытая крафта закрывает библиотеку
         _craftingPanel.OnOpened += HandleCraftingOpened;
         _container.Add(_craftingPanel);
@@ -419,6 +483,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _context.Highlighter.SetApiNames(BuildApiNames());
         RebuildCommandHelp();
         ApplyClassesAvailability();
+        _craftingPanel.RefreshRecipes();
 
         // Подсветка (новые команды, открытые ключевые слова) и цены строк/окон
         foreach (CodeEditorWindowBase window in _windows)
@@ -487,6 +552,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandleRunningChanged(bool running)
     {
         _topBar?.SetRunning(running);
+        // «Unlocked: X» — только между запусками: модальное окно не должно появляться посреди работы кода
+        _unlockPopup?.SetSuspended(running);
     }
 
     /// <summary>

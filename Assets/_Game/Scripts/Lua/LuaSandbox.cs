@@ -131,7 +131,7 @@ public class LuaSandbox : MonoBehaviour
         AddCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
 
         // Крафт
-        AddCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory, _structures));
+        AddCommand(new CraftCommand(_recipeBook, _playerEnergy, _inventory, _structures, _unlocks));
 
         // Постройки
         AddCommand(new BuildCommand(_executor, _mapData, _inventory, _structures, _buildReach));
@@ -303,6 +303,9 @@ public class LuaSandbox : MonoBehaviour
         StopWatchdog();
         _cts?.Cancel();
         _cts?.Dispose();
+        // finally старого запуска сравнивает _cts со своим: после уничтожения он ничего не публикует
+        // (RunFinished ушёл бы в шину уже новой сцены)
+        _cts = null;
     }
 
     // ─── Public API ───────────────────────────────────────────
@@ -336,9 +339,16 @@ public class LuaSandbox : MonoBehaviour
         // Открытое во время прошлого запуска подключаем до нового
         if (_unlocksPending) ApplyUnlocks();
 
+        // Для достижений: расход энергии за запуск и конструкции в коде (собирает LuaConstructGuard)
+        float spentAtStart = _playerEnergy.TotalSpent;
+        var usedConstructs = new HashSet<string>(StringComparer.Ordinal);
+        bool started = false;
+        bool succeeded = false;
+
         SetRunning(true);
         StartWatchdog(cts);
         _meter.Reset();
+        GameEventBus.PublishRunStarted();
 
         try
         {
@@ -357,14 +367,16 @@ public class LuaSandbox : MonoBehaviour
 
             // 2. Закрытые конструкции и окна-«классы»: отказ без траты энергии
             //    (запуск дня засчитывается, как и при ошибке компиляции)
-            string locked = _constructGuard.Check(mainCode, auxiliaryWindows, MainChunkName);
+            string locked = _constructGuard.Check(mainCode, auxiliaryWindows, MainChunkName, usedConstructs);
             if (locked != null)
                 return ExecutionResult.RuntimeError(locked);
 
             // 3. Выполнение кода, размеченного списаниями энергии
+            started = true;
             foreach (var chunk in chunks)
                 await RunChunkAsync(chunk.Code, chunk.Name, ct);
 
+            succeeded = true;
             return ExecutionResult.Success();
         }
         catch (OperationCanceledException)
@@ -393,6 +405,9 @@ public class LuaSandbox : MonoBehaviour
             if (_cts == cts)
             {
                 StopWatchdog();
+                // До SetRunning(false): конец дня (DayCycle) — уже после итога запуска
+                GameEventBus.PublishRunFinished(new CodeRunReport(
+                    succeeded, started, _playerEnergy.TotalSpent - spentAtStart, usedConstructs));
                 SetRunning(false);
                 if (_unlocksPending) ApplyUnlocks();
             }

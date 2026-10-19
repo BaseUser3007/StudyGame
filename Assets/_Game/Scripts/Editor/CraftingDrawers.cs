@@ -61,6 +61,7 @@ public class CraftRecipeDrawer : PropertyDrawer
         SerializedProperty ingredients = property.FindPropertyRelative(nameof(CraftRecipe.ingredients));
         SerializedProperty station = property.FindPropertyRelative(nameof(CraftRecipe.station));
         SerializedProperty energyCost = property.FindPropertyRelative(nameof(CraftRecipe.energyCost));
+        SerializedProperty locked = property.FindPropertyRelative(nameof(CraftRecipe.locked));
 
         Foldout foldout = new Foldout { value = property.isExpanded };
         foldout.RegisterValueChangedCallback(evt =>
@@ -115,6 +116,10 @@ public class CraftRecipeDrawer : PropertyDrawer
         FloatField energyField = new FloatField("Энергия") { isDelayed = true };
         energyField.BindProperty(energyCost);
         foldout.Add(energyField);
+
+        Toggle lockedField = new Toggle("Закрыт (открывается достижением)");
+        lockedField.BindProperty(locked);
+        foldout.Add(lockedField);
 
         // ─── Обновление ───────────────────────────────────────
 
@@ -235,6 +240,9 @@ public static class CraftingEditorUI
 
         if (recipe.station != CraftingStation.None)
             text += " · " + recipe.station.DisplayName();
+
+        if (recipe.locked)
+            text += " · закрыт";
 
         return text;
     }

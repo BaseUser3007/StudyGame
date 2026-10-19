@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="UnlockPopup.uss"/>
+    <!-- «Unlocked: X»: модальное окно после окончания запуска кода. Содержимое строит UnlockPopup -->
+    <ui:VisualElement name="unlock-backdrop" class="unlock-backdrop hidden">
+        <ui:VisualElement name="unlock-card" class="unlock-card">
+            <ui:Label name="unlock-caption" class="unlock-caption" text="Unlocked"/>
+            <ui:VisualElement class="unlock-header">
+                <ui:VisualElement name="unlock-icon" class="unlock-icon hidden"/>
+                <ui:Label name="unlock-title" class="unlock-title" text=""/>
+            </ui:VisualElement>
+            <ui:ScrollView name="unlock-content" class="unlock-content"/>
+            <ui:VisualElement class="unlock-buttons">
+                <ui:Button name="btn-unlock-ok" class="unlock-ok" text="OK"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="AchievementToast.uss"/>
+    <!-- Тост «достижение выполнено»: сверху по центру, исчезает сам, клик — закрыть раньше.
+         Слой не перехватывает мышь, сам тост — только пока виден -->
+    <ui:VisualElement name="toast-layer" class="toast-layer" picking-mode="Ignore">
+        <ui:VisualElement name="achievement-toast" class="achievement-toast hidden">
+            <ui:VisualElement name="toast-icon" class="toast-icon hidden"/>
+            <ui:VisualElement class="toast-body" picking-mode="Ignore">
+                <ui:Label class="toast-caption" text="Achievement unlocked" picking-mode="Ignore"/>
+                <ui:Label name="toast-title" class="toast-title" text="" picking-mode="Ignore"/>
+                <ui:Label name="toast-description" class="toast-description" text="" picking-mode="Ignore"/>
+                <ui:Label name="toast-rewards" class="toast-rewards" text="" picking-mode="Ignore"/>
+                <ui:Label name="toast-more" class="toast-more hidden" text="" picking-mode="Ignore"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

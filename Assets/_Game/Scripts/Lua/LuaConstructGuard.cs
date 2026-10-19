@@ -5,6 +5,7 @@
 /// Ищутся только токены-ключевые слова — текст в строках, комментариях и длинных скобках не считается.
 /// Проверяется исходный код окон (без служебной обёртки `function Title(...)` доп. окон),
 /// поэтому номера строк совпадают с редактором.
+/// Тот же проход собирает id всех конструкций в коде (открытых тоже) — для события ConstructUsed.
 /// </summary>
 public class LuaConstructGuard
 {
@@ -22,26 +23,31 @@ public class LuaConstructGuard
     /// Сообщение для игрока о первой закрытой конструкции или null, если всё открыто.
     /// Пример: "loop `for` is not unlocked yet (Main, line 3)".
     /// </summary>
-    public string Check(string mainCode, IReadOnlyDictionary<string, string> auxiliaryWindows, string mainName)
+    /// <param name="used">Если задан — сюда добавляются id всех конструкций в коде (при отказе — неполный список).</param>
+    public string Check(
+        string mainCode, IReadOnlyDictionary<string, string> auxiliaryWindows, string mainName,
+        ISet<string> used = null)
     {
         if (auxiliaryWindows != null)
         {
             // Доп. окна с кодом — это уже «классы», даже если в них нет закрытых слов
-            if (!_unlocks.IsConstructUnlocked(LuaConstructs.Classes))
+            bool classesUnlocked = _unlocks.IsConstructUnlocked(LuaConstructs.Classes);
+            foreach (var kvp in auxiliaryWindows)
             {
-                foreach (var kvp in auxiliaryWindows)
-                    if (HasCode(kvp.Value))
-                        return $"{LuaConstructs.GetDisplayName(LuaConstructs.Classes)} are not unlocked yet " +
-                               $"(window {kvp.Key}): move the code into {mainName} or clear the window";
+                if (!HasCode(kvp.Value)) continue;
+                if (!classesUnlocked)
+                    return $"{LuaConstructs.GetDisplayName(LuaConstructs.Classes)} are not unlocked yet " +
+                           $"(window {kvp.Key}): move the code into {mainName} or clear the window";
+                used?.Add(LuaConstructs.Classes);
             }
         }
 
-        string error = CheckChunk(mainCode, mainName);
+        string error = CheckChunk(mainCode, mainName, used);
         if (error != null || auxiliaryWindows == null) return error;
 
         foreach (var kvp in auxiliaryWindows)
         {
-            error = CheckChunk(kvp.Value, kvp.Key);
+            error = CheckChunk(kvp.Value, kvp.Key, used);
             if (error != null) return error;
         }
 
@@ -51,7 +57,8 @@ public class LuaConstructGuard
     /// <summary>
     /// Первая закрытая конструкция в одном окне (номер строки — в этом окне) или null.
     /// </summary>
-    public string CheckChunk(string code, string chunkName)
+    /// <param name="used">Если задан — сюда добавляются id конструкций, встреченных в окне.</param>
+    public string CheckChunk(string code, string chunkName, ISet<string> used = null)
     {
         if (string.IsNullOrEmpty(code)) return null;
 
@@ -76,7 +83,12 @@ public class LuaConstructGuard
                 return $"`{token.Value}` is not available, use loops instead ({chunkName}, line {token.Line})";
 
             string id = LuaConstructs.GetConstructForKeyword(token.Value);
-            if (id == null || _unlocks.IsConstructUnlocked(id)) continue;
+            if (id == null) continue;
+            if (_unlocks.IsConstructUnlocked(id))
+            {
+                used?.Add(id);
+                continue;
+            }
 
             return FormatLocked(token.Value, id, chunkName, token.Line);
         }

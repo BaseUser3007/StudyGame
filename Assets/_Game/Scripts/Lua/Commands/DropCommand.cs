@@ -115,7 +115,11 @@ public class DropCommand : PlayerCommandBase
 
         Vector2 center = Executor.CurrentTile;
         for (int i = 0; i < count; i++)
-            _objectManager.Spawn(item.worldPrefab, FindDropPoint(center));
+        {
+            ResourceObject dropped = _objectManager.Spawn(item.worldPrefab, FindDropPoint(center));
+            // Повторный подбор выброшенного не считается добычей для достижений
+            if (dropped != null) dropped.DroppedByPlayer = true;
+        }
     }
 
     /// <summary>

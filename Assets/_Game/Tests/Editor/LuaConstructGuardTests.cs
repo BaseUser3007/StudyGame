@@ -324,4 +324,94 @@ public class LuaConstructGuardTests
         Assert.IsNull(guard.Check("x = 1", null, "Main"));
         StringAssert.Contains("`for`", guard.Check("for i = 1, 2 do end", null, "Main"));
     }
+
+    // ─── Сбор использованных конструкций (для ConstructUsed) ──
+
+    private static readonly string[] AllConstructs =
+    {
+        LuaConstructs.Local, LuaConstructs.If, LuaConstructs.For, LuaConstructs.While,
+        LuaConstructs.Repeat, LuaConstructs.Function, LuaConstructs.Classes
+    };
+
+    private HashSet<string> Used(string code)
+    {
+        var used = new HashSet<string>();
+        Assert.IsNull(Guard(AllConstructs).CheckChunk(code, "Main", used));
+        return used;
+    }
+
+    [TestCase("for i = 1, 3 do end", LuaConstructs.For)]
+    [TestCase("while false do end", LuaConstructs.While)]
+    [TestCase("repeat x = 1 until true", LuaConstructs.Repeat)]
+    [TestCase("local x = 1", LuaConstructs.Local)]
+    [TestCase("if x then y = 1 end", LuaConstructs.If)]
+    [TestCase("function f() end", LuaConstructs.Function)]
+    [TestCase("f = function() end", LuaConstructs.Function)]
+    public void CheckChunk_Used_CollectsConstruct(string code, string expected)
+    {
+        CollectionAssert.AreEquivalent(new[] { expected }, Used(code));
+    }
+
+    [Test]
+    public void CheckChunk_Used_LocalFunctionCollectsBoth()
+    {
+        CollectionAssert.AreEquivalent(new[] { LuaConstructs.Local, LuaConstructs.Function },
+            Used("local function f() return 1 end"));
+    }
+
+    [Test]
+    public void CheckChunk_Used_RepeatedConstructCollectedOnce()
+    {
+        HashSet<string> used = Used("for i = 1, 2 do end\nfor j = 1, 2 do for k = 1, 2 do end end");
+        CollectionAssert.AreEquivalent(new[] { LuaConstructs.For }, used);
+    }
+
+    [Test]
+    public void CheckChunk_Used_ElseifElseUntilMapToTheirConstructs()
+    {
+        CollectionAssert.AreEquivalent(new[] { LuaConstructs.If },
+            Used("if a then b = 1 elseif c then b = 2 else b = 3 end"));
+        CollectionAssert.AreEquivalent(new[] { LuaConstructs.Repeat }, Used("repeat a = 1 until a"));
+    }
+
+    [Test]
+    public void CheckChunk_Used_KeywordsInStringsAndCommentsNotCollected()
+    {
+        HashSet<string> used = Used("s = \"for while\" -- function\n--[[ repeat until ]]\nt = [[local if]]\nx = s");
+        CollectionAssert.IsEmpty(used);
+    }
+
+    [Test]
+    public void CheckChunk_Used_NoConstructs_Empty()
+    {
+        CollectionAssert.IsEmpty(Used("x = 1\nprint(x and not y or 2)\ndo x = 3 end"));
+    }
+
+    [Test]
+    public void Check_Used_AuxWindowWithCode_AddsClassesAndItsConstructs()
+    {
+        var aux = new Dictionary<string, string> { { "Helper", "while false do end" } };
+        var used = new HashSet<string>();
+
+        Assert.IsNull(Guard(AllConstructs).Check("for i = 1, 2 do Helper() end", aux, "Main", used));
+
+        CollectionAssert.AreEquivalent(new[] { LuaConstructs.Classes, LuaConstructs.For, LuaConstructs.While }, used);
+    }
+
+    [Test]
+    public void Check_Used_CommentOnlyAuxWindow_NoClasses()
+    {
+        var aux = new Dictionary<string, string> { { "Helper", "-- later\n" }, { "Empty", "" } };
+        var used = new HashSet<string>();
+
+        Assert.IsNull(Guard(AllConstructs).Check("x = 1", aux, "Main", used));
+
+        CollectionAssert.IsEmpty(used);
+    }
+
+    [Test]
+    public void Check_Used_NullSet_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() => Guard(AllConstructs).Check("for i = 1, 2 do end", null, "Main"));
+    }
 }

@@ -20,6 +20,7 @@ MonoBehaviour:
       amount: 2
     station: 0
     energyCost: 1
+    locked: 0
   - result: {fileID: 11400000, guid: ec8d663b181d447a851742dc281f3570, type: 2}
     resultAmount: 1
     ingredients:
@@ -29,6 +30,7 @@ MonoBehaviour:
       amount: 1
     station: 0
     energyCost: 2
+    locked: 0
   - result: {fileID: 11400000, guid: f3c600f36db9477ab827ca0e938d0417, type: 2}
     resultAmount: 1
     ingredients:
@@ -38,6 +40,7 @@ MonoBehaviour:
       amount: 4
     station: 0
     energyCost: 3
+    locked: 0
   - result: {fileID: 11400000, guid: 3343b5c03a9a4b3ba493b1b1a61c6caf, type: 2}
     resultAmount: 1
     ingredients:
@@ -47,6 +50,7 @@ MonoBehaviour:
       amount: 2
     station: 1
     energyCost: 3
+    locked: 1
   - result: {fileID: 11400000, guid: 97a67e5093754856a2e6d6c0693a6b69, type: 2}
     resultAmount: 1
     ingredients:
@@ -56,3 +60,4 @@ MonoBehaviour:
       amount: 2
     station: 1
     energyCost: 3
+    locked: 1

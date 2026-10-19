@@ -630,6 +630,7 @@ MonoBehaviour:
   luaSandbox: {fileID: 427823870}
   energyConfig: {fileID: 11400000, guid: 926d6cba6aff6f748bb67fb43261e229, type: 2}
   unlockConfig: {fileID: 11400000, guid: 5e9632ab30adae646b23387af9dc4d54, type: 2}
+  achievementCatalog: {fileID: 11400000, guid: 50d1cfd6d8156eb4ab5e0c4e75ca23d5, type: 2}
   codeEditorManager: {fileID: 655539405}
   uiManager: {fileID: 701634680}
 --- !u!4 &731203615

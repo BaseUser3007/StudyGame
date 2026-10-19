@@ -126,4 +126,143 @@ public class DataIntegrityTests
             }
         }
     }
+
+    // ─── Достижения ───────────────────────────────────────────
+
+    private const string AchievementCatalogPath = ScriptableObjects + "/Achievements/AchievementCatalog.asset";
+
+    // Награды-рецепты будущих этапов: рецептов в книге ещё нет, открытие откладывается (GameDesign §6.1)
+    private static readonly string[] DeferredRecipeRewards = { "sword", "campfire", "cooked_meat" };
+
+    private static AchievementCatalog Catalog() => TestHelpers.Load<AchievementCatalog>(AchievementCatalogPath);
+
+    [Test]
+    public void AchievementCatalog_Has17UniqueNonNullAchievements()
+    {
+        AchievementCatalog catalog = Catalog();
+
+        Assert.AreEqual(17, catalog.Achievements.Count);
+        var ids = new HashSet<string>();
+        for (int i = 0; i < catalog.Achievements.Count; i++)
+        {
+            AchievementDefinition definition = catalog.Achievements[i];
+            Assert.IsNotNull(definition, $"element #{i + 1} is empty");
+            Assert.IsTrue(ids.Add(definition.Id), $"duplicate achievement id '{definition.Id}'");
+            Assert.IsNotNull(definition.Condition, $"{definition.Id}: no condition");
+            Assert.IsNotEmpty(definition.Rewards, $"{definition.Id}: no rewards");
+        }
+    }
+
+    [Test]
+    public void AchievementCatalog_Validate_NoProblems()
+    {
+        CollectionAssert.IsEmpty(Catalog().Validate());
+    }
+
+    [Test]
+    public void AchievementCatalog_MatchesDesignIds()
+    {
+        string[] expected =
+        {
+            "first_harvest", "first_axe", "workbench_built", "copy_paste", "explorer", "lumberjack",
+            "sweet_dreams", "efficient_logger", "loop_lover", "function_fan", "threat_survivor",
+            "enemy_spotted", "first_blood", "first_meal", "hub_builder", "code_solver", "maze_runner"
+        };
+        CollectionAssert.AreEquivalent(expected, Catalog().Achievements.Select(a => a.Id));
+    }
+
+    [Test]
+    public void AchievementCatalog_ConstructRewards_AreKnownConstructs()
+    {
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+            foreach (AchievementReward reward in definition.Rewards)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(reward.Id), $"{definition.Id}: empty reward id");
+                if (reward.kind == AchievementRewardKind.Construct)
+                    Assert.IsTrue(LuaConstructs.IsKnown(reward.Id), $"{definition.Id}: unknown construct '{reward.Id}'");
+            }
+    }
+
+    [Test]
+    public void AchievementCatalog_RecipeRewards_ExistAndAreLockedOrDeferred()
+    {
+        RecipeBook book = TestHelpers.Load<RecipeBook>(RecipeBookPath);
+
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+            foreach (AchievementReward reward in definition.Rewards)
+            {
+                if (reward.kind != AchievementRewardKind.Recipe) continue;
+
+                CraftRecipe recipe = book.Recipes.FirstOrDefault(r => r.Key == reward.Id);
+                if (recipe == null)
+                {
+                    CollectionAssert.Contains(DeferredRecipeRewards, reward.Id,
+                        $"{definition.Id}: recipe '{reward.Id}' is not in the RecipeBook (typo?)");
+                    continue;
+                }
+
+                Assert.IsTrue(recipe.locked, $"{definition.Id}: rewarded recipe '{reward.Id}' must be locked, " +
+                                             "otherwise the reward unlocks nothing");
+            }
+    }
+
+    [Test]
+    public void RecipeBook_LockedRecipes_AreRewardedByAnAchievement()
+    {
+        RecipeBook book = TestHelpers.Load<RecipeBook>(RecipeBookPath);
+        var rewarded = new HashSet<string>(Catalog().Achievements
+            .SelectMany(a => a.Rewards)
+            .Where(r => r.kind == AchievementRewardKind.Recipe)
+            .Select(r => r.Id));
+
+        foreach (CraftRecipe recipe in book.Recipes.Where(r => r.locked))
+            Assert.IsTrue(rewarded.Contains(recipe.Key), $"locked recipe '{recipe.Key}' can never be unlocked");
+    }
+
+    [Test]
+    public void AchievementCatalog_CraftedFilters_AreRecipeResults()
+    {
+        RecipeBook book = TestHelpers.Load<RecipeBook>(RecipeBookPath);
+
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+        {
+            if (definition.Condition.gameEvent != GameEventType.Crafted) continue;
+            string filter = definition.Condition.filter?.Trim();
+            Assert.IsFalse(string.IsNullOrEmpty(filter), $"{definition.Id}: Crafted without filter");
+            Assert.IsTrue(book.Recipes.Any(r => r.Key == filter),
+                $"{definition.Id}: no recipe produces item '{filter}'");
+        }
+    }
+
+    [Test]
+    public void AchievementCatalog_BuiltFilters_AreStructureItemIds()
+    {
+        var structureKeys = new HashSet<string>(TestHelpers.LoadAll<StructureItem>(ScriptableObjects)
+            .Select(MetaProgress.GetItemKey));
+
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+        {
+            if (definition.Condition.gameEvent != GameEventType.Built) continue;
+            string filter = definition.Condition.filter?.Trim();
+            Assert.IsFalse(string.IsNullOrEmpty(filter), $"{definition.Id}: Built without filter");
+            Assert.IsTrue(structureKeys.Contains(filter), $"{definition.Id}: no StructureItem with itemId '{filter}'");
+        }
+    }
+
+    [Test]
+    public void AchievementCatalog_ItemFilters_AreExistingItemIds()
+    {
+        // Harvested / ItemObtained с фильтром (кроме типа объекта в Tag) — ключ существующего предмета
+        var itemKeys = new HashSet<string>(TestHelpers.LoadAll<ResourceItem>(ScriptableObjects)
+            .Select(MetaProgress.GetItemKey));
+
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+        {
+            GameEventType type = definition.Condition.gameEvent;
+            string filter = definition.Condition.filter?.Trim();
+            if (type != GameEventType.ItemObtained && type != GameEventType.Harvested) continue;
+            if (string.IsNullOrEmpty(filter)) continue;
+            Assert.IsTrue(itemKeys.Contains(filter), $"{definition.Id}: no item with itemId '{filter}'");
+        }
+    }
 }

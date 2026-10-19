@@ -123,6 +123,7 @@ public class DayCycle
         _summary = BuildSummary(exhausted, penalty, slept, bonus);
 
         PlayerEventBus.PublishDayEnded();
+        GameEventBus.Publish(GameEventType.DayPassed, null, 1, exhausted ? "exhausted" : slept ? "slept" : null);
 
         Day++;
         RunsUsed = 0;

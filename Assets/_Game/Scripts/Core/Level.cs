@@ -30,9 +30,18 @@ public class Level : MonoBehaviour
     [Tooltip("Стартовые команды и конструкции языка; остальное открывается мета-прогрессом")]
     [SerializeField] private UnlockConfig unlockConfig;
 
+    [Header("Achievements")]
+    [Tooltip("Все достижения игры (AchievementDefinition). Без каталога достижений нет, игра запускается")]
+    [SerializeField] private AchievementCatalog achievementCatalog;
+
     [Header("UI")]
     [SerializeField] private CodeEditorManager codeEditorManager;
     [SerializeField] private UIManager uiManager;
+
+    private AchievementTracker _achievementTracker;
+
+    /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
+    public AchievementTracker AchievementTracker => _achievementTracker;
 
     private void Awake()
     {
@@ -53,6 +62,7 @@ public class Level : MonoBehaviour
         Debug.Assert(luaSandbox != null, "Level: LuaSandbox is not assigned");
         Debug.Assert(energyConfig != null, "Level: energyConfig is not assigned");
         Debug.Assert(unlockConfig != null, "Level: unlockConfig is not assigned");
+        Debug.Assert(achievementCatalog != null, "Level: achievementCatalog is not assigned");
         Debug.Assert(codeEditorManager != null, "Level: CodeEditorManager is not assigned");
         Debug.Assert(uiManager != null, "Level: UIManager is not assigned");
     }
@@ -86,12 +96,14 @@ public class Level : MonoBehaviour
         MetaProgress progress = GameSession.Progress;
         RunModifiers modifiers = RunModifiers.Create(playerConfig, progress);
         UnlockRegistry unlocks = new UnlockRegistry(unlockConfig, progress);
+        unlocks.SetKnownRecipes(GetRecipeKeys());
 
         PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);
         PlayerHealth playerHealth = new PlayerHealth(modifiers.MaxHealth);
         PlayerInventory inventory = new PlayerInventory(modifiers.InventorySlots);
+        // Стартовые предметы — не добыча: достижения их не считают
         foreach (ItemStack stack in modifiers.StartingItems)
-            inventory.Add(stack.item, stack.amount);
+            inventory.Add(stack.item, stack.amount, recycled: true);
 
         // 8. Постройки (станции крафта считаются «рядом» в пределах structureInteractionRadius)
         StructureManager structures = new StructureManager(
@@ -106,10 +118,17 @@ public class Level : MonoBehaviour
             inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks);
         dayCycle.Attach(luaSandbox);
 
+        // 10a. Достижения: после песочницы (известны все команды для проверки наград), до UI
+        _achievementTracker = new AchievementTracker(achievementCatalog, progress, unlocks, playerEnergy);
+
         // 11. UI
-        codeEditorManager.Initialize(luaSandbox, uiManager, recipeBook, structures, dayCycle);
+        codeEditorManager.Initialize(
+            luaSandbox, uiManager, recipeBook, structures, dayCycle, _achievementTracker);
         uiManager.Initialize(
             codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
+
+        // UI подписан на OnUnlocked — выдаём награды выполненных достижений, добавленные позже
+        _achievementTracker.GrantRewardsOfCompleted();
 
         // UI подписан — показываем начальное состояние
         playerEnergy.Publish();
@@ -120,8 +139,22 @@ public class Level : MonoBehaviour
         // 12. Лагерь / забег: выход из забега, поражение, переход в лагерь
         RunController runController = new RunController(
             mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
-            dayCycle, progress);
+            dayCycle, progress, _achievementTracker);
         runController.Start();
+    }
+
+    private void OnDestroy()
+    {
+        // Трекер подписан на статическую GameEventBus и дописывает несохранённый прогресс
+        _achievementTracker?.Dispose();
+        _achievementTracker = null;
+    }
+
+    private System.Collections.Generic.IEnumerable<string> GetRecipeKeys()
+    {
+        foreach (CraftRecipe recipe in recipeBook.Recipes)
+            if (recipe != null && recipe.result != null)
+                yield return recipe.Key;
     }
 
     private GameObject SpawnPlayer(Vector2Int tile)

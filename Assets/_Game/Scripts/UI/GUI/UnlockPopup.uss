@@ -1,0 +1,162 @@
+/* ── Backdrop ────────────────────────────────────────────── */
+/* Модальное: пока окно открыто, игра под ним недоступна (закрывается только кнопкой OK) */
+.unlock-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.unlock-card {
+    width: 480px;
+    max-height: 85%;
+    background-color: rgba(30, 30, 30, 0.98);
+    border-width: 1px;
+    border-color: rgb(140, 190, 230);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.unlock-caption {
+    font-size: 11px;
+    color: rgb(130, 210, 130);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0 0 2px 0;
+}
+
+.unlock-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.unlock-icon {
+    width: 36px;
+    height: 36px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.unlock-title {
+    flex-shrink: 1;
+    font-size: 18px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    white-space: normal;
+    padding: 0;
+    margin: 0;
+}
+
+.unlock-content {
+    flex-shrink: 1;
+}
+
+/* ── Content ─────────────────────────────────────────────── */
+.unlock-text {
+    font-size: 12px;
+    color: rgb(205, 205, 205);
+    white-space: normal;
+    padding: 0;
+    margin: 0 0 6px 0;
+}
+
+.unlock-note {
+    font-size: 11px;
+    color: rgb(150, 150, 150);
+    white-space: normal;
+    padding: 0;
+    margin: 0 0 6px 0;
+}
+
+.unlock-cost {
+    font-size: 11px;
+    color: rgb(150, 220, 150);
+    white-space: normal;
+    padding: 0;
+    margin: 0 0 6px 0;
+}
+
+.unlock-section {
+    font-size: 12px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 6px 0 4px 0;
+}
+
+/* Код: подсветка — rich text из LuaSyntaxHighlighter, пробелы сохраняются */
+.unlock-code {
+    font-size: 12px;
+    color: rgb(220, 220, 220);
+    white-space: pre;
+    padding: 6px 8px;
+    margin: 0 0 6px 0;
+    border-radius: 3px;
+    background-color: rgb(20, 20, 20);
+}
+
+.unlock-item-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 1px 0;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background-color: rgb(42, 42, 42);
+}
+
+.unlock-item-icon {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.unlock-item-name {
+    flex-grow: 1;
+    font-size: 12px;
+    color: rgb(220, 220, 170);
+    padding: 0;
+    margin: 0;
+}
+
+.unlock-item-count {
+    font-size: 12px;
+    color: rgb(150, 220, 150);
+    padding: 0;
+    margin: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.unlock-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.unlock-ok {
+    height: 30px;
+    min-width: 90px;
+    padding: 0 16px;
+    margin: 0;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(50, 100, 50);
+    color: rgb(170, 230, 170);
+    font-size: 13px;
+}
+
+.unlock-ok:hover {
+    background-color: rgb(60, 130, 60);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

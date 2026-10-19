@@ -104,6 +104,109 @@
 
 Награда за достижение — новая команда / конструкция / рецепт / постройка / событие на карте.
 
+## 6.1. Достижения (срез)
+
+Спецификация набора для среза 2026-10-26 (2–3 забега). По ней заводятся ассеты `AchievementDefinition`.
+Прогресс счётчиков глобальный (между забегами, в том числе после поражения). UI игры на английском.
+
+### Модель условий и наград
+
+| Тип условия | Параметры | Смысл |
+|---|---|---|
+| `Counter` | событие, фильтр (пусто = любое), порог | счётчик игрового события, копится между забегами |
+| `FirstUse` | конструкция или команда | синоним `Counter` (`ConstructUsed`/`CommandUsed`) с порогом 1 |
+| `EfficientGather` | itemId, A, N | за **один запуск кода** получить A предметов itemId, потратив за этот запуск ≤ N энергии (всё: конструкции + команды + добыча) |
+
+События: `Harvested`, `Mined`, `ItemObtained`, `Crafted`, `Built`, `DayPassed`, `ConstructUsed`,
+`CommandUsed` — работают уже на этапе 2; `ThreatReached`, `EnemyFound`, `EnemyKilled` — этап 3;
+`HubBuildingBuilt` — этап 4; `PuzzleSolved` — этап 6; `FoodEaten` — этап 7.
+Награды: `Command`, `Construct`, `Recipe` (по itemId результата), `HubBuilding` (этап 4), `MapEvent` (этап 6).
+
+Уточнения семантики (нужны для чисел ниже):
+- `Harvested` поднимается в `ResourceHarvester` (подбор), поэтому считается и `obtain`, а не только `harvest`.
+- `CommandUsed` — на каждый вызов команды (там же, где списывается её цена).
+- `ConstructUsed` — **один раз за запуск** на каждую конструкцию, найденную в коде запуска
+  (`LuaConstructGuard` и так сканирует токены). Не на каждую итерацию — иначе «5 раз» выполняется одним циклом.
+- `EfficientGather` проверяется в момент, когда набрано A предметов: потрачено с начала запуска ≤ N → выполнено.
+  Не считаются предметы с объектов, выброшенных игроком (`drop`), и стартовые предметы забега.
+
+### Набор достижений
+
+Колонка «Этап» — когда достижение реально сможет выполниться (ассет можно завести сразу).
+
+| # | id | Название / описание (UI) | Условие | Параметры | Награды | Этап |
+|---|---|---|---|---|---|---|
+| 1 | `first_harvest` | **First Haul** — Gather 3 resources. | Counter `Harvested` | фильтр — пусто, порог 3 | Command `findObjects`, `moveTo`, `harvest` («декомпиляция» `obtain`) | 2 |
+| 2 | `first_axe` | **Sharp Idea** — Craft an axe. | Counter `Crafted` | `axe`, 1 | Command `mine` | 2 |
+| 3 | `workbench_built` | **Workshop** — Build a workbench. | Counter `Built` | `workbench`, 1 | Recipe `bed`, Recipe `pickaxe` | 2 |
+| 4 | `copy_paste` | **Déjà Vu** — Call harvest() 10 times. | Counter `CommandUsed` | `harvest`, 10 | Construct `for` | 2 |
+| 5 | `explorer` | **Wanderer** — Use autoExplore() twice. | Counter `CommandUsed` | `autoExplore`, 2 | Command `move`, `check` («декомпиляция» `autoExplore`) | 2 |
+| 6 | `lumberjack` | **Lumberjack** — Chop down 5 trees. | Counter `Mined` | `tree`, 5 | HubBuilding `storage` | 2 (награда — 4) |
+| 7 | `sweet_dreams` | **Sweet Dreams** — Build a bed. | Counter `Built` | `bed`, 1 | HubBuilding `shrine` | 2 (награда — 4) |
+| 8 | `efficient_logger` | **Clean Code** — Collect 4 logs in one run spending ≤ 50 energy. | EfficientGather | `log`, A = 4, N = 50 | Construct `while`, `repeat` | 2 |
+| 9 | `loop_lover` | **In the Loop** — Use a for loop in 5 code runs. | Counter `ConstructUsed` | `for`, 5 | Construct `function` | 2 |
+| 10 | `function_fan` | **Abstraction** — Use functions in 3 code runs. | Counter `ConstructUsed` | `function`, 3 | Construct `classes` (доп. окна + библиотека) | 2 |
+| 11 | `threat_survivor` | **Brace Yourself** — Survive until the threat day. | Counter `ThreatReached` | пусто, 1 | Recipe `sword` | 3 |
+| 12 | `enemy_spotted` | **Know Your Enemy** — Spot an enemy. | Counter `EnemyFound` | пусто, 1 | Command `attack` | 3 |
+| 13 | `first_blood` | **First Blood** — Defeat an enemy. | Counter `EnemyKilled` | пусто, 1 | Recipe `campfire`, Recipe `cooked_meat` | 3 (рецепты — 7) |
+| 14 | `hub_builder` | **Home Sweet Home** — Build a structure in the hub. | Counter `HubBuildingBuilt` | пусто, 1 | MapEvent `code_task` | 4 |
+| 15 | `code_solver` | **Hello, World** — Solve a code puzzle. | Counter `PuzzleSolved` | `code_task`, 1 | MapEvent `maze` | 6 |
+| 16 | `maze_runner` | **Pathfinder** — Escape a maze. | Counter `PuzzleSolved` | `maze`, 1 | HubBuilding `watchtower` | 6 |
+| 17 | `first_meal` | **Bon Appétit** — Eat something. | Counter `FoodEaten` | пусто, 1 | HubBuilding `healer_hut` | 7 |
+
+Без этапов 3–7 выполнимы №1–10: это 10 достижений и все 5 открываемых конструкций.
+
+### Почему так (темп)
+
+| Забег | Ожидаемые достижения | Конструкции |
+|---|---|---|
+| 1 | `first_harvest` (день 1) → `first_axe` → `workbench_built`; `copy_paste`, `explorer`; часто `lumberjack`, `sweet_dreams`; `threat_survivor` на 3-й день | `for` |
+| 2 | `efficient_logger`, `loop_lover`, `enemy_spotted`, `first_blood`, `hub_builder` (между забегами) | `while`/`repeat`, `function` |
+| 3 | `function_fan`, `code_solver`, `maze_runner`, `first_meal` | `classes` |
+
+Цепочка до верстака занимает ~110 энергии, т.е. дни 1–2 забега 1: 3 × `obtain` (24) → свой сбор
+2 палок + 2 камней (~20) → `craft` кремня и топора (5) → 2 дерева через `mine` (~34) → подбор 4 брёвен
+и 4 палок (~10–15) → верстак (`craft` 4 + `build` 3).
+
+### Расчёт порога `efficient_logger`
+
+Цены: `obtain` 8, `findObjects` 1, метод списка (`getNear`) 1, `moveTo` 2, `harvest` 1, `mine` 1 + добыча;
+дерево роняет 2 бревна (прочность 5) + 2 палки (1) → добыча 12, итого 13 за дерево. Итерация `for` 1.
+`obtain` деревья не рубит — он только подбирает брёвна с земли, рубить в любом случае нужно своим кодом.
+
+- **20 брёвен невозможно за один запуск ни при каком коде:** 10 деревьев × 13 = 130 > 100 (дневной лимит,
+  максимум 125 с бонусом за ночёвки). Поэтому A = 4 (2 дерева, физика 26).
+
+| Вариант (A = 4 бревна) | Деревья | Подбор 4 брёвен | Итого |
+|---|---|---|---|
+| Рубка своим кодом + `obtain("log")` | 2 × (2 + 2 + 13) = 34 | 4 × 8 = 32 | **66** — не проходит |
+| Свой код «в лоб»: `findObjects():getNear()` перед каждым действием | 34 | 4 × (2 + 2 + 1) = 20 | **54** — не проходит |
+| Аккуратный свой код: один `findObjects` на список + цикл `for` | 1 + 2 × (1 + 2 + 13) = 33 | 1 + 4 × (1 + 1) = 9 | **42** — проходит |
+| То же, но брёвна откатились и к каждому нужен `moveTo` | 33 | 9 + 4 × 2 = 17 | **50** — проходит впритык |
+| Без цикла, строками подряд по одному списку | 1 + 2 × 15 = 31 | 1 + 4 = 5 | **36** — проходит |
+
+**N = 50.** `obtain` проигрывает на 16, аккуратный код проходит с запасом 0–14. Урок достижения:
+искать один раз и переиспользовать список, а не вызывать дорогое заново.
+
+### Закрытые на старте рецепты
+
+| Рецепт (itemId) | Статус | Чем открывается |
+|---|---|---|
+| `flint`, `axe`, `workbench` | открыты | — (нужны для первой цепочки) |
+| `bed` | закрыт | `workbench_built` |
+| `pickaxe` | закрыт | `workbench_built` |
+| `sword` | закрыт, предмета ещё нет (этап 3) | `threat_survivor` |
+| `campfire`, `cooked_meat` | закрыты, предметов ещё нет (этапы 3/7) | `first_blood` |
+
+### Идентификаторы для других систем
+
+- Постройки хаба (этап 4): `storage` (+1 слот инвентаря), `shrine` (+ к лимиту энергии),
+  `watchtower` (+1 день до угрозы), `healer_hut` (+ к максимуму здоровья). На старте не открыта ни одна;
+  первые две открываются в забеге 1, так что `hub_builder` выполним с забега 2.
+- События на карте (этап 6): `code_task`, `maze`.
+- Стартовый набор `UnlockConfig` не меняется: команды `obtain`, `autoExplore`, `craft`, `build`, `drop`,
+  `getInventory`, `getStatus`, `getPosition`; конструкции `local`, `if`.
+
 ## 7. Сооружения-головоломки (события на карте)
 
 - Это часть **генерации мира**: игрок находит их, исследуя карту.
@@ -121,5 +224,18 @@
 
 ## 9. Открытые вопросы
 
-Нет. Решено 2026-10-13: здоровье 0 → конец забега с потерей всех материалов; готовые команды
+Решено 2026-10-13: здоровье 0 → конец забега с потерей всех материалов; готовые команды
 остаются доступными; сооружения хаба ставятся мышью на сетку.
+
+Открыто (набор достижений §6.1, 2026-10-15) — решение автора:
+1. **`for` за что?** Черновик давал `for` за «дожил до угрозы», но это событие этапа 3 — до него циклов бы
+   не было. Предложено: `for` за 10 вызовов `harvest` (боль копипасты → цикл). Альтернатива — оставить
+   угрозу, а `copy_paste` наградить `move`/`check`. Рекомендация: как в §6.1.
+2. **Функции и окна-«классы»:** в черновике — за задачу на код (этап 6). Предложено: за использование
+   `for`/`function` в нескольких запусках, чтобы срез был проходим без головоломок. Рекомендация: как в §6.1.
+3. **`autoExplore` стоит 25 против `move` = 1** (наценка ×25, у `obtain` — ×1,6). Принцип «дороже» соблюдён,
+   но разрыв выглядит наказанием. Варианты: оставить; снизить до ~8–10. Рекомендация: 10.
+4. **Порог `first_harvest`:** 1 (как в черновике) или 3 (игрок успевает почувствовать цену `obtain`).
+   Рекомендация: 3.
+5. **Набор и названия построек хаба** (`storage`, `shrine`, `watchtower`, `healer_hut`) и то, что на
+   старте не открыта ни одна. Рекомендация: так, `watchtower` при желании перенести на `threat_survivor`.

@@ -116,6 +116,46 @@ public class EnergyTests
         Assert.AreEqual(5f, energy.Current, 0.001f);
     }
 
+    // ─── Возврат энергии (PlayerEnergy.Refund) ────────────────
+
+    [Test]
+    public void Refund_AfterSpend_RestoresCurrentAndTotalSpent()
+    {
+        var energy = new PlayerEnergy(10f);
+        Assert.IsTrue(energy.TrySpend(4f));
+        Assert.IsTrue(energy.TrySpend(2f));
+
+        energy.Refund(4f);
+
+        Assert.AreEqual(8f, energy.Current, 0.001f);
+        Assert.AreEqual(2f, energy.TotalSpent, 0.001f);
+    }
+
+    [Test]
+    public void Refund_MoreThanSpent_ClampedToMaxAndZero()
+    {
+        var energy = new PlayerEnergy(10f);
+        energy.TrySpend(3f);
+
+        energy.Refund(50f);
+
+        Assert.AreEqual(10f, energy.Current, 0.001f);
+        Assert.AreEqual(0f, energy.TotalSpent, 0.001f);
+    }
+
+    [TestCase(0f)]
+    [TestCase(-5f)]
+    public void Refund_NonPositive_NoChange(float amount)
+    {
+        var energy = new PlayerEnergy(10f);
+        energy.TrySpend(3f);
+
+        energy.Refund(amount);
+
+        Assert.AreEqual(7f, energy.Current, 0.001f);
+        Assert.AreEqual(3f, energy.TotalSpent, 0.001f);
+    }
+
     // ─── Плата за команды ─────────────────────────────────────
 
     private class PingCommand : LuaCommandBase

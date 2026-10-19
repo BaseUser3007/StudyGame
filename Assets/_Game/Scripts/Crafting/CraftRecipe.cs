@@ -29,6 +29,14 @@ public class CraftRecipe
     [Tooltip("Энергия, которая тратится при крафте")]
     [Min(0f)] public float energyCost = 1f;
 
+    [Tooltip("Закрыт, пока не открыт наградой достижения (UnlockRegistry.UnlockRecipe по ключу результата)")]
+    public bool locked;
+
+    /// <summary>
+    /// Ключ рецепта для открытий в MetaProgress: itemId результата, иначе имя ассета (как MetaProgress.GetItemKey).
+    /// </summary>
+    public string Key => result != null ? MetaProgress.GetItemKey(result) : null;
+
     /// <summary>
     /// Имя, по которому рецепт вызывается из Lua: craft("...").
     /// </summary>

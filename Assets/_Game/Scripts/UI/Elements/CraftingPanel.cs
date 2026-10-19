@@ -11,6 +11,8 @@ public class CraftingPanel : VisualElement
 {
     private readonly IReadOnlyList<CraftRecipe> _recipes;
     private readonly IStationProvider _stations;
+    // Открыт ли рецепт (закрытые не показываются); null — показываются все
+    private readonly Func<CraftRecipe, bool> _isAvailable;
     // Пока панель открыта, наличие станции рядом перепроверяется — персонаж может подойти к верстаку
     private const long StationRefreshMs = 500;
     private readonly Dictionary<ResourceItem, int> _counts = new Dictionary<ResourceItem, int>();
@@ -32,10 +34,13 @@ public class CraftingPanel : VisualElement
 
     public event Action OnOpened;
 
-    public CraftingPanel(VisualTreeAsset template, IReadOnlyList<CraftRecipe> recipes, IStationProvider stations)
+    public CraftingPanel(
+        VisualTreeAsset template, IReadOnlyList<CraftRecipe> recipes, IStationProvider stations,
+        Func<CraftRecipe, bool> isAvailable = null)
     {
         _recipes = recipes;
         _stations = stations;
+        _isAvailable = isAvailable;
 
         VisualElement root = template.Instantiate();
         QueryElements(root);
@@ -114,6 +119,15 @@ public class CraftingPanel : VisualElement
             OnOpened?.Invoke();
     }
 
+    /// <summary>
+    /// Пересобрать список (открылся рецепт).
+    /// </summary>
+    public void RefreshRecipes()
+    {
+        BuildRecipeList();
+        ShowDetails(_selected);
+    }
+
     public void Close()
     {
         _panel.AddToClassList("hidden");
@@ -145,12 +159,12 @@ public class CraftingPanel : VisualElement
         _entries.Clear();
 
         // Инспектор при правке пересоздаёт объекты рецептов — старый выбор мог устареть
-        if (_selected != null && !Contains(_recipes, _selected))
+        if (_selected != null && (!Contains(_recipes, _selected) || !IsAvailable(_selected)))
             _selected = null;
 
         foreach (CraftRecipe recipe in _recipes)
         {
-            if (recipe == null || recipe.result == null) continue;
+            if (recipe == null || recipe.result == null || !IsAvailable(recipe)) continue;
 
             VisualElement entry = new VisualElement();
             entry.AddToClassList("recipe-entry");
@@ -271,6 +285,8 @@ public class CraftingPanel : VisualElement
             if (r == recipe) return true;
         return false;
     }
+
+    private bool IsAvailable(CraftRecipe recipe) => _isAvailable == null || _isAvailable(recipe);
 
     private bool IsStationNearby(CraftingStation station)
     {

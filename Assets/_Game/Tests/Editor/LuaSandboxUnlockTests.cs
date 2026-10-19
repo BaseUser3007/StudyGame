@@ -196,13 +196,13 @@ public class LuaSandboxUnlockTests
     }
 
     [Test]
-    public void UnlockCommand_UnknownName_WarnsAndReturnsFalse()
+    public void UnlockCommand_UnknownName_DeferredFalseWithoutEvent()
     {
-        LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("unknown command 'mien'"));
-
+        // Этап 2: неизвестная песочнице команда (награда будущего этапа) не отвергается, а сохраняется
+        // отложенной — без OnUnlocked и без подключения в песочницу
         Assert.IsFalse(_unlocks.UnlockCommand("mien"));
-        Assert.IsFalse(_unlocks.IsCommandUnlocked("mien"));
         Assert.AreEqual(0, _appliedCount, "no event for an unknown command");
+        Assert.IsTrue(_saves.Progress().IsCommandUnlocked("mien"), "deferred unlock is saved");
     }
 
     [UnityTest]

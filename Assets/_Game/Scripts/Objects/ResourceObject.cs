@@ -9,6 +9,16 @@ public abstract class ResourceObject : MonoBehaviour
     [SerializeField] protected ResourceVariant variant;
 
     public bool IsAvailable { get; private set; } = true;
+    /// <summary>
+    /// Объект выброшен игроком (drop): его подбор — не новая добыча, достижения его не считают.
+    /// Сбрасывается при выдаче из пула.
+    /// </summary>
+    public bool DroppedByPlayer { get; set; }
+    /// <summary>
+    /// Номер запуска кода, в котором объект появился (лут от mine — GameEventBus.ActiveRunId), 0 — нет.
+    /// Сбрасывается при выдаче из пула.
+    /// </summary>
+    public int SpawnRunId { get; set; }
     public ResourceVariant Variant => variant;
     /// <summary>
     /// Позиция на карте в тайлах (не привязана к центру тайла).
@@ -52,6 +62,8 @@ public abstract class ResourceObject : MonoBehaviour
     public void ResetState()
     {
         IsAvailable = true;
+        DroppedByPlayer = false;
+        SpawnRunId = 0;
     }
 
     public (ResourceItem item, int amount)? Interact()

@@ -14,6 +14,8 @@ public class RunSummary
     public readonly List<ItemStack> Carried = new List<ItemStack>();
     /// <summary>Что осталось в забеге: не-материалы, а при поражении — всё.</summary>
     public readonly List<ItemStack> Left = new List<ItemStack>();
+    /// <summary>Достижения, выполненные в этом забеге.</summary>
+    public readonly List<AchievementDefinition> Achievements = new List<AchievementDefinition>();
 }
 
 /// <summary>
@@ -29,6 +31,7 @@ public class RunScreens : VisualElement
     private ScrollView _hubMaterials;
     private Label _hubMaterialsEmpty;
     private Button _btnStartRun;
+    private Button _btnHubAchievements;
 
     private VisualElement _exitConfirm;
     private Button _btnExitConfirm;
@@ -40,11 +43,15 @@ public class RunScreens : VisualElement
     private ScrollView _summaryLoot;
     private Label _summaryLootEmpty;
     private Label _summaryLost;
+    private ScrollView _summaryAchievements;
+    private Label _summaryAchievementsEmpty;
     private Button _btnToHub;
 
     public event Action OnStartRunRequested;
     public event Action OnExitConfirmed;
     public event Action OnReturnToHubRequested;
+    /// <summary>Кнопка Achievements в лагере — панель показывает CodeEditorManager.</summary>
+    public event Action OnAchievementsRequested;
 
     public RunScreens(VisualTreeAsset template)
     {
@@ -63,13 +70,14 @@ public class RunScreens : VisualElement
         style.bottom = 0;
 
         // UI управляется только мышью — кнопки не должны забирать фокус
-        foreach (Button button in new[] { _btnStartRun, _btnExitConfirm, _btnExitCancel, _btnToHub })
+        foreach (Button button in new[] { _btnStartRun, _btnHubAchievements, _btnExitConfirm, _btnExitCancel, _btnToHub })
             button.focusable = false;
 
         _btnStartRun.clicked += () => OnStartRunRequested?.Invoke();
         _btnExitCancel.clicked += HideExitConfirm;
         _btnExitConfirm.clicked += HandleExitConfirmed;
         _btnToHub.clicked += () => OnReturnToHubRequested?.Invoke();
+        _btnHubAchievements.clicked += () => OnAchievementsRequested?.Invoke();
 
         Add(root);
     }
@@ -81,6 +89,7 @@ public class RunScreens : VisualElement
         _hubMaterials = root.Q<ScrollView>("hub-materials");
         _hubMaterialsEmpty = root.Q<Label>("hub-materials-empty");
         _btnStartRun = root.Q<Button>("btn-start-run");
+        _btnHubAchievements = root.Q<Button>("btn-hub-achievements");
 
         _exitConfirm = root.Q<VisualElement>("exit-confirm");
         _btnExitConfirm = root.Q<Button>("btn-exit-confirm");
@@ -92,18 +101,21 @@ public class RunScreens : VisualElement
         _summaryLoot = root.Q<ScrollView>("summary-loot");
         _summaryLootEmpty = root.Q<Label>("summary-loot-empty");
         _summaryLost = root.Q<Label>("summary-lost");
+        _summaryAchievements = root.Q<ScrollView>("summary-achievements");
+        _summaryAchievementsEmpty = root.Q<Label>("summary-achievements-empty");
         _btnToHub = root.Q<Button>("btn-to-hub");
     }
 
     private void ValidateReferences()
     {
         Debug.Assert(_hubScreen != null && _hubStats != null && _hubMaterials != null
-                     && _hubMaterialsEmpty != null && _btnStartRun != null,
+                     && _hubMaterialsEmpty != null && _btnStartRun != null && _btnHubAchievements != null,
             "RunScreens: hub elements not found");
         Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
             "RunScreens: exit confirmation elements not found");
         Debug.Assert(_summary != null && _summaryTitle != null && _summaryStats != null && _summaryLoot != null
-                     && _summaryLootEmpty != null && _summaryLost != null && _btnToHub != null,
+                     && _summaryLootEmpty != null && _summaryLost != null && _btnToHub != null
+                     && _summaryAchievements != null && _summaryAchievementsEmpty != null,
             "RunScreens: summary elements not found");
     }
 
@@ -111,11 +123,30 @@ public class RunScreens : VisualElement
 
     public bool IsExitConfirmOpen => !_exitConfirm.ClassListContains(HiddenClass);
 
+    /// <summary>
+    /// Хост шаблона поверх экранов (achievements-overlay, unlock-overlay, toast-overlay в RunScreens.uxml):
+    /// растянут на весь экран и не перехватывает мышь — её ловят только видимые элементы внутри.
+    /// </summary>
+    public VisualElement GetOverlay(string name)
+    {
+        VisualElement host = this.Q<VisualElement>(name);
+        Debug.Assert(host != null, $"RunScreens: overlay '{name}' not found");
+        if (host == null) return null;
+
+        host.pickingMode = PickingMode.Ignore;
+        host.style.position = Position.Absolute;
+        host.style.left = 0;
+        host.style.top = 0;
+        host.style.right = 0;
+        host.style.bottom = 0;
+        return host;
+    }
+
     public void ShowHub(MetaProgress progress)
     {
         _hubStats.text = progress.RunsFinished == 0
-            ? "Забегов ещё не было"
-            : $"Завершено забегов: {progress.RunsFinished} (поражений: {progress.Defeats})";
+            ? "No runs yet"
+            : $"Runs finished: {progress.RunsFinished} (defeats: {progress.Defeats})";
 
         _hubMaterials.Clear();
         foreach (StoredMaterial stored in progress.Materials)
@@ -133,19 +164,25 @@ public class RunScreens : VisualElement
     {
         HideExitConfirm();
 
-        _summaryTitle.text = summary.Defeated ? "Поражение" : "Забег завершён";
+        _summaryTitle.text = summary.Defeated ? "Defeat" : "Run complete";
         _summaryTitle.EnableInClassList("screen-title--defeat", summary.Defeated);
         _summaryStats.text = summary.Defeated
-            ? $"Здоровье кончилось на {summary.Days}-й день. Всё добытое в этом забеге потеряно."
-            : $"Дней в забеге: {summary.Days}";
+            ? $"Your health ran out on day {summary.Days}. Everything gathered in this run is lost."
+            : $"Days in the run: {summary.Days}";
 
         _summaryLoot.Clear();
         foreach (ItemStack stack in summary.Carried)
             _summaryLoot.Add(CreateItemRow(stack.item.Icon, stack.item.DisplayName, stack.amount));
         _summaryLootEmpty.EnableInClassList(HiddenClass, summary.Carried.Count > 0);
 
-        _summaryLost.text = summary.Left.Count > 0 ? $"Остаётся в забеге: {FormatStacks(summary.Left)}" : string.Empty;
+        _summaryLost.text = summary.Left.Count > 0 ? $"Stays in the run: {FormatStacks(summary.Left)}" : string.Empty;
         _summaryLost.EnableInClassList(HiddenClass, summary.Left.Count == 0);
+
+        // Достижения забега — прогресс и награды сохраняются и при поражении
+        _summaryAchievements.Clear();
+        foreach (AchievementDefinition achievement in summary.Achievements)
+            _summaryAchievements.Add(CreateAchievementRow(achievement));
+        _summaryAchievementsEmpty.EnableInClassList(HiddenClass, summary.Achievements.Count > 0);
 
         _summary.RemoveFromClassList(HiddenClass);
     }
@@ -178,6 +215,26 @@ public class RunScreens : VisualElement
         var countLabel = new Label($"×{count}");
         countLabel.AddToClassList("item-count");
         row.Add(countLabel);
+
+        return row;
+    }
+
+    private static VisualElement CreateAchievementRow(AchievementDefinition achievement)
+    {
+        var row = new VisualElement();
+        row.AddToClassList("summary-achievement");
+
+        var title = new Label(achievement.Title) { enableRichText = false };
+        title.AddToClassList("summary-achievement-title");
+        row.Add(title);
+
+        string rewards = AchievementText.FormatRewards(achievement);
+        if (!string.IsNullOrEmpty(rewards))
+        {
+            var rewardsLabel = new Label($"Rewards: {rewards}") { enableRichText = false };
+            rewardsLabel.AddToClassList("summary-achievement-rewards");
+            row.Add(rewardsLabel);
+        }
 
         return row;
     }

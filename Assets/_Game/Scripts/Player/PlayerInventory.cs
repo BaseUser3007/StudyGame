@@ -57,10 +57,18 @@ public class PlayerInventory
     /// Кладёт ресурс: сначала дополняет уже начатые стопки, затем занимает пустые ячейки.
     /// Возвращает, сколько удалось положить.
     /// </summary>
-    public int Add(ResourceItem item, int amount)
+    /// <param name="recycled">Не новая добыча (стартовые предметы, подбор выброшенного) —
+    /// ItemObtained помечается, и достижения его не считают.</param>
+    /// <param name="fromThisRun">Получено благодаря текущему запуску кода (см. GameEvent.FromThisRun).</param>
+    public int Add(ResourceItem item, int amount, bool recycled = false, bool fromThisRun = true)
     {
         int added = AddInternal(item, amount);
-        if (added > 0) Publish();
+        if (added > 0)
+        {
+            Publish();
+            GameEventBus.Publish(new GameEvent(
+                GameEventType.ItemObtained, MetaProgress.GetItemKey(item), added, null, recycled, fromThisRun));
+        }
         return added;
     }
 
@@ -99,6 +107,8 @@ public class PlayerInventory
         }
 
         Publish();
+        if (add != null && addAmount > 0)
+            GameEventBus.Publish(GameEventType.ItemObtained, MetaProgress.GetItemKey(add), addAmount);
         return true;
     }
 

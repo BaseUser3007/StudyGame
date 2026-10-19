@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="AchievementsPanel.uss"/>
+    <!-- Панель достижений: модальная карточка поверх всего (в хабе и в забеге). Список строит AchievementsPanel -->
+    <ui:VisualElement name="achievements-backdrop" class="achievements-backdrop hidden">
+        <ui:VisualElement name="achievements-card" class="achievements-card">
+            <ui:VisualElement class="achievements-header">
+                <ui:Label class="achievements-title" text="Achievements"/>
+                <ui:Label name="achievements-count" class="achievements-count" text="0 / 0"/>
+                <ui:Button name="btn-achievements-close" class="achievements-close" text="×"/>
+            </ui:VisualElement>
+            <ui:Label class="achievements-note" text="Progress is kept between runs, even after a defeat. Rewards unlock commands, language constructs and recipes."/>
+            <ui:ScrollView name="achievements-list" class="achievements-list"/>
+            <ui:Label name="achievements-empty" class="achievements-empty hidden" text="No achievements yet"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -9,6 +9,8 @@ public class TopBar : VisualElement
     public event Action OnEndDayRequested;
     public event Action OnExitRunRequested;
     public event Action OnSimulationRequested;
+    /// <summary>Кнопка Achievements — открыть панель достижений (её показывает CodeEditorManager).</summary>
+    public event Action OnAchievementsRequested;
 
     private Label _energyLabel;
     private Label _healthLabel;
@@ -20,6 +22,7 @@ public class TopBar : VisualElement
     private Button _btnEndDay;
     private Button _btnExitRun;
     private Button _btnSimulation;
+    private Button _btnAchievements;
     private CommandHelp _commandHelp;
 
     // Цена прохода краснеет, если больше текущего запаса энергии
@@ -40,11 +43,13 @@ public class TopBar : VisualElement
         _btnEndDay = root.Q<Button>("btn-end-day");
         _btnExitRun = root.Q<Button>("btn-exit-run");
         _btnSimulation = root.Q<Button>("btn-simulation");
+        _btnAchievements = root.Q<Button>("btn-achievements");
 
         Debug.Assert(_dayLabel != null && _daySummary != null, "TopBar: day labels not found");
         Debug.Assert(_btnEndDay != null, "TopBar: btn-end-day not found");
         Debug.Assert(_btnExitRun != null, "TopBar: btn-exit-run not found");
         Debug.Assert(_healthLabel != null && _healthFill != null, "TopBar: health elements not found");
+        Debug.Assert(_btnAchievements != null, "TopBar: btn-achievements not found");
 
         Button btnHelp = root.Q<Button>("btn-help");
         VisualElement helpPopup = root.Q<VisualElement>("help-popup");
@@ -78,6 +83,10 @@ public class TopBar : VisualElement
         _btnEndDay.clicked += () => OnEndDayRequested?.Invoke();
         _btnExitRun.clicked += () => OnExitRunRequested?.Invoke();
         _btnSimulation.clicked += () => OnSimulationRequested?.Invoke();
+
+        // UI управляется только мышью — кнопка не должна забирать фокус
+        _btnAchievements.focusable = false;
+        _btnAchievements.clicked += () => OnAchievementsRequested?.Invoke();
     }
 
     /// <summary>

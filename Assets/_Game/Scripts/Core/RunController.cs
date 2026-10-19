@@ -16,12 +16,15 @@ public class RunController
     private readonly PlayerHealth _health;
     private readonly DayCycle _dayCycle;
     private readonly MetaProgress _progress;
+    private readonly AchievementTracker _achievements;
 
     private bool _finished;
+    // Здоровье кончилось во время выполнения кода: итог — после остановки запуска
+    private bool _defeatPending;
 
     public RunController(
         GameMode mode, RunScreens screens, TopBar topBar, LuaSandbox sandbox, PlayerInventory inventory,
-        PlayerHealth health, DayCycle dayCycle, MetaProgress progress)
+        PlayerHealth health, DayCycle dayCycle, MetaProgress progress, AchievementTracker achievements)
     {
         _mode = mode;
         _screens = screens;
@@ -31,6 +34,7 @@ public class RunController
         _health = health;
         _dayCycle = dayCycle;
         _progress = progress;
+        _achievements = achievements;
 
         // Всё это живёт до перезагрузки сцены вместе с контроллером — отписка не нужна
         _screens.OnStartRunRequested += GameSession.StartRun;
@@ -50,7 +54,7 @@ public class RunController
 
     private void HandleExitRunRequested()
     {
-        if (_finished || _mode != GameMode.Run) return;
+        if (_finished || _defeatPending || _mode != GameMode.Run) return;
 
         if (_sandbox.IsRunning)
         {
@@ -70,7 +74,26 @@ public class RunController
 
     private void HandleDied()
     {
-        if (_sandbox.IsRunning) _sandbox.Stop();
+        if (_finished || _defeatPending) return;
+
+        if (!_sandbox.IsRunning)
+        {
+            Finish(defeated: true);
+            return;
+        }
+
+        // finally остановленного запуска ещё публикует события (ConstructUsed, RunFinished) —
+        // выполненные ими достижения должны попасть в итоги, поэтому ждём конца запуска
+        _defeatPending = true;
+        _sandbox.OnRunningChanged += HandleRunningChangedAfterDeath;
+        _sandbox.Stop();
+    }
+
+    private void HandleRunningChangedAfterDeath(bool running)
+    {
+        if (running) return;
+
+        _sandbox.OnRunningChanged -= HandleRunningChangedAfterDeath;
         Finish(defeated: true);
     }
 
@@ -98,6 +121,8 @@ public class RunController
     private RunSummary BuildSummary(bool defeated)
     {
         var summary = new RunSummary { Defeated = defeated, Days = _dayCycle.Day };
+        if (_achievements != null)
+            summary.Achievements.AddRange(_achievements.CompletedThisScene);
         var carried = new Dictionary<ResourceItem, int>();
         var left = new Dictionary<ResourceItem, int>();
 

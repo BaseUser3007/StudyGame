@@ -290,6 +290,95 @@ public class UnlockRegistryTests
         Assert.IsFalse(second.IsConstructUnlocked(LuaConstructs.For));
     }
 
+    // ─── Рецепты ──────────────────────────────────────────────
+
+    private CraftRecipe Recipe(string resultId, bool locked)
+    {
+        MaterialResource result = TestHelpers.Material(resultId);
+        _created.Add(result);
+        return new CraftRecipe { result = result, locked = locked };
+    }
+
+    [Test]
+    public void IsRecipeAvailable_NotLockedRecipe_AlwaysAvailable()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0]));
+
+        Assert.IsTrue(registry.IsRecipeAvailable(Recipe("axe", locked: false)));
+        Assert.IsFalse(registry.IsRecipeUnlocked("axe"), "available without being unlocked");
+    }
+
+    [Test]
+    public void IsRecipeAvailable_LockedRecipe_AvailableOnlyAfterUnlock()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0]));
+        registry.SetKnownRecipes(new[] { "bed", "axe" });
+        CraftRecipe bed = Recipe("bed", locked: true);
+
+        Assert.IsFalse(registry.IsRecipeAvailable(bed));
+
+        Assert.IsTrue(registry.UnlockRecipe("bed"));
+        Assert.IsFalse(registry.UnlockRecipe("bed"), "second unlock is not new");
+
+        Assert.IsTrue(registry.IsRecipeAvailable(bed));
+        CollectionAssert.AreEqual(new[] { (UnlockKind.Recipe, "bed") }, _events);
+        Assert.IsTrue(_saves.Progress().IsRecipeUnlocked("bed"), "saved immediately");
+    }
+
+    [Test]
+    public void IsRecipeAvailable_LockedRecipeUnlockedInSave_AvailableAfterReload()
+    {
+        UnlockConfig config = Config(new string[0], new string[0]);
+        Registry(config).UnlockRecipe("bed");
+
+        UnlockRegistry second = Registry(config, _saves.Progress());
+
+        Assert.IsTrue(second.IsRecipeAvailable(Recipe("bed", locked: true)));
+        Assert.IsFalse(second.IsRecipeAvailable(Recipe("pickaxe", locked: true)));
+    }
+
+    [Test]
+    public void IsRecipeAvailable_UnlockAll_LockedRecipeAvailable()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0], unlockAll: true));
+        Assert.IsTrue(registry.IsRecipeAvailable(Recipe("bed", locked: true)));
+    }
+
+    [Test]
+    public void IsRecipeAvailable_NullRecipe_False()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0]));
+        Assert.IsFalse(registry.IsRecipeAvailable(null));
+    }
+
+    [Test]
+    public void UnlockRecipe_UnknownKey_DeferredSavedWithoutEvent()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0]));
+        registry.SetKnownRecipes(new[] { "bed" });
+
+        Assert.IsFalse(registry.UnlockRecipe("sword"));
+
+        CollectionAssert.IsEmpty(_events);
+        Assert.IsTrue(_saves.Progress().IsRecipeUnlocked("sword"), "deferred unlock is saved");
+
+        // Рецепт появился в книге — он уже открыт, повторное открытие не новое
+        registry.SetKnownRecipes(new[] { "bed", "sword" });
+        Assert.IsTrue(registry.IsRecipeAvailable(Recipe("sword", locked: true)));
+        Assert.IsFalse(registry.UnlockRecipe("sword"));
+        CollectionAssert.IsEmpty(_events);
+    }
+
+    [Test]
+    public void UnlockRecipe_NullOrEmpty_FalseNoEvent()
+    {
+        UnlockRegistry registry = Registry(Config(new string[0], new string[0]));
+
+        Assert.IsFalse(registry.UnlockRecipe(null));
+        Assert.IsFalse(registry.UnlockRecipe(""));
+        CollectionAssert.IsEmpty(_events);
+    }
+
     // ─── LuaConstructs ────────────────────────────────────────
 
     [Test]
