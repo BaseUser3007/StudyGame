@@ -7,14 +7,16 @@ public enum PuzzleSolveResult
 {
     /// <summary>Ответ верный: решено, награда выдана, PuzzleSolved.</summary>
     Correct,
-    /// <summary>Ответ неверный (попытки не ограничены).</summary>
+    /// <summary>Ответ неверный: следующая попытка у этого обелиска — только в следующем запуске кода.</summary>
     Wrong,
     /// <summary>Уже решена в этом забеге.</summary>
     AlreadySolved,
     /// <summary>Игрок дальше радиуса взаимодействия.</summary>
     TooFar,
     /// <summary>Это не обелиск с задачей (или null).</summary>
-    NotCodeTask
+    NotCodeTask,
+    /// <summary>В этом запуске обелиск уже отклонил ответ (против перебора solve).</summary>
+    NoAttemptsLeft
 }
 
 /// <summary>
@@ -33,6 +35,9 @@ public class PuzzleManager : IDisposable
     private readonly PuzzleRewards _rewards;
     private readonly List<PuzzleStructure> _puzzles = new List<PuzzleStructure>();
     private readonly Dictionary<int, PuzzleStructure> _byId = new Dictionary<int, PuzzleStructure>();
+    // Обелиск → запуск кода с неверным ответом: одна попытка за запуск (вход в новом запуске другой),
+    // поэтому перебор solve растягивается на много запусков, а их всего несколько в день
+    private readonly Dictionary<int, int> _failedRun = new Dictionary<int, int>();
     private bool _disposed;
 
     /// <summary>Все головоломки забега (решённые тоже).</summary>
@@ -121,7 +126,16 @@ public class PuzzleManager : IDisposable
         if (!(puzzle is CodeTaskPuzzle obelisk)) return PuzzleSolveResult.NotCodeTask;
         if (obelisk.IsSolved) return PuzzleSolveResult.AlreadySolved;
         if (!IsInReach(obelisk)) return PuzzleSolveResult.TooFar;
-        if (!obelisk.CheckAnswer(answer)) return PuzzleSolveResult.Wrong;
+
+        int runId = GameEventBus.ActiveRunId;
+        if (_failedRun.TryGetValue(obelisk.Id, out int failedRun) && failedRun == runId)
+            return PuzzleSolveResult.NoAttemptsLeft;
+
+        if (!obelisk.CheckAnswer(answer))
+        {
+            _failedRun[obelisk.Id] = runId;
+            return PuzzleSolveResult.Wrong;
+        }
 
         Solve(obelisk, CodeTask.ToId(obelisk.Kind), () => _rewards?.ApplyCodeTask(obelisk.Kind));
         return PuzzleSolveResult.Correct;
@@ -134,6 +148,8 @@ public class PuzzleManager : IDisposable
         {
             case PuzzleSolveResult.Correct: return null;
             case PuzzleSolveResult.Wrong: return "wrong answer";
+            case PuzzleSolveResult.NoAttemptsLeft:
+                return "the obelisk already rejected an answer this run — try again in the next run";
             case PuzzleSolveResult.AlreadySolved: return "puzzle is already solved";
             case PuzzleSolveResult.TooFar: return "too far from the puzzle";
             default: return "not a code puzzle";

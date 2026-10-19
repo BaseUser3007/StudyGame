@@ -14,6 +14,8 @@ public class RunModifiers
     public int RunsPerDay { get; private set; }
     /// <summary>День, с которого начинается мировая угроза.</summary>
     public int ThreatDay { get; private set; }
+    /// <summary>Сколько здоровья лечит ночь у спального места.</summary>
+    public float SleepHeal { get; private set; }
     public IReadOnlyList<ItemStack> StartingItems => _startingItems;
 
     private readonly List<ItemStack> _startingItems = new List<ItemStack>();
@@ -32,7 +34,8 @@ public class RunModifiers
             MaxHealth = Mathf.Max(1f, config.maxHealth),
             InventorySlots = Mathf.Max(1, config.inventorySlots),
             RunsPerDay = Mathf.Max(1, config.runsPerDay),
-            ThreatDay = Mathf.Max(1, config.threatDay)
+            ThreatDay = Mathf.Max(1, config.threatDay),
+            SleepHeal = Mathf.Max(0f, config.sleepHealAmount)
         };
 
         foreach (ItemStack stack in config.startingItems)

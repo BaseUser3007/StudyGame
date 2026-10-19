@@ -182,6 +182,9 @@ public class Level : MonoBehaviour
             PuzzleGenerator.Generate(
                 puzzleConfig, tilemapGenerator, fogOfWarSystem, objectManager, _enemyManager.CampCenters, startTile,
                 unlocks.IsMapEventUnlocked, _puzzleManager, salt: new System.Random().Next());
+        // Патрули обходят области головоломок; патрули первого дня — только когда места головоломок известны
+        _enemyManager.SetPuzzles(_puzzleManager);
+        _enemyManager.SpawnInitialPatrols();
 
         // 10. Lua песочница
         luaSandbox.Initialize(
@@ -214,6 +217,12 @@ public class Level : MonoBehaviour
         inventory.Publish();
         dayCycle.Publish();
 
+        // Стартовые события забега — после трекера достижений и UI (туториала), иначе их некому услышать:
+        // угроза с первого дня / предупреждение о ней, враги, видимые со спавна
+        if (mode == GameMode.Run)
+            dayCycle.AnnounceStart();
+        _enemyManager.PublishInitialVisibility();
+
         // 12. Лагерь / забег: выход из забега, поражение, переход в лагерь
         RunController runController = new RunController(
             mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
@@ -242,7 +251,7 @@ public class Level : MonoBehaviour
 
     /// <summary>
     /// Лагерь поверх сгенерированной карты: площадка с сеткой над точкой спавна (игрок стоит у её
-    /// нижнего края), туман над ней снят, объекты карты на ней скрыты, камера — на центре сетки.
+    /// нижнего края), туман над ней снят, объекты карты с неё убраны, камера — на центре сетки.
     /// </summary>
     private void InitializeHub(MetaProgress progress, UnlockRegistry unlocks, Vector2Int startTile, GameObject player)
     {
@@ -255,21 +264,13 @@ public class Level : MonoBehaviour
 
         RectInt area = _hubGrid.TileArea;
         fogOfWarSystem.RevealRect(area, margin: 2);
-        HideObjectsOnHubArea(area, margin: 1);
+        // Объекты карты на площадке лагеря не нужны — убираем вместе с индексом ObjectManager
+        objectManager.RemoveObjectsInArea(new RectInt(area.xMin - 1, area.yMin - 1, area.width + 2, area.height + 2));
 
         _hubPlacement = _hubGrid.Root.gameObject.AddComponent<HubPlacementController>();
         _hubPlacement.Initialize(_hubService, _hubGrid, codeEditorManager);
 
         cameraController.FocusOn(_hubGrid.WorldCenter);
-    }
-
-    /// <summary>Объекты карты на площадке лагеря не нужны — выключаем (сцена перезагрузится к забегу).</summary>
-    private void HideObjectsOnHubArea(RectInt area, int margin)
-    {
-        for (int x = area.xMin - margin; x < area.xMax + margin; x++)
-            for (int y = area.yMin - margin; y < area.yMax + margin; y++)
-                foreach (ResourceObject obj in objectManager.GetObjectsAtTile(new Vector2Int(x, y)))
-                    obj.gameObject.SetActive(false);
     }
 
     private System.Collections.Generic.IEnumerable<string> GetRecipeKeys()

@@ -18,10 +18,17 @@ public enum CodeTaskKind
 /// </summary>
 public sealed class CodeTask
 {
-    /// <summary>Сколько чисел во входе.</summary>
+    /// <summary>Сколько чисел во входе sum/max.</summary>
     public const int InputLength = 12;
-    /// <summary>Порог для count: считаем числа больше него.</summary>
+    /// <summary>Сколько чисел во входе count (перебор solve закрыт правилом «одна попытка за запуск», PuzzleManager).</summary>
+    public const int CountInputLength = 12;
+    /// <summary>Порог count по умолчанию для Create (тесты, отладка); Generate берёт случайный.</summary>
     public const int CountLimit = 10;
+    /// <summary>Диапазон случайного порога count в Generate.</summary>
+    public const int CountLimitMin = 10;
+    public const int CountLimitMax = 89;
+    /// <summary>Значения входа count: 1–99.</summary>
+    public const int CountValueMax = 99;
 
     // Допуск сравнения ответа: Lua отдаёт double, ответы целые
     private const double AnswerTolerance = 1e-6;
@@ -47,19 +54,26 @@ public sealed class CodeTask
     // ─── Public API ───────────────────────────────────────────
 
     /// <summary>
-    /// Новая задача: 12 целых — sum 1–50, max 1–99, count 1–20 (limit 10).
+    /// Новая задача: sum — 12 целых 1–50, max — 12 целых 1–99, count — 30 целых 1–99 со случайным limit 10–89.
     /// </summary>
     public static CodeTask Generate(CodeTaskKind kind, Random random)
     {
         if (random == null) throw new ArgumentNullException(nameof(random));
+
+        if (kind == CodeTaskKind.Count)
+            return GenerateCount(random);
 
         GetRange(kind, out int min, out int max);
         var input = new int[InputLength];
         for (int i = 0; i < input.Length; i++)
             input[i] = random.Next(min, max + 1);
 
-        return new CodeTask(kind, input, kind == CodeTaskKind.Count ? CountLimit : 0);
+        return new CodeTask(kind, input, 0);
     }
+
+    /// <summary>Длина входа задачи этого вида.</summary>
+    public static int GetInputLength(CodeTaskKind kind) =>
+        kind == CodeTaskKind.Count ? CountInputLength : InputLength;
 
     /// <summary>Задача с заданным входом (для тестов и отладки).</summary>
     public static CodeTask Create(CodeTaskKind kind, int[] input, int limit = CountLimit)
@@ -99,12 +113,36 @@ public sealed class CodeTask
 
     // ─── Helpers ──────────────────────────────────────────────
 
+    /// <summary>
+    /// count: ответ k выбирается равномерно из 0..30 (limit не подсказывает ответ), затем k чисел больше limit
+    /// и остальные не больше него, перемешанные. Перебору solve нужно в среднем ~16 попыток при любой стратегии.
+    /// </summary>
+    private static CodeTask GenerateCount(Random random)
+    {
+        int limit = random.Next(CountLimitMin, CountLimitMax + 1);
+        int above = random.Next(0, CountInputLength + 1);
+
+        var input = new int[CountInputLength];
+        for (int i = 0; i < input.Length; i++)
+            input[i] = i < above
+                ? random.Next(limit + 1, CountValueMax + 1)
+                : random.Next(1, limit + 1);
+
+        // Фишер–Йетс: числа больше limit не должны стоять подряд в начале
+        for (int i = input.Length - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            (input[i], input[j]) = (input[j], input[i]);
+        }
+
+        return new CodeTask(CodeTaskKind.Count, input, limit);
+    }
+
     private static void GetRange(CodeTaskKind kind, out int min, out int max)
     {
         switch (kind)
         {
             case CodeTaskKind.Max: min = 1; max = 99; break;
-            case CodeTaskKind.Count: min = 1; max = 20; break;
             default: min = 1; max = 50; break;
         }
     }

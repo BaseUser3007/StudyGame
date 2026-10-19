@@ -136,7 +136,7 @@ public class PuzzleCommandTests
     }
 
     [Test]
-    public void Solve_WrongAnswer_NilAndReason_CostsTwo_AttemptsUnlimited()
+    public void Solve_WrongAnswer_NilAndReason_CostsTwo_OneAttemptPerRun()
     {
         int wrong = _obelisk.GetTask().Answer + 1;
         _lua.Run($"a, b = solve({ObeliskTable}, {wrong})");
@@ -146,9 +146,16 @@ public class PuzzleCommandTests
         Assert.AreEqual(2f, _lua.Spent, 0.001f);
         Assert.IsFalse(_obelisk.IsSolved);
 
-        _lua.Run($"c = solve({ObeliskTable}, {_obelisk.GetTask().Answer})");
-        Assert.IsTrue(Global("c").Read<bool>());
+        // В том же запуске обелиск больше не принимает ответов (вызов всё равно оплачен)
+        _lua.Run($"c, d = solve({ObeliskTable}, {_obelisk.GetTask().Answer})");
+        Assert.AreEqual(LuaValueType.Nil, Global("c").Type);
+        StringAssert.Contains("next run", Global("d").Read<string>());
         Assert.AreEqual(4f, _lua.Spent, 0.001f);
+        Assert.IsFalse(_obelisk.IsSolved);
+
+        GameEventBus.PublishRunStarted();
+        _lua.Run($"e = solve({ObeliskTable}, {_obelisk.GetTask().Answer})");
+        Assert.IsTrue(Global("e").Read<bool>());
     }
 
     [Test]

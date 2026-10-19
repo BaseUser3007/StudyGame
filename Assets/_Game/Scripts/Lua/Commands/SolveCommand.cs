@@ -16,7 +16,7 @@ public class SolveCommand : LuaCommandBase
     public override string Description =>
         "Ответ на задачу обелиска из findObjects/check: solve(obj, answer), игрок — в 1.5 тайла от обелиска. " +
         "Ответ надо вычислить кодом в том же запуске (вход puzzle(obj).input меняется каждый запуск). " +
-        "Верно — награда до конца забега и true; иначе nil и причина (\"wrong answer\", попытки не ограничены)";
+        "Верно — награда до конца забега и true; иначе nil и причина (\"wrong answer\"); одна попытка на обелиск за запуск кода";
 
     private const string UsageMessage = "usage: solve(obj, answer)";
 

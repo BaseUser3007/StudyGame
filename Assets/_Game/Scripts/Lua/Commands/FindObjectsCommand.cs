@@ -51,6 +51,15 @@ public class FindObjectsCommand : PlayerCommandBase
         { "meat",     typeof(MeatObject)     }
     };
 
+    // Старые имена типов: сниппеты в библиотеке кода, написанные до переименования, продолжают работать.
+    // В список известных типов (ошибки, справка) не попадают
+    private static readonly Dictionary<string, string> LegacyTypeNames
+        = new Dictionary<string, string>
+    {
+        { "bush",   "berry_bush" },
+        { "rabbit", "sheep"      }
+    };
+
     // Типы врагов, известные заранее (для подсказки в ошибке); остальные определяются по EnemyDefinition.enemyId
     private static readonly string[] KnownEnemyTypes = { "goblin" };
 
@@ -77,7 +86,11 @@ public class FindObjectsCommand : PlayerCommandBase
     public static bool TryGetType(string typeName, out Type type)
     {
         type = null;
-        return !string.IsNullOrEmpty(typeName) && TypeMap.TryGetValue(typeName.ToLower(), out type);
+        if (string.IsNullOrEmpty(typeName)) return false;
+
+        string lower = typeName.ToLower();
+        if (LegacyTypeNames.TryGetValue(lower, out string current)) lower = current;
+        return TypeMap.TryGetValue(lower, out type);
     }
 
     /// <summary>

@@ -36,7 +36,7 @@ public enum GameEventType
     // ─── Этап 3 ───
     /// <summary>Наступил день угрозы (DayCycle, один раз за забег). Amount — 1, Tag — номер дня.</summary>
     ThreatReached,
-    /// <summary>Враг найден кодом (findObjects/check). Id — тип врага. Публикует Lua-команда (этап 3, lua).</summary>
+    /// <summary>Враг впервые за забег оказался на видимом тайле (EnemyManager.RefreshVisibility). Id — тип врага, Tag — "guard" / "patrol".</summary>
     EnemyFound,
     /// <summary>Враг побеждён (EnemyManager). Id — тип врага ("goblin"), Tag — "guard" / "patrol".</summary>
     EnemyKilled,

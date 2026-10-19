@@ -30,6 +30,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
     private const float LootScatterRadius = 0.7f;
     private const int LootPlaceAttempts = 10;
     private const int PatrolPointAttempts = 12;
+    // Патрули не появляются ближе этого (в тайлах) к области головоломки
+    private const int PuzzleMargin = 1;
 
     private readonly IMapDataProvider _mapData;
     private readonly IFogProvider _fog;
@@ -52,6 +54,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
     private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
     private LuaSandbox _sandbox;
+    // Головоломки создаются после врагов — ссылка приходит позже (SetPuzzles); до того проверки нет
+    private PuzzleManager _puzzles;
     private CancellationTokenSource _clock;
     private System.Random _patrolRandom = new System.Random();
     private int _nextId = 1;
@@ -99,6 +103,24 @@ public class EnemyManager : IEnemyWorld, IDisposable
         _sandbox.OnRunningChanged += HandleRunningChanged;
     }
 
+    /// <summary>
+    /// Области головоломок (лабиринт, обелиски): патрули не появляются в них и не выбирают там точки обхода.
+    /// Головоломки генерируются после лагерей врагов, поэтому ссылка передаётся отдельно.
+    /// </summary>
+    public void SetPuzzles(PuzzleManager puzzles)
+    {
+        _puzzles = puzzles;
+    }
+
+    /// <summary>
+    /// Опубликовать EnemyFound для врагов, видимых со спавна. Level вызывает после создания
+    /// AchievementTracker и UI (туториала), иначе событие уходит до подписчиков.
+    /// </summary>
+    public void PublishInitialVisibility()
+    {
+        if (!_disposed) RefreshVisibility();
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -115,18 +137,26 @@ public class EnemyManager : IEnemyWorld, IDisposable
     // ─── Generation ───────────────────────────────────────────
 
     /// <summary>
-    /// Начало забега: лагеря статических врагов (детерминированно от seed карты), а если угроза
-    /// уже идёт с первого дня — и патрули. Объекты карты к этому моменту уже разложены.
+    /// Начало забега: лагеря статических врагов (детерминированно от seed карты). Объекты карты к этому
+    /// моменту уже разложены. Видимость выставляется при создании, а EnemyFound для видимых со спавна —
+    /// в PublishInitialVisibility.
     /// </summary>
     public void SpawnInitial(Vector2Int spawnTile)
     {
         if (!_spawnEnabled || _config == null) return;
 
         SpawnCamps(new Vector2(spawnTile.x, spawnTile.y));
-        if (_dayCycle != null && _dayCycle.IsThreatActive)
-            SpawnPatrolsForDay(_dayCycle.Day);
+    }
 
-        RefreshVisibility();
+    /// <summary>
+    /// Патрули первого дня, если угроза идёт с первого дня. Вызывается после генерации головоломок
+    /// и SetPuzzles — иначе патруль может появиться там, где потом встанет лабиринт.
+    /// </summary>
+    public void SpawnInitialPatrols()
+    {
+        if (!_spawnEnabled || _config == null || _dayCycle == null || !_dayCycle.IsThreatActive) return;
+
+        SpawnPatrolsForDay(_dayCycle.Day);
     }
 
     private void SpawnCamps(Vector2 spawn)
@@ -299,6 +329,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
 
     /// <summary>
     /// Тайлы суши под туманом в кольце вокруг игрока (край тумана); нет таких — любые суша подальше от игрока.
+    /// Области головоломок (с отступом PuzzleMargin) исключены.
     /// </summary>
     private List<Vector2Int> CollectPatrolTiles(Vector2 player)
     {
@@ -311,6 +342,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
             for (int y = 0; y < _mapData.MapHeight; y++)
             {
                 if (!_mapData.IsWalkable(x, y)) continue;
+                if (IsNearPuzzle(new Vector2Int(x, y), PuzzleMargin)) continue;
 
                 float distance = Vector2.Distance(player, new Vector2(x, y));
                 if (distance < min) continue;
@@ -589,7 +621,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
         for (int attempt = 0; attempt < PatrolPointAttempts; attempt++)
         {
             Vector2 point = from + RandomInCircle(_patrolRandom, radius);
-            if (IsWalkable(point)) return point;
+            // В лабиринт и на обелиски патруль не заходит
+            if (IsWalkable(point) && !IsNearPuzzle(MapPosition.ToTile(point), 0)) return point;
         }
 
         return from;
@@ -612,7 +645,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
         Vector2Int max = MapPosition.ToTile(area.max);
         for (int x = min.x; x <= max.x; x++)
             for (int y = min.y; y <= max.y; y++)
-                if (!_mapData.IsWalkable(x, y))
+                if (!_mapData.IsWalkable(x, y) || IsNearPuzzle(new Vector2Int(x, y), 0))
                     return false;
 
         if (_objects != null && _objects.GetNearestObjectAt(position, _config.objectSpacing) != null)
@@ -638,6 +671,18 @@ public class EnemyManager : IEnemyWorld, IDisposable
     // ─── Helpers ──────────────────────────────────────────────
 
     private bool IsTileVisible(Vector2Int tile) => _fog == null || _fog.IsVisible(tile.x, tile.y);
+
+    /// <summary>Тайл в области головоломки или не дальше margin тайлов от неё (без PuzzleManager — нет).</summary>
+    private bool IsNearPuzzle(Vector2Int tile, int margin)
+    {
+        if (_puzzles == null || _puzzles.Puzzles.Count == 0) return false;
+
+        for (int dx = -margin; dx <= margin; dx++)
+            for (int dy = -margin; dy <= margin; dy++)
+                if (_puzzles.GetPuzzleAt(new Vector2Int(tile.x + dx, tile.y + dy)) != null)
+                    return true;
+        return false;
+    }
 
     private static List<EnemyDefinition> ValidKinds(List<EnemyDefinition> list)
     {

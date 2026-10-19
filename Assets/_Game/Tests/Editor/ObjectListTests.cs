@@ -129,6 +129,15 @@ public class ObjectListTests
     }
 
     [Test]
+    public void LegacyTypeNames_StillResolve()
+    {
+        Assert.IsTrue(FindObjectsCommand.TryGetType("bush", out System.Type bush));
+        Assert.AreEqual(typeof(BerryBushObject), bush);
+        Assert.IsTrue(FindObjectsCommand.TryGetType("Rabbit", out System.Type rabbit));
+        Assert.AreEqual(typeof(SheepObject), rabbit);
+    }
+
+    [Test]
     public void EnemyTable_IdIsOffsetAndRecognized()
     {
         var enemy = new LuaTable();

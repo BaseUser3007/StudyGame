@@ -95,12 +95,18 @@ public class DayCycle
     {
         _sandbox = sandbox;
         _sandbox.OnRunningChanged += HandleRunningChanged;
-
-        // Угроза с первого дня (ThreatDay = 1) — объявляем сразу, как только забег собран
-        if (IsThreatActive) AnnounceThreat();
     }
 
     // ─── Public API ───────────────────────────────────────────
+
+    /// <summary>
+    /// Угроза в первый день: ThreatDay = 1 — объявление (ThreatReached), ThreatDay = 2 — предупреждение.
+    /// Level вызывает после создания AchievementTracker и UI, чтобы событие и уведомление не потерялись.
+    /// </summary>
+    public void AnnounceStart()
+    {
+        NotifyThreat();
+    }
 
     /// <summary>
     /// Закончить день досрочно (кнопка End Day). Во время выполнения кода нельзя.
@@ -157,7 +163,7 @@ public class DayCycle
         if (slept && _health != null && !_health.IsDead)
         {
             float before = _health.Current;
-            _health.Heal(_config.sleepHealAmount);
+            _health.Heal(_modifiers.SleepHeal);
             healed = _health.Current - before;
         }
 
@@ -180,7 +186,7 @@ public class DayCycle
     // ─── Threat ───────────────────────────────────────────────
 
     /// <summary>
-    /// В начале дня: за день до угрозы — предупреждение, в день угрозы — объявление (один раз).
+    /// В начале дня (и забега — AnnounceStart): за день до угрозы — предупреждение, в день угрозы — объявление (один раз).
     /// </summary>
     private void NotifyThreat()
     {

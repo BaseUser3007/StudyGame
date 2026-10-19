@@ -47,18 +47,44 @@ public class PuzzleTests
 
     [TestCase(CodeTaskKind.Sum, 1, 50)]
     [TestCase(CodeTaskKind.Max, 1, 99)]
-    [TestCase(CodeTaskKind.Count, 1, 20)]
-    public void CodeTask_Generate_TwelveNumbersInRange(CodeTaskKind kind, int min, int max)
+    [TestCase(CodeTaskKind.Count, 1, 99)]
+    public void CodeTask_Generate_NumbersInRange(CodeTaskKind kind, int min, int max)
     {
         var random = new System.Random(42);
         for (int i = 0; i < 50; i++)
         {
             CodeTask task = CodeTask.Generate(kind, random);
-            Assert.AreEqual(CodeTask.InputLength, task.Input.Count);
+            Assert.AreEqual(CodeTask.GetInputLength(kind), task.Input.Count);
             foreach (int n in task.Input)
                 Assert.That(n, Is.InRange(min, max));
             Assert.IsFalse(string.IsNullOrEmpty(task.Text));
         }
+    }
+
+    [Test]
+    public void CodeTask_Count_RandomLimit_WideAnswerRange()
+    {
+        // Ответ равномерно 0..CountInputLength, limit случайный — ответ не угадать по limit
+        var random = new System.Random(7);
+        var answers = new HashSet<int>();
+        var limits = new HashSet<int>();
+        int sum = 0;
+        const int Samples = 400;
+
+        for (int i = 0; i < Samples; i++)
+        {
+            CodeTask task = CodeTask.Generate(CodeTaskKind.Count, random);
+            Assert.That(task.Limit, Is.InRange(CodeTask.CountLimitMin, CodeTask.CountLimitMax));
+            Assert.That(task.Answer, Is.InRange(0, CodeTask.CountInputLength));
+            answers.Add(task.Answer);
+            limits.Add(task.Limit);
+            sum += task.Answer;
+        }
+
+        Assert.GreaterOrEqual(answers.Count, CodeTask.CountInputLength - 1);
+        Assert.Greater(limits.Count, 10);
+        double half = CodeTask.CountInputLength / 2.0;
+        Assert.That(sum / (double)Samples, Is.InRange(half - 2.0, half + 2.0));
     }
 
     [Test]
@@ -276,7 +302,12 @@ public class PuzzleTests
             player = new Vector2(1f, 0.5f);
             Assert.AreEqual(PuzzleSolveResult.Wrong, manager.TrySolveCodeTask(obelisk, answer + 1));
             Assert.IsFalse(obelisk.IsSolved);
+            // Одна попытка за запуск: даже верный ответ в том же запуске не принимается
+            Assert.AreEqual(PuzzleSolveResult.NoAttemptsLeft, manager.TrySolveCodeTask(obelisk, answer));
 
+            // Новый запуск — новый вход и новая попытка
+            GameEventBus.PublishRunStarted();
+            answer = obelisk.GetTask().Answer;
             Assert.AreEqual(PuzzleSolveResult.Correct, manager.TrySolveCodeTask(obelisk, answer));
             Assert.IsTrue(obelisk.IsSolved);
             Assert.AreEqual(PuzzleSolveResult.AlreadySolved, manager.TrySolveCodeTask(obelisk, answer));
