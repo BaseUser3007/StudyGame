@@ -25,10 +25,11 @@ public class PrintCommand : LuaCommandBase
     public override string Name => "print";
     public override float EnergyCost => 0.5f;
     public override string Signature => "print(...)";
-    public override string Description => "Выводит значения в лог под главным окном: числа, текст, nil, " +
-                                          "таблицы с полями (на один уровень), у списка findObjects — count и первые " +
-                                          $"{ListPreviewItems} элемента. Строка не длиннее {MaxLength} символов. " +
-                                          "Внутри цикла платится на каждом проходе";
+    public override string Description =>
+        "Prints values to the log under the main window: numbers, text, nil, " +
+        "tables with fields (one level deep), for a findObjects list — count and the first " +
+        $"{ListPreviewItems} items. A line is at most {MaxLength} characters. " +
+        "Inside a loop it is paid on every pass";
 
     private readonly Action<string> _output;
 

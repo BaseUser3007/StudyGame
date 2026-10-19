@@ -407,9 +407,10 @@ public class TutorialController : IDisposable
 
             int index = _modeSteps.IndexOf(step) + 1;
             string caption = _mode == TutorialMode.Hub
-                ? $"Camp · {index}/{_modeSteps.Count}"
-                : $"Tutorial · {index}/{_modeSteps.Count}";
-            string text = step.Text.Replace("{runs}", _state.RunsPerDay.ToString());
+                ? Loc.F("Camp · {0}/{1}", index, _modeSteps.Count)
+                : Loc.F("Tutorial · {0}/{1}", index, _modeSteps.Count);
+            // Тексты шагов — английский исходник (ключ перевода — с «{runs}»); NextText переводит TutorialOverlay
+            string text = Loc.T(step.Text).Replace("{runs}", _state.RunsPerDay.ToString());
 
             _overlay.Show(new TutorialOverlay.Content
             {
@@ -419,7 +420,7 @@ public class TutorialController : IDisposable
                 NextText = "Next",
                 ShowSkip = true,
                 ShowHintsOff = false,
-                Waiting = step.Done != null ? step.Waiting : null
+                Waiting = step.Done != null ? Loc.T(step.Waiting) : null
             });
         }
 
@@ -434,9 +435,9 @@ public class TutorialController : IDisposable
             _shownKey = key;
             _overlay.Show(new TutorialOverlay.Content
             {
-                Caption = "Concept",
-                Title = concept.Title,
-                Text = concept.Text,
+                Caption = Loc.T("Concept"),
+                Title = Loc.T(concept.Title),
+                Text = Loc.T(concept.Text),
                 Example = concept.Example,
                 ShowNext = true,
                 NextText = "Got it",
@@ -478,14 +479,14 @@ public class TutorialController : IDisposable
         _progress.Save();
         Hide();
         UIEventBus.PublishNotification(
-            "Tutorial skipped. Concept hints stay on — turn them off with the Hints button.", LogEntryType.Warning);
+            Loc.T("Tutorial skipped. Concept hints stay on — turn them off with the Hints button."), LogEntryType.Warning);
     }
 
     private void HandleHintsOffClicked()
     {
         SetHintsEnabled(false);
         Hide();
-        UIEventBus.PublishNotification("Hints are off. Turn them back on with the Hints button.", LogEntryType.Warning);
+        UIEventBus.PublishNotification(Loc.T("Hints are off. Turn them back on with the Hints button."), LogEntryType.Warning);
     }
 
     // ─── GameEventBus ─────────────────────────────────────────

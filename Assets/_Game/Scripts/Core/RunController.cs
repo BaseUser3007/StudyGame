@@ -60,7 +60,7 @@ public class RunController
 
         if (_sandbox.IsRunning)
         {
-            UIEventBus.PublishNotification("Can't reset progress while the code is running", LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T("Can't reset progress while the code is running"), LogEntryType.Warning);
             return;
         }
 
@@ -73,7 +73,7 @@ public class RunController
 
         if (_sandbox.IsRunning)
         {
-            UIEventBus.PublishNotification("Can't leave the run while the code is running", LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T("Can't leave the run while the code is running"), LogEntryType.Warning);
             return;
         }
 

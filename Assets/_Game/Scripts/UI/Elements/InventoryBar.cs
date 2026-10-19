@@ -14,6 +14,7 @@ public class InventoryBar : VisualElement
     public InventoryBar(VisualTreeAsset template)
     {
         VisualElement root = template.Instantiate();
+        LocUxml.Translate(root);
         _bar = root.Q<VisualElement>("inventory-bar");
 
         Debug.Assert(_bar != null, "InventoryBar: inventory-bar not found");
@@ -132,7 +133,7 @@ public class InventoryBar : VisualElement
 
         private static string GetDisplayName(ResourceItem item)
         {
-            return string.IsNullOrEmpty(item.displayName) ? item.name : item.displayName;
+            return Loc.T(string.IsNullOrEmpty(item.displayName) ? item.name : item.displayName);
         }
     }
 }

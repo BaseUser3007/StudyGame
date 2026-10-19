@@ -62,7 +62,7 @@ public static class TutorialFacts
 
 /// <summary>
 /// Шаг UI-гайда (GameDesign §10.5): элемент UI, текст, условие перехода.
-/// Текст — английский; `код` в обратных кавычках подсвечивается как код, {runs} — запусков в день.
+/// Текст — английский исходник (перевод — Loc.T в TutorialController, LocRuUi); `код` в обратных кавычках подсвечивается как код, {runs} — запусков в день.
 /// </summary>
 public sealed class TutorialStep
 {

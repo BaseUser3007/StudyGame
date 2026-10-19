@@ -34,6 +34,7 @@ public class CodeLibraryPanel : VisualElement
         _library = library;
 
         VisualElement root = template.Instantiate();
+        LocUxml.Translate(root);
         QueryElements(root);
         ValidateReferences();
 
@@ -157,22 +158,22 @@ public class CodeLibraryPanel : VisualElement
         info.AddToClassList("snippet-info");
 
         info.Add(CreateLabel(snippet.title, "snippet-name"));
-        info.Add(CreateLabel($"{CountLines(snippet.code)} стр. · {snippet.savedAt}", "snippet-meta"));
+        info.Add(CreateLabel(Loc.F("{0} lines · {1}", CountLines(snippet.code), snippet.savedAt), "snippet-meta"));
         info.Add(CreateLabel(GetPreview(snippet.code), "snippet-preview"));
         entry.Add(info);
 
-        Button btnOpen = new Button(() => OnOpenSnippetRequested?.Invoke(snippet)) { text = "Открыть" };
+        Button btnOpen = new Button(() => OnOpenSnippetRequested?.Invoke(snippet)) { text = Loc.T("Open") };
         btnOpen.AddToClassList("snippet-btn");
         btnOpen.focusable = false;
-        btnOpen.tooltip = _canOpenSnippets ? "Открыть в новом окне" : "Окна-классы ещё не открыты";
+        btnOpen.tooltip = Loc.T(_canOpenSnippets ? "Open in a new window" : "Class windows are not unlocked yet");
         btnOpen.SetEnabled(_canOpenSnippets);
         entry.Add(btnOpen);
 
-        // Удаление в два нажатия: «×» → «Удалить?» → удалено
+        // Удаление в два нажатия: «×» → «Delete?» → удалено
         Button btnDelete = new Button { text = "×" };
         btnDelete.AddToClassList("snippet-btn");
         btnDelete.focusable = false;
-        btnDelete.tooltip = "Удалить из библиотеки";
+        btnDelete.tooltip = Loc.T("Delete from the library");
         btnDelete.clicked += () =>
         {
             if (btnDelete.ClassListContains(ConfirmClass))
@@ -181,7 +182,7 @@ public class CodeLibraryPanel : VisualElement
                 return;
             }
             btnDelete.AddToClassList(ConfirmClass);
-            btnDelete.text = "Удалить?";
+            btnDelete.text = Loc.T("Delete?");
         };
         entry.Add(btnDelete);
 

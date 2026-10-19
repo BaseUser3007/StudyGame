@@ -180,7 +180,7 @@ public class PuzzleManager : IDisposable
         string reward = applyReward?.Invoke();
         GameEventBus.Publish(GameEventType.PuzzleSolved, puzzle.TypeId, 1, tag);
 
-        string title = puzzle.TypeId == PuzzleTypes.Maze ? "Maze solved!" : "Puzzle solved!";
+        string title = Loc.T(puzzle.TypeId == PuzzleTypes.Maze ? "Maze solved!" : "Puzzle solved!");
         UIEventBus.PublishNotification(string.IsNullOrEmpty(reward) ? title : $"{title} {reward}", LogEntryType.Success);
         OnPuzzleSolved?.Invoke(puzzle);
     }

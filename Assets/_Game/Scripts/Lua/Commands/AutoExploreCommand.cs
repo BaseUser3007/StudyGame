@@ -20,16 +20,20 @@ public class AutoExploreCommand : PlayerCommandBase
     /// <summary>Сколько шагов разведки autoExplore(type) делает за один вызов.</summary>
     public const int MaxStepsPerCall = 3;
 
-    public override string Name => "autoExplore";
+    /// <summary>Цена вызова и каждого следующего шага (константа — её подставляет и русское описание).</summary>
     // Готовая команда: аналог из базовых — check + move(dir, 6) ≈ 2–3 энергии; наценка за удобство (GameDesign §9, решение 3)
-    public override float EnergyCost => 10f;
+    public const float CallCost = 10f;
+
+    public override string Name => "autoExplore";
+    public override float EnergyCost => CallCost;
     public override bool IsReadyMade => true;
     public override string Signature => "autoExplore([type])";
-    public override string Description => "Готовая команда разведки: пройти до 6 тайлов туда, где откроется больше всего ещё не виденной суши " +
-                                          "(если вокруг всё открыто — к ближайшей границе тумана). Возвращает число открытых тайлов суши. " +
-                                          $"С типом (stick, tree, goblin, obelisk…) — разведывать, пока объект не появится в поле зрения (до {MaxStepsPerCall} шагов), " +
-                                          "и вернуть ближайший, как findObjects(type):getNear(), или nil и причину. " +
-                                          $"Каждый шаг после первого — ещё {EnergyCost:0} энергии. Дороже, чем check + move";
+    public override string Description =>
+        "Ready-made scouting command: walks up to 6 tiles toward where the most unseen land opens up " +
+        "(if everything around is revealed — to the nearest fog edge). Returns the number of land tiles revealed. " +
+        $"With a type (stick, tree, goblin, obelisk…) — scouts until such an object comes into view (up to {MaxStepsPerCall} steps) " +
+        "and returns the nearest one, like findObjects(type):getNear(), or nil and a reason. " +
+        $"Each step after the first costs {CallCost:0} more energy. Costs more than check + move";
 
     private readonly IFogProvider _fog;
     private readonly ObjectManager _objectManager;

@@ -31,23 +31,23 @@ public class LuaObjectList
     /// </summary>
     public static readonly IReadOnlyList<(string Name, string Signature, string Description)> Methods = new[]
     {
-        ("getNear",   "getNear()",                    "ближайший объект"),
-        ("getFar",    "getFar()",                     "самый дальний объект"),
-        ("getMin",    "getMin(field)",                "объект с наименьшим значением поля, например getMin(\"durability\")"),
-        ("getMax",    "getMax(field)",                "объект с наибольшим значением поля"),
-        ("getRandom", "getRandom()",                  "случайный объект"),
-        ("getAt",     "getAt(x, y, [radius])",        "объект ближе всего к точке (по умолчанию не дальше 0.5)"),
-        ("find",      "find(field, value)",           "первый объект, у которого поле равно значению, например find(\"id\", other.id)"),
-        ("where",     "where(field, op, value)",      "новый список из подходящих объектов; op: ==, ~=, <, <=, >, >="),
-        ("sortBy",    "sortBy(field, [descending])",  "новый список, отсортированный по полю (descending = true — по убыванию)"),
-        ("take",      "take(n)",                      "новый список из первых n объектов"),
-        ("contains",  "contains(obj)",                "есть ли объект в списке (сравнение по id)"),
-        ("indexOf",   "indexOf(obj)",                 "номер объекта в списке или nil"),
-        ("sum",       "sum(field)",                   "сумма числового поля, например sum(\"durability\") — энергия на добычу всех")
+        ("getNear",   "getNear()",                    "nearest object"),
+        ("getFar",    "getFar()",                     "farthest object"),
+        ("getMin",    "getMin(field)",                "object with the smallest field value, e.g. getMin(\"durability\")"),
+        ("getMax",    "getMax(field)",                "object with the largest field value"),
+        ("getRandom", "getRandom()",                  "random object"),
+        ("getAt",     "getAt(x, y, [radius])",        "object closest to the point (no farther than 0.5 by default)"),
+        ("find",      "find(field, value)",           "first object whose field equals the value, e.g. find(\"id\", other.id)"),
+        ("where",     "where(field, op, value)",      "new list of the matching objects; op: ==, ~=, <, <=, >, >="),
+        ("sortBy",    "sortBy(field, [descending])",  "new list sorted by the field (descending = true — largest first)"),
+        ("take",      "take(n)",                      "new list of the first n objects"),
+        ("contains",  "contains(obj)",                "whether the object is in the list (compared by id)"),
+        ("indexOf",   "indexOf(obj)",                 "index of the object in the list or nil"),
+        ("sum",       "sum(field)",                   "sum of a numeric field, e.g. sum(\"durability\") — energy to mine them all")
     };
 
     /// <summary>Поля объекта, с которыми работают методы.</summary>
-    public const string Fields = "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state; у головоломок — solved";
+    public const string Fields = "distance, durability, x, y, id, type, kind, tool; enemies also have health, maxHealth, state; puzzles have solved";
 
     /// <summary>Значение поля kind у ресурсов и врагов.</summary>
     public const string KindObject = "object";

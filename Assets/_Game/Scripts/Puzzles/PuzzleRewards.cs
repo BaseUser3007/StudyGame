@@ -47,7 +47,10 @@ public class PuzzleRewards
                     _modifiers.DelayThreat(_config.threatDelayDays);
                     _dayCycle.Publish();
                     int days = _config.threatDelayDays;
-                    return $"The threat is delayed by {days} day{(days > 1 ? "s" : "")} (day {_dayCycle.ThreatDay}).";
+                    // Текст уведомления — на языке игры (Loc)
+                    return days > 1
+                        ? Loc.F("The threat is delayed by {0} days (day {1}).", days, _dayCycle.ThreatDay)
+                        : Loc.F("The threat is delayed by {0} day (day {1}).", days, _dayCycle.ThreatDay);
                 }
                 return ApplyEnergyBonus();
 
@@ -67,7 +70,7 @@ public class PuzzleRewards
         if (crystal == null || amount <= 0)
         {
             Debug.LogWarning("PuzzleRewards: PuzzleConfig.crystalItem is not assigned — the maze gives nothing");
-            return "The chest is empty.";
+            return Loc.T("The chest is empty.");
         }
 
         int added = _inventory != null ? _inventory.Add(crystal, amount) : 0;
@@ -86,10 +89,11 @@ public class PuzzleRewards
             }
         }
 
-        string name = crystal.DisplayName;
-        if (left <= 0) return $"Found {amount} {name} in the chest.";
-        if (dropped > 0) return $"Found {amount} {name}: {added} taken, {dropped} on the ground (inventory is full).";
-        return $"Found {amount} {name}, but the inventory is full — {left} lost.";
+        string name = Loc.T(crystal.DisplayName);
+        if (left <= 0) return Loc.F("Found {0} {1} in the chest.", amount, name);
+        if (dropped > 0)
+            return Loc.F("Found {0} {1}: {2} taken, {3} on the ground (inventory is full).", amount, name, added, dropped);
+        return Loc.F("Found {0} {1}, but the inventory is full — {2} lost.", amount, name, left);
     }
 
     // ─── Helpers ──────────────────────────────────────────────
@@ -102,7 +106,7 @@ public class PuzzleRewards
         _energy.SetMax(_energy.Max + bonus, refill: false);
         _energy.Restore(bonus);
         _dayCycle?.Publish();
-        return $"Max energy +{bonus:0.#} for this run, +{bonus:0.#} energy now.";
+        return Loc.F("Max energy +{0} for this run, +{0} energy now.", bonus.ToString("0.#"));
     }
 
     private string ApplyHealthBonus()
@@ -110,6 +114,6 @@ public class PuzzleRewards
         float bonus = _config.maxHealthBonus;
         _modifiers.AddMaxHealth(bonus);
         _health.SetMax(_health.Max + bonus, healToFull: true);
-        return $"Max health +{bonus:0.#} for this run, health restored.";
+        return Loc.F("Max health +{0} for this run, health restored.", bonus.ToString("0.#"));
     }
 }

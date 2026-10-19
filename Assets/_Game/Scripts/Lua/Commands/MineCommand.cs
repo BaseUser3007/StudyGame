@@ -13,10 +13,11 @@ public class MineCommand : PlayerCommandBase
     // Плата за вызов; сама добыча дополнительно тратит энергию по прочности того, что выпадет
     public override float EnergyCost => 1f;
     public override string Signature => "mine([x, y])";
-    public override string Description => "Добыть дерево (нужен axe), валун или gold_ore (pickaxe) и т.п. Без аргументов — ближайший к персонажу, " +
-                                          "mine(x, y) или mine(obj) — в точке рядом. Инструмент изнашивается, " +
-                                          "добыча выпадает на землю — собрать её можно через harvest. " +
-                                          "Тратит энергию по прочности добычи. Возвращает true или false и причину";
+    public override string Description =>
+        "Mine a tree (needs an axe), a boulder or gold_ore (pickaxe), etc. Without arguments — the nearest one to the player, " +
+        "mine(x, y) or mine(obj) — at a nearby point. The tool wears out, " +
+        "the loot falls on the ground — pick it up with harvest. " +
+        "Spends energy by the loot durability. Returns true or false and a reason";
 
     private readonly ResourceHarvester _harvester;
     private readonly ObjectManager _objectManager;

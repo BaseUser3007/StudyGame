@@ -4,23 +4,23 @@
         <ui:VisualElement name="library-drawer" class="library-drawer" picking-mode="Ignore">
 
             <!-- Ползунок посередине правого края -->
-            <ui:Button name="btn-library-toggle" class="library-toggle" text="‹" tooltip="Библиотека кода: перетащите окно сюда, чтобы сохранить"/>
+            <ui:Button name="btn-library-toggle" class="library-toggle" text="‹" tooltip="Code library: drag a window here to save it"/>
 
             <!-- Боковая панель -->
             <ui:VisualElement name="library-panel" class="library-panel hidden">
                 <ui:VisualElement class="library-header">
-                    <ui:Label class="library-title" text="Библиотека кода"/>
+                    <ui:Label class="library-title" text="Code library"/>
                     <ui:Button name="btn-close" class="library-close" text="×"/>
                 </ui:VisualElement>
 
-                <ui:Label name="drop-hint" class="library-drop-hint" text="Перетащите окно за заголовок сюда, чтобы сохранить его код"/>
+                <ui:Label name="drop-hint" class="library-drop-hint" text="Drag a window here by its header to save its code"/>
 
                 <!-- Показывается, пока окна-«классы» закрыты: записи нельзя открыть как окна -->
-                <ui:Label name="locked-note" class="library-locked-note hidden" text="Окна-классы ещё не открыты: записи хранятся, но открыть их как окна пока нельзя"/>
+                <ui:Label name="locked-note" class="library-locked-note hidden" text="Class windows are not unlocked yet: entries are kept, but they can't be opened as windows for now"/>
 
                 <!-- Сохранённые фрагменты: заполняется из кода -->
                 <ui:ScrollView name="snippet-list" class="snippet-list"/>
-                <ui:Label name="list-empty" class="library-empty" text="Пока ничего не сохранено"/>
+                <ui:Label name="list-empty" class="library-empty" text="Nothing saved yet"/>
             </ui:VisualElement>
 
         </ui:VisualElement>

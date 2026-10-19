@@ -53,26 +53,27 @@ public class CommandHelp
 
         List<ILuaCommand> all = commands.OrderBy(c => c.Name).ToList();
 
-        AddSection("Команды",
-            "Цена списывается при каждом вызове. Добыча и крафт дополнительно тратят энергию по ресурсу и рецепту.");
+        // Заголовки и пояснения — английский исходник, перевод через Loc; описания команд — из реестра (Loc.T)
+        AddSection(Loc.T("Commands"),
+            Loc.T("The cost is charged on every call. Mining and crafting also spend energy for the resource and the recipe."));
         foreach (ILuaCommand command in all.Where(c => !c.IsReadyMade))
             _content.Add(CreateCommandEntry(command));
 
         // Массив возвращают только findObjects и check — без них раздел бесполезен
         if (all.Any(c => c is FindObjectsCommand || c is CheckCommand))
         {
-            AddSection("Массив findObjects",
-                "Методы вызываются через двоеточие: list:getNear(). where, sortBy и take возвращают новый массив — " +
-                $"их можно выстраивать в цепочку. Поля объекта: {LuaObjectList.Fields}. Собранные объекты пропускаются.");
+            AddSection(Loc.T("findObjects list"),
+                Loc.F("Methods are called with a colon: list:getNear(). where, sortBy and take return a new list, " +
+                      "so they can be chained. Object fields: {0}. Harvested objects are skipped.", Loc.T(LuaObjectList.Fields)));
             foreach (var method in LuaObjectList.Methods)
-                _content.Add(CreateEntry(method.Signature, LuaObjectList.MethodCost, method.Description));
+                _content.Add(CreateEntry(method.Signature, LuaObjectList.MethodCost, Loc.T(method.Description)));
         }
 
         List<ILuaCommand> readyMade = all.Where(c => c.IsReadyMade).ToList();
         if (readyMade.Count > 0)
         {
-            AddSection("Готовые команды",
-                "Делают то же, что несколько базовых команд, но стоят дороже — свой код экономит энергию.");
+            AddSection(Loc.T("Ready-made commands"),
+                Loc.T("They do what a few basic commands do, but cost more: your own code saves energy."));
             foreach (ILuaCommand command in readyMade)
                 _content.Add(CreateCommandEntry(command));
         }
@@ -88,9 +89,9 @@ public class CommandHelp
     /// </summary>
     private void BuildConstructs(EnergyConfig energyConfig, UnlockRegistry unlocks)
     {
-        AddSection("Конструкции языка",
-            "Списывается каждый раз при выполнении: условие — при каждой проверке, цикл — на каждой итерации. " +
-            "Закрытые (locked) конструкции открываются по ходу игры — код с ними не запустится.");
+        AddSection(Loc.T("Language constructs"),
+            Loc.T("Charged every time they execute: a condition on every check, a loop on every iteration. " +
+                  "Locked constructs are unlocked during the game: code that uses them won't run."));
 
         foreach (LuaConstructs.Info info in LuaConstructs.All)
         {
@@ -98,7 +99,7 @@ public class CommandHelp
             AddConstructRows(info, energyConfig, locked);
         }
 
-        AddKeyword("return", energyConfig != null ? energyConfig.returnCost : (float?)null, "за выполнение", false);
+        AddKeyword("return", energyConfig != null ? energyConfig.returnCost : (float?)null, "per execution", false);
     }
 
     private void AddConstructRows(LuaConstructs.Info info, EnergyConfig config, bool locked)
@@ -106,31 +107,31 @@ public class CommandHelp
         switch (info.Id)
         {
             case LuaConstructs.Local:
-                AddKeyword("local", config?.localCost, "за выполнение", locked);
+                AddKeyword("local", config?.localCost, "per execution", locked);
                 break;
             case LuaConstructs.If:
-                AddKeyword("if / elseif", config?.ifCost, "за проверку условия", locked);
-                AddKeyword("else", config?.elseCost, "за вход в ветку", locked);
+                AddKeyword("if / elseif", config?.ifCost, "per condition check", locked);
+                AddKeyword("else", config?.elseCost, "per branch entry", locked);
                 break;
             case LuaConstructs.For:
-                AddKeyword("for", config?.forCost, "за итерацию", locked);
+                AddKeyword("for", config?.forCost, "per iteration", locked);
                 break;
             case LuaConstructs.While:
-                AddKeyword("while", config?.whileCost, "за проверку условия", locked);
+                AddKeyword("while", config?.whileCost, "per condition check", locked);
                 break;
             case LuaConstructs.Repeat:
-                AddKeyword("repeat … until", config?.repeatCost, "за проверку условия", locked);
+                AddKeyword("repeat … until", config?.repeatCost, "per condition check", locked);
                 break;
             case LuaConstructs.Function:
-                AddKeyword("function", config?.functionCost, "за вызов", locked);
+                AddKeyword("function", config?.functionCost, "per call", locked);
                 break;
             case LuaConstructs.Classes:
                 // Доп. окно — глобальная функция с именем заголовка: платится как вызов функции
-                AddKeyword("окна-классы (+)", config?.functionCost, "за вызов окна", locked);
+                AddKeyword(Loc.T("class windows") + " (+)", config?.functionCost, "per window call", locked);
                 break;
             default:
                 // Новая конструкция без описанной цены — показываем хотя бы имя
-                AddKeyword(info.DisplayName, null, string.Empty, locked);
+                AddKeyword(Loc.T(info.DisplayName), null, string.Empty, locked);
                 break;
         }
     }
@@ -160,7 +161,7 @@ public class CommandHelp
         return CreateEntry(
             string.IsNullOrEmpty(command.Signature) ? command.Name : command.Signature,
             command.EnergyCost,
-            command.Description);
+            Loc.T(command.Description));
     }
 
     private static VisualElement CreateEntry(string signatureText, float energyCost, string descriptionText)
@@ -176,7 +177,7 @@ public class CommandHelp
         signature.enableRichText = false;
         header.Add(signature);
 
-        Label cost = new Label($"{Format(energyCost)} эн.");
+        Label cost = new Label(Loc.F("{0} en.", Format(energyCost)));
         cost.AddToClassList("help-cost");
         header.Add(cost);
 
@@ -193,8 +194,10 @@ public class CommandHelp
         return entry;
     }
 
+    /// <param name="when">Английский исходник («per call»…) — переводится здесь.</param>
     private void AddKeyword(string keyword, float? cost, string when, bool locked)
     {
+        when = Loc.T(when);
         VisualElement row = new VisualElement();
         row.AddToClassList("help-keyword-row");
         row.EnableInClassList("help-keyword-row--locked", locked);
@@ -204,8 +207,8 @@ public class CommandHelp
         row.Add(name);
 
         string priceText = locked
-            ? "locked"
-            : cost.HasValue ? $"{Format(cost.Value)} эн. {when}" : when;
+            ? Loc.T("locked")
+            : cost.HasValue ? Loc.F("{0} en. {1}", Format(cost.Value), when) : when;
         Label price = new Label(priceText);
         price.AddToClassList("help-cost");
         row.Add(price);

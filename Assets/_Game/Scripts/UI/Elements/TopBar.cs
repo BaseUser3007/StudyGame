@@ -49,6 +49,7 @@ public class TopBar : VisualElement
     public TopBar(VisualTreeAsset template)
     {
         VisualElement root = template.Instantiate();
+        LocUxml.Translate(root);
 
         _energyLabel = root.Q<Label>("energy-label");
         _healthLabel = root.Q<Label>("health-label");
@@ -119,7 +120,7 @@ public class TopBar : VisualElement
     /// <summary>Текст кнопки Hints.</summary>
     public void SetHintsEnabled(bool enabled)
     {
-        _btnHints.text = enabled ? "Hints: On" : "Hints: Off";
+        _btnHints.text = Loc.T(enabled ? "Hints: On" : "Hints: Off");
         _btnHints.EnableInClassList("btn-hints--off", !enabled);
     }
 
@@ -131,7 +132,7 @@ public class TopBar : VisualElement
     /// </summary>
     public void UpdateDay(DayInfo info)
     {
-        _dayLabel.text = $"Day {info.Day} · Runs {info.RunsUsed}/{info.RunsPerDay}";
+        _dayLabel.text = Loc.F("Day {0} · Runs {1}/{2}", info.Day, info.RunsUsed, info.RunsPerDay);
 
         _daySummary.text = info.Summary;
         _daySummary.EnableInClassList("day-summary--penalty", info.Summary.StartsWith("−"));
@@ -161,15 +162,15 @@ public class TopBar : VisualElement
         {
             bool soon = !info.ThreatActive && info.DaysUntilThreat == 1;
             if (info.ThreatActive)
-                _threatLabel.text = "Threat!";
+                _threatLabel.text = Loc.T("Threat!");
             else if (soon)
-                _threatLabel.text = "Threat tomorrow!";
+                _threatLabel.text = Loc.T("Threat tomorrow!");
             else
-                _threatLabel.text = $"Threat in {info.DaysUntilThreat} days";
+                _threatLabel.text = Loc.F("Threat in {0} days", info.DaysUntilThreat);
 
             _threatLabel.tooltip = info.ThreatActive
-                ? $"Enemy patrols roam the map since day {info.ThreatDay}"
-                : $"Enemy patrols appear on day {info.ThreatDay}";
+                ? Loc.F("Enemy patrols roam the map since day {0}", info.ThreatDay)
+                : Loc.F("Enemy patrols appear on day {0}", info.ThreatDay);
             _threatLabel.EnableInClassList("threat-label--soon", soon);
             _threatLabel.EnableInClassList("threat-label--active", info.ThreatActive);
         }
@@ -186,7 +187,7 @@ public class TopBar : VisualElement
     /// </summary>
     public void SetRunning(bool running)
     {
-        _btnRun.text = running ? "Stop" : "Run";
+        _btnRun.text = Loc.T(running ? "Stop" : "Run");
         _btnRun.EnableInClassList("btn-stop", running);
         // Закончить день или выйти из забега во время выполнения нельзя
         _btnEndDay.SetEnabled(!running);
@@ -201,7 +202,7 @@ public class TopBar : VisualElement
         if (_programCostLabel == null) return;
         _programCost = cost;
         // Цена одного прохода: циклы и повторные вызовы оплачиваются при каждом выполнении
-        _programCostLabel.text = $"Cost per pass: {cost:0.#}";
+        _programCostLabel.text = Loc.F("Cost per pass: {0}", cost.ToString("0.#"));
         RefreshCostWarning();
     }
 
@@ -209,13 +210,13 @@ public class TopBar : VisualElement
     {
         if (_energyLabel == null) return;
         _currentEnergy = current;
-        _energyLabel.text = $"Energy: {current:0.#} / {Mathf.RoundToInt(max)}";
+        _energyLabel.text = Loc.F("Energy: {0} / {1}", current.ToString("0.#"), Mathf.RoundToInt(max));
         RefreshCostWarning();
     }
 
     public void UpdateHealth(float current, float max)
     {
-        _healthLabel.text = $"HP {Mathf.CeilToInt(current)} / {Mathf.RoundToInt(max)}";
+        _healthLabel.text = Loc.F("HP {0} / {1}", Mathf.CeilToInt(current), Mathf.RoundToInt(max));
         float fraction = max > 0f ? Mathf.Clamp01(current / max) : 0f;
         _healthFill.style.width = Length.Percent(fraction * 100f);
 

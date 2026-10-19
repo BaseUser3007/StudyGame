@@ -19,13 +19,14 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Name => "findObjects";
     public override float EnergyCost => 1f;
     public override string Signature => "findObjects([type])";
-    public override string Description => "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
-                                          "враги — enemy (все) или goblin; головоломки — obelisk, maze или puzzle (все). " +
-                                          "Без аргумента — всё, что видно, вместе с врагами и головоломками. " +
-                                          $"У объекта есть поля {LuaObjectList.Fields} (kind — \"object\", \"enemy\" или \"puzzle\"; " +
-                                          "у лабиринта ещё entranceX, entranceY — тайл перед входом). " +
-                                          "У массива есть count и методы для поиска, фильтрации и сортировки " +
-                                          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке";
+    public override string Description =>
+        "Array of visible objects of a type: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (dropped); " +
+        "enemies — enemy (all) or goblin; puzzles — obelisk, maze or puzzle (all). " +
+        "Without an argument — everything visible, enemies and puzzles included. " +
+        $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\" or \"puzzle\"; " +
+        "a maze also has entranceX, entranceY — the tile in front of the entrance). " +
+        "The array has count and methods for searching, filtering and sorting " +
+        "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section";
 
     private readonly ObjectManager _objectManager;
     private readonly EnemyManager _enemies;

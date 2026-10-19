@@ -9,9 +9,10 @@ public class MoveToCommand : PlayerCommandBase
     public override string Name => "moveTo";
     public override float EnergyCost => 2f;
     public override string Signature => "moveTo(x, y)";
-    public override string Description => "Идти к тайлу, содержащему точку (x, y), по прямой; moveTo(obj) — к объекту или врагу из findObjects/check " +
-                                          "(врага — туда, где он был при поиске). Вода останавливает, объекты обходятся; " +
-                                          "если застрял — стоп через пару секунд. Возвращает число пройденных тайлов";
+    public override string Description =>
+        "Walk in a straight line to the tile containing the point (x, y); moveTo(obj) — to an object or enemy from findObjects/check " +
+        "(an enemy — to where it was when found). Water stops you, objects are walked around; " +
+        "if stuck — stops after a couple of seconds. Returns the number of tiles walked";
 
     public MoveToCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }

@@ -75,12 +75,12 @@ public class AchievementToasts
         _current = _queue.Dequeue();
         _hiding = false;
 
-        _title.text = _current.Title;
-        _description.text = _current.Description;
+        _title.text = Loc.T(_current.Title);
+        _description.text = Loc.T(_current.Description);
         _description.EnableInClassList(HiddenClass, string.IsNullOrEmpty(_current.Description));
 
         string rewards = AchievementText.FormatRewards(_current);
-        _rewards.text = string.IsNullOrEmpty(rewards) ? string.Empty : $"Rewards: {rewards}";
+        _rewards.text = string.IsNullOrEmpty(rewards) ? string.Empty : Loc.F("Rewards: {0}", rewards);
         _rewards.EnableInClassList(HiddenClass, string.IsNullOrEmpty(rewards));
 
         _icon.EnableInClassList(HiddenClass, _current.Icon == null);
@@ -122,7 +122,7 @@ public class AchievementToasts
 
     private void RefreshMore()
     {
-        _more.text = _queue.Count > 0 ? $"+{_queue.Count} more" : string.Empty;
+        _more.text = _queue.Count > 0 ? Loc.F("+{0} more", _queue.Count) : string.Empty;
         _more.EnableInClassList(HiddenClass, _queue.Count == 0);
     }
 

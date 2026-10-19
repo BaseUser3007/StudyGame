@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Тексты окна «New command: X» по схеме Why → What → Example → Energy (GameDesign §6.2.4–6.2.5):
 /// какую боль лечит команда, что она делает, пример и заметка о цене. Ключ — ILuaCommand.Name.
-/// Тексты на английском (UI игры английский). Цена за вызов сюда не входит — она берётся из
+/// Тексты — английский исходник, русский — в LocRuUi (Loc.T в UnlockPopup). Цена за вызов сюда не входит — она берётся из
 /// ILuaCommand.EnergyCost. Для команд без записи UnlockPopup показывает ILuaCommand.Description.
 /// </summary>
 public static class LuaCommandGuide

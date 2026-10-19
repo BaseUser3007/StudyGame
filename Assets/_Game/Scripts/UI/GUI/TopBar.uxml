@@ -36,7 +36,7 @@
         <!-- Справка по командам: заполняется из реестра команд -->
         <ui:VisualElement name="help-popup" class="help-popup hidden">
             <ui:VisualElement class="help-header">
-                <ui:Label class="help-title" text="Команды"/>
+                <ui:Label class="help-title" text="Commands"/>
                 <ui:Button name="btn-help-close" class="help-close" text="×"/>
             </ui:VisualElement>
             <ui:ScrollView name="help-content" class="help-content"/>

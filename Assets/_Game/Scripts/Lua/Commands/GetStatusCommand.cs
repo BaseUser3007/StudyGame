@@ -13,12 +13,13 @@ public class GetStatusCommand : LuaCommandBase
     public override string Name => "getStatus";
     public override float EnergyCost => 1f;
     public override string Signature => "getStatus()";
-    public override string Description => "Состояние: таблица { energy, maxEnergy, spent, health, maxHealth, day, runsLeft, threatDay, daysToThreat, threat }. " +
-                                          "spent — энергия, потраченная с начала текущего запуска кода (включая этот вызов), " +
-                                          "threatDay — день, с которого гоблины патрулируют карту, daysToThreat — сколько дней до него " +
-                                          "(0 — угроза уже идёт), threat — идёт ли угроза. " +
-                                          "Закончить день с энергией меньше 1 — штраф к максимуму на завтра, " +
-                                          "у кровати (build(\"bed\")) — бонус";
+    public override string Description =>
+        "Status: a table { energy, maxEnergy, spent, health, maxHealth, day, runsLeft, threatDay, daysToThreat, threat }. " +
+        "spent — energy spent since the current code run started (this call included), " +
+        "threatDay — the day goblins start patrolling the map, daysToThreat — days left until then " +
+        "(0 — the threat is on), threat — whether the threat is on. " +
+        "Ending a day with less than 1 energy lowers tomorrow's maximum, " +
+        "sleeping by a bed (build(\"bed\")) gives a bonus";
 
     private readonly PlayerEnergy _energy;
     private readonly PlayerHealth _health;

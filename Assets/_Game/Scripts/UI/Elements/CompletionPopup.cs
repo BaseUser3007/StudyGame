@@ -139,6 +139,6 @@ public class CompletionPopup : VisualElement
 
     public static string FormatCost(float cost)
     {
-        return cost <= 0f ? "free" : $"{cost:0.#} en";
+        return cost <= 0f ? Loc.T("free") : Loc.F("{0} en", cost.ToString("0.#"));
     }
 }

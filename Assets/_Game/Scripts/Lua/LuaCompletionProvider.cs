@@ -59,32 +59,39 @@ public class LuaCompletionProvider
     // Поля таблиц, которые возвращают команды
     private static readonly (string name, string detail)[] Fields =
     {
-        ("x", "координата x"),
-        ("y", "координата y"),
-        ("id", "уникальный номер объекта — для сравнения a.id == b.id"),
-        ("type", "тип объекта"),
-        ("distance", "расстояние до персонажа"),
-        ("tool", "нужный инструмент или nil"),
-        ("durability", "энергия на добычу / прочность инструмента"),
-        ("count", "количество элементов"),
-        ("free", "свободных ячеек инвентаря"),
-        ("name", "название предмета"),
-        ("slot", "номер ячейки инвентаря"),
-        ("maxDurability", "максимальная прочность инструмента"),
-        ("spent", "getStatus(): энергия, потраченная с начала запуска")
+        ("x", "x coordinate"),
+        ("y", "y coordinate"),
+        ("id", "unique object number — compare with a.id == b.id"),
+        ("type", "object type"),
+        ("distance", "distance to the player"),
+        ("tool", "required tool or nil"),
+        ("durability", "energy to mine / tool durability"),
+        ("count", "number of items"),
+        ("free", "free inventory slots"),
+        ("name", "item name"),
+        ("slot", "inventory slot number"),
+        ("maxDurability", "maximum tool durability"),
+        ("spent", "getStatus(): energy spent since the run started")
     };
 
-    // Методы и поля таблиц, которые возвращают команды (методы — массива findObjects)
-    private static readonly (string name, string detail, bool isMethod, bool hasArgs)[] Members = BuildMembers();
+    /// <summary>Английские описания полей для подсказок (исходник для Loc; тесты проверяют перевод).</summary>
+    public static IEnumerable<string> FieldDescriptions => Fields.Select(f => f.detail);
 
-    private static (string, string, bool, bool)[] BuildMembers()
+    /// <summary>Шаблон описания функции окна-«класса» (Loc.F, {0} — имя окна).</summary>
+    public const string WindowFunctionDescription = "Function from window {0}";
+
+    // Методы и поля таблиц, которые возвращают команды (методы — массива findObjects).
+    // Описание хранится английским и переводится при выдаче подсказки (язык меняется без перезапуска статики)
+    private static readonly (string name, string signature, string description, bool isMethod, bool hasArgs)[] Members = BuildMembers();
+
+    private static (string, string, string, bool, bool)[] BuildMembers()
     {
-        var members = new List<(string, string, bool, bool)>();
+        var members = new List<(string, string, string, bool, bool)>();
         foreach (var method in LuaObjectList.Methods)
-            members.Add((method.Name, $"{method.Signature} — {method.Description}", true,
+            members.Add((method.Name, method.Signature, method.Description, true,
                 !method.Signature.EndsWith("()")));
         foreach (var field in Fields)
-            members.Add((field.name, field.detail, false, false));
+            members.Add((field.name, null, field.detail, false, false));
         return members.ToArray();
     }
 
@@ -157,7 +164,8 @@ public class LuaCompletionProvider
                 Label = command.Name,
                 InsertText = command.Name + (hasArgs ? "($0)" : "()$0"),
                 Detail = command.Signature,
-                Description = command.Description,
+                // Тексты подсказок отдаются уже переведёнными (CompletionPopup показывает как есть)
+                Description = Loc.T(command.Description),
                 Kind = CompletionKind.Command,
                 EnergyCost = command.EnergyCost
             };
@@ -169,7 +177,7 @@ public class LuaCompletionProvider
                 Label = window,
                 InsertText = window + "($0)",
                 Detail = window + "(...)",
-                Description = "Функция из окна " + window,
+                Description = Loc.F(WindowFunctionDescription, window),
                 Kind = CompletionKind.Function
             };
 
@@ -218,7 +226,7 @@ public class LuaCompletionProvider
                 Label = m.name,
                 // С аргументами курсор встаёт внутрь скобок
                 InsertText = m.name + (!m.isMethod ? "$0" : m.hasArgs ? "($0)" : "()$0"),
-                Detail = m.detail,
+                Detail = m.signature != null ? $"{m.signature} — {Loc.T(m.description)}" : Loc.T(m.description),
                 Kind = CompletionKind.Member
             };
         }

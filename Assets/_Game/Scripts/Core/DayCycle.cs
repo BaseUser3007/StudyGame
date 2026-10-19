@@ -177,7 +177,8 @@ public class DayCycle
         _energy.SetMax(max, refill: true);
 
         Publish();
-        UIEventBus.PublishNotification($"Day {Day}: max energy {max:0.#}. {_summary}", LogEntryType.Success);
+        UIEventBus.PublishNotification(
+            Loc.F("Day {0}: max energy {1}. {2}", Day, max.ToString("0.#"), _summary), LogEntryType.Success);
         NotifyThreat();
         PlayerEventBus.PublishDayStarted();
         OnDayStarted?.Invoke(Day);
@@ -193,7 +194,7 @@ public class DayCycle
         if (IsThreatActive)
             AnnounceThreat();
         else if (DaysUntilThreat == 1)
-            UIEventBus.PublishNotification("Goblins will start patrolling tomorrow.", LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T("Goblins will start patrolling tomorrow."), LogEntryType.Warning);
     }
 
     private void AnnounceThreat()
@@ -202,7 +203,7 @@ public class DayCycle
         _threatAnnounced = true;
 
         UIEventBus.PublishNotification(
-            "The threat has begun: goblin patrols come out of the fog every day.", LogEntryType.Error);
+            Loc.T("The threat has begun: goblin patrols come out of the fog every day."), LogEntryType.Error);
         // Amount — 1 (счётчики достижений), номер дня — в Tag
         GameEventBus.Publish(GameEventType.ThreatReached, null, 1, Day.ToString());
         OnThreatReached?.Invoke();
@@ -213,12 +214,15 @@ public class DayCycle
         if (!exhausted && !slept) return string.Empty;
 
         string text = string.Empty;
-        if (exhausted) text += $"−{penalty:0.#}: energy ran out";
+        // Текст для верхней панели — на языке игры; знак −/+ в начале красит строку (TopBar)
+        if (exhausted) text += Loc.F("−{0}: energy ran out", penalty.ToString("0.#"));
         if (slept)
         {
             if (text.Length > 0) text += ", ";
-            text += $"+{bonus:0.#}: slept in bed ({_sleepStreak} night{(_sleepStreak > 1 ? "s" : "")})";
-            if (healed > 0f) text += $", +{healed:0.#} health";
+            text += _sleepStreak > 1
+                ? Loc.F("+{0}: slept in bed ({1} nights)", bonus.ToString("0.#"), _sleepStreak)
+                : Loc.F("+{0}: slept in bed ({1} night)", bonus.ToString("0.#"), _sleepStreak);
+            if (healed > 0f) text += Loc.F(", +{0} health", healed.ToString("0.#"));
         }
         return text;
     }

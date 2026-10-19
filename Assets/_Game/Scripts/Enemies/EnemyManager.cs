@@ -273,7 +273,9 @@ public class EnemyManager : IEnemyWorld, IDisposable
 
         if (spawned > 0)
             UIEventBus.PublishNotification(
-                spawned == 1 ? "An enemy patrol came out of the fog" : $"{spawned} enemy patrols came out of the fog",
+                spawned == 1
+                    ? Loc.T("An enemy patrol came out of the fog")
+                    : Loc.F("{0} enemy patrols came out of the fog", spawned),
                 LogEntryType.Warning);
     }
 

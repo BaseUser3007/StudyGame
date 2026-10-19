@@ -6,7 +6,7 @@
         <ui:VisualElement name="header" class="window-header">
             <ui:Label name="title" class="window-title" text="Main"/>
             <ui:Label name="energy-cost" class="energy-cost" text="0"/>
-            <ui:Button name="btn-add-method" class="btn-add-method" text="+" tooltip="Добавить метод"/>
+            <ui:Button name="btn-add-method" class="btn-add-method" text="+" tooltip="Add a method window"/>
         </ui:VisualElement>
         <ui:VisualElement name="code-area" class="code-area">
             <ui:VisualElement class="gutter gutter-numbers">
@@ -21,7 +21,7 @@
         </ui:VisualElement>
         <ui:VisualElement name="run-log" class="run-log hidden">
             <ui:VisualElement class="run-log-header">
-                <ui:Label class="run-log-title" text="Log"/>
+                <ui:Label class="run-log-title" text="Run log"/>
                 <ui:Button name="btn-run-log-clear" class="run-log-clear" text="×" tooltip="Clear the log"/>
             </ui:VisualElement>
             <ui:ScrollView name="run-log-entries" class="run-log-entries" mode="Vertical" horizontal-scroller-visibility="Hidden"/>

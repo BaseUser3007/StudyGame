@@ -18,13 +18,13 @@ public class CheckCommand : PlayerCommandBase
     public override float EnergyCost => 1f;
     public override string Signature => "check(x, y) or check(direction, [distance])";
     public override string Description =>
-        "Что находится в тайле: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
-        "(направления как у move, дистанция в тайлах, по умолчанию 1, по диагонали — шаги по обеим осям). " +
-        "Только тайлы без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-        "или nil и причину. type — главное в тайле: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\"), " +
-        "иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
-        "на стене лабиринта walkable = false; objects — массив ресурсов тайла, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
-        "puzzle — головоломка, в область которой входит тайл (как элемент findObjects), или nil";
+        "What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
+        "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
+        "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
+        "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\"), " +
+        "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
+        "walkable = false on a maze wall; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
+        "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil";
 
     private const string UsageMessage = "usage: check(x, y), check(obj) or check(direction, [distance])";
 

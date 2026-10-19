@@ -17,10 +17,10 @@ public class PuzzleCommand : PlayerCommandBase
     public override float EnergyCost => 1f;
     public override string Signature => "puzzle([obj | x, y])";
     public override string Description =>
-        "Условие головоломки рядом: puzzle(obj) — обелиска или лабиринта из findObjects/check, puzzle(x, y) — в точке, " +
-        "puzzle() — ближайшей в досягаемости (1.5 тайла). Возвращает таблицу { kind, text, input, limit, solved } " +
-        "(kind — \"sum\", \"max\", \"count\" или \"maze\"; input — массив чисел, новый в каждом запуске кода) " +
-        "или nil и причину. Ответ отдаётся через solve(obj, answer)";
+        "Conditions of a nearby puzzle: puzzle(obj) — an obelisk or maze from findObjects/check, puzzle(x, y) — at a point, " +
+        "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved } " +
+        "(kind — \"sum\", \"max\", \"count\" or \"maze\"; input — an array of numbers, new on every code run) " +
+        "or nil and a reason. The answer is given with solve(obj, answer)";
 
     private const string UsageMessage = "usage: puzzle(), puzzle(x, y) or puzzle(obj)";
 

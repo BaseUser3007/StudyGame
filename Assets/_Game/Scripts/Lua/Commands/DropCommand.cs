@@ -13,10 +13,11 @@ public class DropCommand : PlayerCommandBase
     public override string Name => "drop";
     public override float EnergyCost => 1f;
     public override string Signature => "drop(slot or name, [amount])";
-    public override string Description => "Выбросить предметы на землю рядом с персонажем: drop(1) — всю ячейку 1, " +
-                                          "drop(\"stone\") — все камни, вторым аргументом можно указать количество. " +
-                                          "Выброшенное подбирается через harvest (предметы без объекта на земле исчезают). " +
-                                          "Возвращает true и число выброшенных или false и причину";
+    public override string Description =>
+        "Drop items on the ground next to the player: drop(1) — the whole slot 1, " +
+        "drop(\"stone\") — all stones, the second argument sets the amount. " +
+        "Dropped items are picked up with harvest (items with no ground object disappear). " +
+        "Returns true and the number dropped or false and a reason";
 
     private const string Usage = "usage: drop(slot, [amount]) or drop(\"item\", [amount])";
     // Насколько далеко от персонажа разлетаются выброшенные предметы (в тайлах)

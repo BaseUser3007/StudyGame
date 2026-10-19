@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Кнопка «Крафт» в правом нижнем углу и боковая панель рецептов.
+/// Кнопка «Craft» в правом нижнем углу и боковая панель рецептов.
 /// Панель только показывает рецепты — сам крафт выполняется из кода командой craft("...").
 /// </summary>
 public class CraftingPanel : VisualElement
@@ -43,6 +43,7 @@ public class CraftingPanel : VisualElement
         _isAvailable = isAvailable;
 
         VisualElement root = template.Instantiate();
+        LocUxml.Translate(root);
         QueryElements(root);
         ValidateReferences();
 
@@ -176,8 +177,8 @@ public class CraftingPanel : VisualElement
             info.AddToClassList("recipe-entry-info");
 
             Label name = new Label(recipe.resultAmount > 1
-                ? $"{recipe.DisplayName} ×{recipe.resultAmount}"
-                : recipe.DisplayName);
+                ? $"{Loc.T(recipe.DisplayName)} ×{recipe.resultAmount}"
+                : Loc.T(recipe.DisplayName));
             name.AddToClassList("recipe-entry-name");
             info.Add(name);
 
@@ -234,19 +235,21 @@ public class CraftingPanel : VisualElement
         _detailsIcon.Add(CreateIcon(recipe.result, "craft-icon--large"));
 
         _detailsName.text = recipe.resultAmount > 1
-            ? $"{recipe.DisplayName} ×{recipe.resultAmount}"
-            : recipe.DisplayName;
+            ? $"{Loc.T(recipe.DisplayName)} ×{recipe.resultAmount}"
+            : Loc.T(recipe.DisplayName);
 
         _detailsIngredients.Clear();
         foreach (RecipeIngredient requirement in recipe.GetRequirements())
             _detailsIngredients.Add(CreateIngredientTile(requirement));
 
         bool stationMissing = recipe.NeedsStation && !IsStationNearby(recipe.station);
-        _detailsStation.text = !recipe.NeedsStation ? $"Станция: {recipe.station.DisplayName()}"
-            : stationMissing ? $"Станция: {recipe.station.DisplayName()} (нужна рядом)"
-            : $"Станция: {recipe.station.DisplayName()} (рядом)";
+        string station = Loc.T(recipe.station.DisplayName());
+        _detailsStation.text = !recipe.NeedsStation ? Loc.F("Station: {0}", station)
+            : stationMissing ? Loc.F("Station: {0} (must be nearby)", station)
+            : Loc.F("Station: {0} (nearby)", station);
         _detailsStation.EnableInClassList("details-row--missing", stationMissing);
-        _detailsEnergy.text = $"Энергия: {recipe.energyCost:0.#}";
+        _detailsEnergy.text = Loc.F("Energy: {0}", recipe.energyCost.ToString("0.#"));
+        // Код — Lua-API, имя предмета не переводится
         _detailsCode.text = $"craft(\"{recipe.DisplayName}\")";
     }
 
@@ -338,6 +341,6 @@ public class CraftingPanel : VisualElement
 
     private static string GetDisplayName(ResourceItem item)
     {
-        return string.IsNullOrEmpty(item.displayName) ? item.name : item.displayName;
+        return Loc.T(string.IsNullOrEmpty(item.displayName) ? item.name : item.displayName);
     }
 }

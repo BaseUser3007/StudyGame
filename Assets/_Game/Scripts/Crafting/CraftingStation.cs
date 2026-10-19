@@ -13,16 +13,16 @@ public enum CraftingStation
 public static class CraftingStationExtensions
 {
     /// <summary>
-    /// Название станции для интерфейса.
+    /// Название станции для интерфейса (английский исходник; в UI — через Loc.T).
     /// </summary>
     public static string DisplayName(this CraftingStation station)
     {
         switch (station)
         {
-            case CraftingStation.None: return "нет";
-            case CraftingStation.Workbench: return "Верстак";
-            case CraftingStation.Furnace: return "Печь";
-            case CraftingStation.Campfire: return "Костёр";
+            case CraftingStation.None: return "none";
+            case CraftingStation.Workbench: return "Workbench";
+            case CraftingStation.Furnace: return "Furnace";
+            case CraftingStation.Campfire: return "Campfire";
             default: return station.ToString();
         }
     }

@@ -55,6 +55,8 @@ public abstract class CodeEditorWindowBase : VisualElement
     private void BuildUI(VisualTreeAsset template)
     {
         VisualElement root = template.Instantiate();
+        // Подписи и подсказки шаблона; заголовок окна (имя Lua-функции) и поле кода не переводятся
+        LocUxml.Translate(root);
         _window = root.Q<VisualElement>("window");
         _titleLabel = root.Q<Label>("title");
         _btnClose = root.Q<Button>("btn-close");

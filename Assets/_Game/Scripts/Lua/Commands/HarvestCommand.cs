@@ -9,10 +9,11 @@ public class HarvestCommand : PlayerCommandBase
     // Подбор с земли дешёвый: только плата за вызов (прочность тратится при mine)
     public override float EnergyCost => 1f;
     public override string Signature => "harvest([x, y])";
-    public override string Description => "Подобрать с земли в инвентарь: палки, камни, выпавшую добычу. " +
-                                          "Без аргументов — ближайшее к персонажу, harvest(x, y) или harvest(obj) — в точке рядом. " +
-                                          "Стоит только плату за вызов. Деревья и валуны не подбираются — для них mine(), врагов бьют attack(). " +
-                                          "Возвращает true или false и причину";
+    public override string Description =>
+        "Pick up from the ground into the inventory: sticks, stones, dropped loot. " +
+        "Without arguments — the nearest one to the player, harvest(x, y) or harvest(obj) — at a nearby point. " +
+        "Costs only the call. Trees and boulders can't be picked up — use mine() for them, enemies are hit with attack(). " +
+        "Returns true or false and a reason";
 
     private readonly ResourceHarvester _harvester;
     private readonly ObjectManager _objectManager;

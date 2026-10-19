@@ -9,8 +9,9 @@ public class CraftCommand : LuaCommandBase
     // Плата за вызов; сам крафт дополнительно тратит энергию рецепта
     public override float EnergyCost => 1f;
     public override string Signature => "craft(name)";
-    public override string Description => "Скрафтить предмет по названию (рецепты — в панели крафта). " +
-                                 "Тратит ингредиенты и энергию рецепта. Возвращает true или false и причину";
+    public override string Description =>
+        "Craft an item by name (recipes are in the crafting panel). " +
+        "Spends the ingredients and the recipe energy. Returns true or false and a reason";
 
     private readonly RecipeBook _recipeBook;
     private readonly PlayerEnergy _playerEnergy;

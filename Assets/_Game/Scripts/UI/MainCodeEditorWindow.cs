@@ -50,7 +50,7 @@ public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay, INotif
     public void UpdateEnergyCost(float cost)
     {
         if (_energyCostLabel == null) return;
-        _energyCostLabel.text = $"Cost {cost:0.#}";
+        _energyCostLabel.text = Loc.F("Cost {0}", cost.ToString("0.#"));
     }
 
     // ─── Лог запуска ──────────────────────────────────────────

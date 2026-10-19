@@ -14,9 +14,9 @@ public class SolveCommand : LuaCommandBase
     public override float EnergyCost => 2f;
     public override string Signature => "solve(obj, answer)";
     public override string Description =>
-        "Ответ на задачу обелиска из findObjects/check: solve(obj, answer), игрок — в 1.5 тайла от обелиска. " +
-        "Ответ надо вычислить кодом в том же запуске (вход puzzle(obj).input меняется каждый запуск). " +
-        "Верно — награда до конца забега и true; иначе nil и причина (\"wrong answer\"); одна попытка на обелиск за запуск кода";
+        "Answer to an obelisk task from findObjects/check: solve(obj, answer), the player within 1.5 tiles of the obelisk. " +
+        "The answer must be computed by code in the same run (puzzle(obj).input changes every run). " +
+        "Correct — a reward until the end of the run and true; otherwise nil and a reason (\"wrong answer\"); one attempt per obelisk per code run";
 
     private const string UsageMessage = "usage: solve(obj, answer)";
 

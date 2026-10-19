@@ -126,7 +126,7 @@ public class TutorialOverlay
         _waiting.text = content.Waiting ?? string.Empty;
         _waiting.EnableInClassList(HiddenClass, string.IsNullOrEmpty(content.Waiting));
 
-        _btnNext.text = string.IsNullOrEmpty(content.NextText) ? "Next" : content.NextText;
+        _btnNext.text = Loc.T(string.IsNullOrEmpty(content.NextText) ? "Next" : content.NextText);
         _btnNext.EnableInClassList(HiddenClass, !content.ShowNext);
         _btnSkip.EnableInClassList(HiddenClass, !content.ShowSkip);
         _btnHintsOff.EnableInClassList(HiddenClass, !content.ShowHintsOff);

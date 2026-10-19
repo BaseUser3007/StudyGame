@@ -61,7 +61,7 @@ public class RunLog
                 entry.Add(CreateText(error.Location, "run-log-location", null));
             entry.Add(CreateText(error.Explanation, "run-log-explanation", null));
             if (!string.IsNullOrEmpty(error.Suggestion))
-                entry.Add(CreateText($"Try: {error.Suggestion}", "run-log-suggestion", null));
+                entry.Add(CreateText(Loc.F("Try: {0}", error.Suggestion), "run-log-suggestion", null));
         }
         Append(entry);
     }

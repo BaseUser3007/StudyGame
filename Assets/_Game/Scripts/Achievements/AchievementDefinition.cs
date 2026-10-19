@@ -67,16 +67,16 @@ public class AchievementReward
 
     public string Id => id != null ? id.Trim() : string.Empty;
 
-    /// <summary>Читаемое описание для UI (UI игры на английском), например "command `mine`".</summary>
+    /// <summary>Читаемое описание для UI на языке игры (Loc), например "command `mine`".</summary>
     public string Describe()
     {
         switch (kind)
         {
-            case AchievementRewardKind.Command: return $"command `{Id}`";
-            case AchievementRewardKind.Construct: return LuaConstructs.GetDisplayName(Id);
-            case AchievementRewardKind.Recipe: return $"recipe: {Id}";
-            case AchievementRewardKind.HubBuilding: return $"camp building: {Id}";
-            case AchievementRewardKind.MapEvent: return $"map event: {Id}";
+            case AchievementRewardKind.Command: return Loc.F("command `{0}`", Id);
+            case AchievementRewardKind.Construct: return Loc.T(LuaConstructs.GetDisplayName(Id));
+            case AchievementRewardKind.Recipe: return Loc.F("recipe: {0}", Id);
+            case AchievementRewardKind.HubBuilding: return Loc.F("camp building: {0}", Id);
+            case AchievementRewardKind.MapEvent: return Loc.F("map event: {0}", Id);
             default: return Id;
         }
     }

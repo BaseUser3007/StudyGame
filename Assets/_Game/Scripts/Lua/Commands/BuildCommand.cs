@@ -13,10 +13,11 @@ public class BuildCommand : PlayerCommandBase
     public override string Name => "build";
     public override float EnergyCost => 3f;
     public override string Signature => "build(name, [x, y])";
-    public override string Description => "Поставить постройку из инвентаря (например, build(\"workbench\")). " +
-                                          "Без координат — на свободное место рядом с персонажем, с координатами — в эту точку " +
-                                          "(не дальше досягаемости). Под постройкой должна быть суша без других объектов. " +
-                                          "Возвращает true, x, y или false и причину";
+    public override string Description =>
+        "Place a structure from the inventory (e.g. build(\"workbench\")). " +
+        "Without coordinates — on a free spot next to the player, with coordinates — at that point " +
+        "(within reach). The ground under it must be land with no other objects. " +
+        "Returns true, x, y or false and a reason";
 
     private readonly PlayerInventory _inventory;
     private readonly StructureManager _structures;

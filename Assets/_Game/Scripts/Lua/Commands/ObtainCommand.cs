@@ -16,9 +16,10 @@ public class ObtainCommand : PlayerCommandBase
     public override float EnergyCost => 8f;
     public override string Signature => "obtain([type])";
     public override bool IsReadyMade => true;
-    public override string Description => "Готовая команда: дойти до ближайшего видимого ресурса (можно указать тип: stone, stick…) " +
-                                          "и подобрать его, как harvest (останавливается, как только объект в досягаемости; деревья и валуны не трогает — для них mine). Дороже, чем findObjects + moveTo + harvest. " +
-                                          "Возвращает true или false и причину";
+    public override string Description =>
+        "Ready-made command: walks to the nearest visible resource (a type can be given: stone, stick…) " +
+        "and picks it up like harvest (stops as soon as the object is in reach; ignores trees and boulders — use mine for them). " +
+        "Costs more than findObjects + moveTo + harvest. Returns true or false and a reason";
 
     private readonly ObjectManager _objectManager;
     private readonly ResourceHarvester _harvester;

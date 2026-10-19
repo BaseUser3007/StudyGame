@@ -18,6 +18,8 @@ using UnityEngine.UIElements;
 /// окончания запуска — к этому моменту песочница уже применила их (OnUnlocksApplied).
 /// Несколько открытий — по очереди, кнопка Next (N) / OK. Кнопка не фокусируемая, управление только мышью.
 /// Элементы — экземпляр шаблона UnlockPopup.uxml (хост выдаёт RunScreens.GetOverlay).
+/// Тексты — английский исходник через Loc (SetHeader переводит подпись сам, AddText — нет: перевод
+/// на месте вызова); код примеров и сигнатуры не переводятся.
 /// </summary>
 public class UnlockPopup
 {
@@ -167,7 +169,7 @@ public class UnlockPopup
     private void RefreshOkButton()
     {
         int pages = CountPages();
-        _btnOk.text = pages > 0 && !_suspended ? $"Next ({pages})" : "OK";
+        _btnOk.text = pages > 0 && !_suspended ? Loc.F("Next ({0})", pages) : Loc.T("OK");
     }
 
     // ─── Decompile grouping ───────────────────────────────────
@@ -227,11 +229,11 @@ public class UnlockPopup
             case UnlockKind.Recipe: BuildRecipe(id); break;
             case UnlockKind.HubBuilding:
                 SetHeader("New camp building", id);
-                AddText("It can now be built in the camp.", "unlock-text");
+                AddText(Loc.T("It can now be built in the camp."), "unlock-text");
                 break;
             case UnlockKind.MapEvent:
                 SetHeader("New map event", id);
-                AddText("It can now appear on the map during runs.", "unlock-text");
+                AddText(Loc.T("It can now appear on the map during runs."), "unlock-text");
                 break;
             default:
                 SetHeader("Unlocked", id);
@@ -246,54 +248,54 @@ public class UnlockPopup
         ILuaCommand command = FindCommand(name);
         if (command == null)
         {
-            AddText("This command is now available in your code.", "unlock-text");
+            AddText(Loc.T("This command is now available in your code."), "unlock-text");
             return;
         }
 
         // Why → What → Example → Energy; без текста в LuaCommandGuide — описание из реестра команд
         bool hasGuide = LuaCommandGuide.TryGet(name, out LuaCommandGuide.Entry guide);
-        if (hasGuide) AddText(guide.Pain, "unlock-pain");
+        if (hasGuide) AddText(Loc.T(guide.Pain), "unlock-pain");
 
         AddCode(command.Signature);
-        AddText(hasGuide && !string.IsNullOrEmpty(guide.Explanation) ? guide.Explanation : command.Description,
+        AddText(Loc.T(hasGuide && !string.IsNullOrEmpty(guide.Explanation) ? guide.Explanation : command.Description),
             "unlock-text");
 
         if (hasGuide && !string.IsNullOrEmpty(guide.Example))
         {
-            AddText("Example", "unlock-section");
+            AddText(Loc.T("Example"), "unlock-section");
             AddCode(guide.Example);
         }
 
-        if (hasGuide) AddText("Energy", "unlock-section");
-        AddText($"Costs {Format(command.EnergyCost)} energy per call.", "unlock-cost");
-        if (hasGuide) AddText(guide.EnergyNote, "unlock-note");
+        if (hasGuide) AddText(Loc.T("Energy"), "unlock-section");
+        AddText(Loc.F("Costs {0} energy per call.", Format(command.EnergyCost)), "unlock-cost");
+        if (hasGuide) AddText(Loc.T(guide.EnergyNote), "unlock-note");
         if (command.IsReadyMade)
-            AddText("Ready-made command: it does what a few basic commands do, but costs more — " +
-                    "your own code saves energy.", "unlock-note");
-        AddText("It is now listed in Help and suggested by autocompletion.", "unlock-note");
+            AddText(Loc.T("Ready-made command: it does what a few basic commands do, but costs more — " +
+                          "your own code saves energy."), "unlock-note");
+        AddText(Loc.T("It is now listed in Help and suggested by autocompletion."), "unlock-note");
     }
 
     private void BuildConstruct(string id)
     {
-        string displayName = LuaConstructs.GetDisplayName(id);
+        string displayName = Loc.T(LuaConstructs.GetDisplayName(id));
         SetHeader("New language construct", Capitalize(displayName));
 
         // Why → What → Example → Energy (GameDesign §6.2.4)
         LuaConstructGuide.TryGet(id, out LuaConstructGuide.Entry entry);
-        AddText(entry.Pain, "unlock-pain");
-        AddText(entry.Explanation, "unlock-text");
+        AddText(Loc.T(entry.Pain), "unlock-pain");
+        AddText(Loc.T(entry.Explanation), "unlock-text");
 
         if (!string.IsNullOrEmpty(entry.Example))
         {
-            AddText("Example", "unlock-section");
+            AddText(Loc.T("Example"), "unlock-section");
             AddCode(entry.Example);
         }
 
         string cost = FormatConstructCost(id, _sandbox.EnergyConfig);
         if (cost != null || !string.IsNullOrEmpty(entry.EnergyNote))
-            AddText("Energy", "unlock-section");
+            AddText(Loc.T("Energy"), "unlock-section");
         AddText(cost, "unlock-cost");
-        AddText(entry.EnergyNote, "unlock-note");
+        AddText(Loc.T(entry.EnergyNote), "unlock-note");
     }
 
     /// <summary>
@@ -306,10 +308,10 @@ public class UnlockPopup
         SetHeader("Decompiled", $"{entry.ReadyMade}()");
 
         // Why → What → Example → Energy (GameDesign §6.2.4)
-        AddText(entry.Pain, "unlock-pain");
-        AddText(entry.Explanation, "unlock-text");
+        AddText(Loc.T(entry.Pain), "unlock-pain");
+        AddText(Loc.T(entry.Explanation), "unlock-text");
 
-        AddText(newCommands.Count == 1 ? "New command" : "New commands", "unlock-section");
+        AddText(Loc.T(newCommands.Count == 1 ? "New command" : "New commands"), "unlock-section");
         foreach (string basic in entry.Basics)
         {
             if (!newCommands.Contains(basic)) continue;
@@ -318,29 +320,29 @@ public class UnlockPopup
             if (command == null) continue;
 
             AddCode(command.Signature);
-            AddText(command.Description, "unlock-note");
-            AddText($"Costs {Format(command.EnergyCost)} energy per call.", "unlock-cost");
+            AddText(Loc.T(command.Description), "unlock-note");
+            AddText(Loc.F("Costs {0} energy per call.", Format(command.EnergyCost)), "unlock-cost");
         }
 
-        AddText("The same, with your own code", "unlock-section");
+        AddText(Loc.T("The same, with your own code"), "unlock-section");
         AddCode(entry.Example);
 
-        AddText("Energy", "unlock-section");
+        AddText(Loc.T("Energy"), "unlock-section");
         _content.Add(CreateCostRow($"{entry.ReadyMade}()", Format(readyMade.EnergyCost), "unlock-cost-ready"));
 
         float ownCost = CalculateCost(entry.Example, out List<(string Name, float Cost)> parts);
         string breakdown = string.Join(" + ", parts.ConvertAll(FormatPart));
         string total = parts.Count > 1 ? $"{breakdown} = {Format(ownCost)}" : Format(ownCost);
-        _content.Add(CreateCostRow("Your code", total, "unlock-cost-own"));
+        _content.Add(CreateCostRow(Loc.T("Your code"), total, "unlock-cost-own"));
 
         float saved = readyMade.EnergyCost - ownCost;
         if (saved > 0f)
-            AddText($"Your own code saves {Format(saved)} energy on every pass — and you decide " +
-                    "which steps you actually need.", "unlock-cost");
-        AddText(entry.EnergyNote, "unlock-note");
+            AddText(Loc.F("Your own code saves {0} energy on every pass — and you decide " +
+                          "which steps you actually need.", Format(saved)), "unlock-cost");
+        AddText(Loc.T(entry.EnergyNote), "unlock-note");
 
-        AddText($"{entry.ReadyMade}() stays available: handy, but expensive.", "unlock-note");
-        AddText("The new commands are listed in Help and suggested by autocompletion.", "unlock-note");
+        AddText(Loc.F("{0}() stays available: handy, but expensive.", entry.ReadyMade), "unlock-note");
+        AddText(Loc.T("The new commands are listed in Help and suggested by autocompletion."), "unlock-note");
     }
 
     private static string FormatPart((string Name, float Cost) part) => $"{part.Name} {Format(part.Cost)}";
@@ -424,11 +426,11 @@ public class UnlockPopup
         if (recipe == null || recipe.result == null)
         {
             SetHeader("New recipe", key);
-            AddText("It now shows up in the crafting panel.", "unlock-text");
+            AddText(Loc.T("It now shows up in the crafting panel."), "unlock-text");
             return;
         }
 
-        SetHeader("New recipe", recipe.DisplayName);
+        SetHeader("New recipe", Loc.T(recipe.DisplayName));
         Sprite icon = recipe.result.Icon;
         if (icon != null)
         {
@@ -436,24 +438,26 @@ public class UnlockPopup
             _icon.RemoveFromClassList(HiddenClass);
         }
 
-        AddText("Craft it with:", "unlock-text");
+        AddText(Loc.T("Craft it with:"), "unlock-text");
+        // Код — Lua-API: имя предмета в craft() не переводится
         AddCode($"craft(\"{recipe.DisplayName}\")");
 
-        AddText("Ingredients", "unlock-section");
+        AddText(Loc.T("Ingredients"), "unlock-section");
         foreach (RecipeIngredient ingredient in recipe.GetRequirements())
-            _content.Add(CreateItemRow(ingredient.item.Icon, ingredient.item.DisplayName, ingredient.amount));
+            _content.Add(CreateItemRow(ingredient.item.Icon, Loc.T(ingredient.item.DisplayName), ingredient.amount));
 
         if (recipe.NeedsStation)
-            AddText($"Needs a {recipe.station} nearby.", "unlock-note");
-        AddText($"Crafting costs {Format(recipe.energyCost)} energy.", "unlock-cost");
-        AddText("It now shows up in the crafting panel.", "unlock-note");
+            AddText(Loc.F("Needs a {0} nearby.", Loc.T(recipe.station.DisplayName())), "unlock-note");
+        AddText(Loc.F("Crafting costs {0} energy.", Format(recipe.energyCost)), "unlock-cost");
+        AddText(Loc.T("It now shows up in the crafting panel."), "unlock-note");
     }
 
     // ─── Helpers ──────────────────────────────────────────────
 
+    /// <param name="caption">Английский исходник — переводится здесь.</param>
     private void SetHeader(string caption, string title)
     {
-        _caption.text = caption;
+        _caption.text = Loc.T(caption);
         _title.text = title;
     }
 
@@ -535,14 +539,16 @@ public class UnlockPopup
 
         switch (id)
         {
-            case LuaConstructs.Local: return $"Costs {Format(config.localCost)} energy each time it runs.";
+            case LuaConstructs.Local: return Loc.F("Costs {0} energy each time it runs.", Format(config.localCost));
             case LuaConstructs.If:
-                return $"Costs {Format(config.ifCost)} energy per condition check, else — {Format(config.elseCost)}.";
-            case LuaConstructs.For: return $"Costs {Format(config.forCost)} energy per iteration.";
-            case LuaConstructs.While: return $"Costs {Format(config.whileCost)} energy per condition check.";
-            case LuaConstructs.Repeat: return $"Costs {Format(config.repeatCost)} energy per condition check.";
-            case LuaConstructs.Function: return $"Costs {Format(config.functionCost)} energy per call.";
-            case LuaConstructs.Classes: return $"Calling a window costs {Format(config.functionCost)} energy, like a function call.";
+                return Loc.F("Costs {0} energy per condition check, else — {1}.",
+                    Format(config.ifCost), Format(config.elseCost));
+            case LuaConstructs.For: return Loc.F("Costs {0} energy per iteration.", Format(config.forCost));
+            case LuaConstructs.While: return Loc.F("Costs {0} energy per condition check.", Format(config.whileCost));
+            case LuaConstructs.Repeat: return Loc.F("Costs {0} energy per condition check.", Format(config.repeatCost));
+            case LuaConstructs.Function: return Loc.F("Costs {0} energy per call.", Format(config.functionCost));
+            case LuaConstructs.Classes:
+                return Loc.F("Calling a window costs {0} energy, like a function call.", Format(config.functionCost));
             default: return null;
         }
     }

@@ -65,6 +65,8 @@ public class MetaProgress
         public List<StoredMaterial> materials = new List<StoredMaterial>();
         public List<PlacedHubBuilding> hubBuildings = new List<PlacedHubBuilding>();
         public bool hintsEnabled = true;
+        // Язык интерфейса (Loc): "en" / "ru"; пусто — по языку системы при первом запуске
+        public string language = "";
         public int runsFinished;
         public int defeats;
     }
@@ -85,6 +87,13 @@ public class MetaProgress
     {
         get => _data.hintsEnabled;
         set => _data.hintsEnabled = value;
+    }
+
+    /// <summary>Язык интерфейса ("en" / "ru"; пусто — не выбран). Это настройка: ResetAll её сохраняет.</summary>
+    public string Language
+    {
+        get => _data.language ?? "";
+        set => _data.language = value ?? "";
     }
 
     public MetaProgress() : this(DefaultFilePath)
@@ -260,7 +269,7 @@ public class MetaProgress
         catch (Exception e)
         {
             Debug.LogException(e);
-            UIEventBus.PublishNotification($"Failed to save progress: {e.Message}", LogEntryType.Error);
+            UIEventBus.PublishNotification(Loc.F("Failed to save progress: {0}", e.Message), LogEntryType.Error);
             return false;
         }
     }
@@ -276,7 +285,9 @@ public class MetaProgress
     public bool ResetAll()
     {
         BackupForReset(_filePath, move: false);
-        _data = new ProgressData();
+        // Язык — настройка, а не прогресс: переживает сброс
+        string language = Language;
+        _data = new ProgressData { language = language };
         return Save();
     }
 

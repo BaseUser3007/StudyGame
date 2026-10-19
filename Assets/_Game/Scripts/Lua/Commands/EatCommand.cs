@@ -12,10 +12,11 @@ public class EatCommand : LuaCommandBase
     public override string Name => "eat";
     public override float EnergyCost => 1f;
     public override string Signature => "eat(slot or name)";
-    public override string Description => "Съесть одну штуку еды: eat(\"berries\") или eat(1) — по номеру ячейки. " +
-                                          "Восстанавливает энергию и/или здоровье, но не выше максимума. " +
-                                          "Возвращает true и сколько восстановлено (энергия, здоровье) " +
-                                          "или nil и причину (\"already full\" — еда не тратится)";
+    public override string Description =>
+        "Eat one piece of food: eat(\"berries\") or eat(1) — by slot number. " +
+        "Restores energy and/or health, but not above the maximum. " +
+        "Returns true and the amount restored (energy, health) " +
+        "or nil and a reason (\"already full\" — the food is not used up)";
 
     public const string AlreadyFull = "already full";
     private const string Usage = "usage: eat(slot) or eat(\"food\")";

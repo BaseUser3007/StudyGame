@@ -53,7 +53,7 @@ public class HubPlacementController : MonoBehaviour
         HubBuildResult availability = _hub.CheckAvailability(definition);
         if (availability != HubBuildResult.Ok)
         {
-            UIEventBus.PublishNotification(HubService.Describe(availability), LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T(HubService.Describe(availability)), LogEntryType.Warning);
             OnFailed?.Invoke(availability);
             return false;
         }
@@ -118,7 +118,7 @@ public class HubPlacementController : MonoBehaviour
             return;
         }
 
-        UIEventBus.PublishNotification(HubService.Describe(result), LogEntryType.Warning);
+        UIEventBus.PublishNotification(Loc.T(HubService.Describe(result)), LogEntryType.Warning);
         OnFailed?.Invoke(result);
     }
 

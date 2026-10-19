@@ -4,8 +4,8 @@ using System.Collections.Generic;
 /// <summary>
 /// Справочник для окна «Unlocked: X» по схеме Why → What → Example → Energy (GameDesign §6.2.4–6.2.5):
 /// какую боль лечит конструкция языка, что она делает, короткий пример с реальными командами игры
-/// и статичная заметка о цене. Ключи — id из <see cref="LuaConstructs"/>. Тексты на английском
-/// (UI игры английский). Сама цена конструкции сюда не входит — она берётся из EnergyConfig (см. UnlockPopup).
+/// и статичная заметка о цене. Ключи — id из <see cref="LuaConstructs"/>. Тексты — английский исходник
+/// (русский — в LocRuUi, Loc.T в UnlockPopup). Сама цена конструкции сюда не входит — она берётся из EnergyConfig (см. UnlockPopup).
 /// </summary>
 public static class LuaConstructGuide
 {

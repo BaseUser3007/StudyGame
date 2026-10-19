@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Тексты достижений для UI (панель, тост, итоги забега) — на английском.
+/// Тексты достижений для UI (панель, тост, итоги забега) — на языке игры (Loc).
 /// </summary>
 public static class AchievementText
 {
@@ -28,8 +28,9 @@ public static class AchievementText
         AchievementCondition condition = definition?.Condition;
         if (condition == null || condition.type != AchievementConditionType.EfficientGather) return null;
 
-        string what = string.IsNullOrWhiteSpace(condition.filter) ? "items" : condition.filter.Trim();
-        return $"Goal: {condition.Target} × {what} in one code run, spending ≤ {condition.maxEnergy:0.#} energy";
+        string what = string.IsNullOrWhiteSpace(condition.filter) ? Loc.T("items") : condition.filter.Trim();
+        return Loc.F("Goal: {0} × {1} in one code run, spending ≤ {2} energy",
+            condition.Target, what, condition.maxEnergy.ToString("0.#"));
     }
 }
 
@@ -161,15 +162,15 @@ public class AchievementsPanel
         titleRow.AddToClassList("achievement-title-row");
         body.Add(titleRow);
 
-        titleRow.Add(CreateLabel(definition.Title, "achievement-title"));
+        titleRow.Add(CreateLabel(Loc.T(definition.Title), "achievement-title"));
 
-        string status = progress.Completed ? "Completed"
-            : efficient ? $"This run: {progress.Current} / {progress.Target}"
+        string status = progress.Completed ? Loc.T("Completed")
+            : efficient ? Loc.F("This run: {0} / {1}", progress.Current, progress.Target)
             : $"{progress.Current} / {progress.Target}";
         titleRow.Add(CreateLabel(status, "achievement-status"));
 
         if (!string.IsNullOrEmpty(definition.Description))
-            body.Add(CreateLabel(definition.Description, "achievement-description"));
+            body.Add(CreateLabel(Loc.T(definition.Description), "achievement-description"));
 
         string condition = AchievementText.FormatCondition(definition);
         if (condition != null)
@@ -185,7 +186,7 @@ public class AchievementsPanel
 
         string rewards = AchievementText.FormatRewards(definition);
         if (!string.IsNullOrEmpty(rewards))
-            body.Add(CreateLabel($"Rewards: {rewards}", "achievement-rewards"));
+            body.Add(CreateLabel(Loc.F("Rewards: {0}", rewards), "achievement-rewards"));
 
         return entry;
     }

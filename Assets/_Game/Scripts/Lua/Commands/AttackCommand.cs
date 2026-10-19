@@ -14,10 +14,11 @@ public class AttackCommand : PlayerCommandBase
     // Действие в мире, как moveTo (GameDesign §10.1)
     public override float EnergyCost => 2f;
     public override string Signature => "attack([obj | x, y])";
-    public override string Description => "Ударить врага: attack(enemy) — врага из findObjects/check, attack(x, y) — врага в точке, " +
-                                          "attack() — ближайшего в досягаемости. Бьёт лучшим оружием из инвентаря (меч изнашивается) " +
-                                          "или кулаком (5 урона); дальность удара — 1.5 тайла, сам к врагу не подходит. " +
-                                          "Удар длится 0.5 с. Возвращает true, урон и погиб ли враг, или nil и причину";
+    public override string Description =>
+        "Hit an enemy: attack(enemy) — an enemy from findObjects/check, attack(x, y) — the enemy at a point, " +
+        "attack() — the nearest one in reach. Uses the best weapon in the inventory (a sword wears out) " +
+        "or a fist (5 damage); reach is 1.5 tiles, does not walk up to the enemy. " +
+        "A hit takes 0.5 s. Returns true, the damage and whether the enemy died, or nil and a reason";
 
     // Насколько далеко от указанной точки может стоять враг (как в CombatService.TryAttackAt)
     private const float PickTolerance = 0.75f;

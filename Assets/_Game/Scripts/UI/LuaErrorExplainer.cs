@@ -23,8 +23,8 @@ public sealed class LuaErrorExplanation
 
     /// <summary>«Line 5 in Main» / «In window Helper» / null.</summary>
     public string Location =>
-        HasLine ? $"Line {Line} in {Window}"
-        : !string.IsNullOrEmpty(Window) ? $"In window {Window}"
+        HasLine ? Loc.F("Line {0} in {1}", Line, Window)
+        : !string.IsNullOrEmpty(Window) ? Loc.F("In window {0}", Window)
         : null;
 
     public LuaErrorExplanation(string raw, string window, int line, string explanation, string suggestion)
@@ -53,6 +53,8 @@ public sealed class LuaErrorExplanation
 /// Объяснение частых ошибок Lua для тех, кто никогда не программировал (Roadmap, этап 5).
 /// Таблица шаблонов (регулярки по реальным текстам Lua-CSharp, EnergyMeter, LuaConstructGuard,
 /// LuaSandbox и команд) → короткое объяснение на простом английском и что попробовать.
+/// Тексты — английский исходник через Loc.T/Loc.F (русский — LocRuUi); сырой текст ошибки Lua,
+/// имена команд, типы Lua и код в `…` не переводятся.
 /// Для опечаток в именах подсказывает ближайшее известное имя (команды из реестра ILuaCommand,
 /// методы списка findObjects, доп. окна, стандартные функции Lua) по расстоянию Левенштейна.
 /// </summary>
@@ -134,25 +136,25 @@ public static class LuaErrorExplainer
 
         // ── Синтаксис ──
         (R(@"unfinished long string"), (m, i) => (
-            "A `[[` text is not closed: it needs `]]` at the end.",
-            "Add `]]` where the text should end.")),
+            Loc.T("A `[[` text is not closed: it needs `]]` at the end."),
+            Loc.T("Add `]]` where the text should end."))),
         (R(@"unfinished long comment"), (m, i) => (
-            "A `--[[` comment is not closed, so all the code after it is treated as a comment.",
-            "Add `]]` where the comment should end, or use `--` for a one-line comment.")),
+            Loc.T("A `--[[` comment is not closed, so all the code after it is treated as a comment."),
+            Loc.T("Add `]]` where the comment should end, or use `--` for a one-line comment."))),
         (R(@"unfinished string"), (m, i) => (
-            "A text in quotes is not closed: every \" or ' needs a matching closing quote on the same line.",
-            "Add the missing quote, for example `move(\"up\", 1)`.")),
+            Loc.T("A text in quotes is not closed: every \" or ' needs a matching closing quote on the same line."),
+            Loc.T("Add the missing quote, for example `move(\"up\", 1)`."))),
         (R(@"'end' expected(?: \(to close '(?<what>[^']+)' at line (?<open>\d+)\))?"), EndExpected),
         (R(@"'=' or 'in' expected"), (m, i) => (
-            "A `for` loop needs `=` (counting loop) or `in` (going through a list) after the variable name.",
-            "Write it like `for i = 1, 10 do ... end` or `for _, obj in ipairs(list) do ... end`.")),
+            Loc.T("A `for` loop needs `=` (counting loop) or `in` (going through a list) after the variable name."),
+            Loc.T("Write it like `for i = 1, 10 do ... end` or `for _, obj in ipairs(list) do ... end`."))),
         (R(@"^(?:'(?<tok>[^']+)'|(?<tok>\S)) expected"), TokenExpected),
         (R(@"malformed number"), (m, i) => (
-            "A number is written wrongly, for example `3x` or `1.2.3`.",
-            "Put an operator between a number and a name: `3 * x`.")),
+            Loc.T("A number is written wrongly, for example `3x` or `1.2.3`."),
+            Loc.T("Put an operator between a number and a name: `3 * x`."))),
         (R(@"function arguments expected"), (m, i) => (
-            "After `obj:name` Lua expects brackets with arguments.",
-            "Add brackets: `list:getNear()`.")),
+            Loc.T("After `obj:name` Lua expects brackets with arguments."),
+            Loc.T("Add brackets: `list:getNear()`."))),
         (R(@"unexpected symbol near (?<near>.+)$"), UnexpectedSymbol),
         (R(@"syntax error near (?<near>.+)$"), SyntaxError),
 
@@ -166,8 +168,8 @@ public static class LuaErrorExplainer
         (R(@"attempt to compare (?:two (?<both>\w+) values|a (?<t1>\w+) value with a (?<t2>\w+) value)"), Compare),
         (R(@"attempt to concatenate a (?<t1>\w+) value(?: \(\w+ '(?<n1>[^']+)'\))?(?: with a (?<t2>\w+) value(?: \(\w+ '(?<n2>[^']+)'\))?)?"), Concatenate),
         (R(@"'for' (?<what>initial value|limit|step) must be a number"), (m, i) => (
-            $"The {m.Groups["what"].Value} of the `for` loop is not a number (maybe it is nil).",
-            "In `for i = 1, 10, 1 do` the start, end and step must be numbers. Check the variables used there.")),
+            Loc.F("The {0} of the `for` loop is not a number (maybe it is nil).", Loc.T(m.Groups["what"].Value)),
+            Loc.T("In `for i = 1, 10, 1 do` the start, end and step must be numbers. Check the variables used there."))),
     };
 
     // ─── Public API ───────────────────────────────────────────
@@ -318,34 +320,35 @@ public static class LuaErrorExplainer
     // ─── Объяснения: энергия, зависание, открытия ─────────────
 
     private static (string, string) OutOfEnergy(Match m, Input i) => (
-        $"Your energy ran out at {m.Groups["src"].Value}: it needed {m.Groups["need"].Value}, " +
-        $"but only {m.Groups["have"].Value} was left. Every command call, loop pass and condition check costs energy.",
-        "Look at the cost next to each line and do fewer steps or loop passes. End Day restores energy for tomorrow.");
+        Loc.F("Your energy ran out at {0}: it needed {1}, " +
+              "but only {2} was left. Every command call, loop pass and condition check costs energy.",
+            m.Groups["src"].Value, m.Groups["need"].Value, m.Groups["have"].Value),
+        Loc.T("Look at the cost next to each line and do fewer steps or loop passes. End Day restores energy for tomorrow."));
 
     private static (string, string) InfiniteLoop(Match m, Input i) => (
-        "The code ran too long without a pause, so the game stopped it. " +
-        "Usually this is a loop that never ends, like `while true do` with nothing that stops it.",
-        "Make sure the loop condition becomes false at some point, or leave the loop with `break`.");
+        Loc.T("The code ran too long without a pause, so the game stopped it. " +
+        "Usually this is a loop that never ends, like `while true do` with nothing that stops it."),
+        Loc.T("Make sure the loop condition becomes false at some point, or leave the loop with `break`."));
 
     private static (string, string) StackOverflow(Match m, Input i) => (
-        "A function keeps calling itself (or two functions call each other) and never stops, so Lua ran out of space.",
-        "Add a condition that ends the calls, for example `if n <= 0 then return end` at the start of the function.");
+        Loc.T("A function keeps calling itself (or two functions call each other) and never stops, so Lua ran out of space."),
+        Loc.T("Add a condition that ends the calls, for example `if n <= 0 then return end` at the start of the function."));
 
     private static (string, string) LockedCommand(Match m, Input i) => (
-        $"The command `{m.Groups["name"].Value}` exists, but you haven't unlocked it yet.",
-        "Open Achievements to see which goal unlocks it. Until then, use the commands listed in Help.");
+        Loc.F("The command `{0}` exists, but you haven't unlocked it yet.", m.Groups["name"].Value),
+        Loc.T("Open Achievements to see which goal unlocks it. Until then, use the commands listed in Help."));
 
     private static (string, string) LockedClasses(Match m, Input i) => (
-        $"Extra code windows (classes) aren't unlocked yet, but the window `{m.Groups["win"].Value}` has code in it.",
-        "Move that code into Main or clear the window. Achievements unlock class windows later.");
+        Loc.F("Extra code windows (classes) aren't unlocked yet, but the window `{0}` has code in it.", m.Groups["win"].Value),
+        Loc.T("Move that code into Main or clear the window. Achievements unlock class windows later."));
 
     private static (string, string) ForbiddenGoto(Match m, Input i) => (
-        "`goto` and `::labels::` are not part of this game: they would let the code repeat for free.",
-        "Use a loop instead: `for`, `while` or `repeat`.");
+        Loc.T("`goto` and `::labels::` are not part of this game: they would let the code repeat for free."),
+        Loc.T("Use a loop instead: `for`, `while` or `repeat`."));
 
     private static (string, string) LockedConstruct(Match m, Input i) => (
-        $"Your code uses {m.Groups["what"].Value}, which you haven't unlocked yet.",
-        "Rewrite this part without it (Help shows what you can use), or complete achievements to unlock it.");
+        Loc.F("Your code uses {0}, which you haven't unlocked yet.", Loc.T(m.Groups["what"].Value)),
+        Loc.T("Rewrite this part without it (Help shows what you can use), or complete achievements to unlock it."));
 
     // ─── Объяснения: команды ──────────────────────────────────
 
@@ -360,11 +363,11 @@ public static class LuaErrorExplainer
 
         string closest = FindClosest(name, known);
         string suggestion = closest != null
-            ? $"Did you mean \"{closest}\"? Write it like `{command}(\"{closest}\")`."
+            ? Loc.F("Did you mean \"{0}\"? Write it like `{1}(\"{0}\")`.", closest, command)
             : known.Count > 0
-                ? $"Type names are lowercase words, for example `{command}(\"{known[0]}\")`."
-                : "Check the type name in Help.";
-        return ($"`{command}` doesn't know the type \"{name}\".", suggestion);
+                ? Loc.F("Type names are lowercase words, for example `{0}(\"{1}\")`.", command, known[0])
+                : Loc.T("Check the type name in Help.");
+        return (Loc.F("`{0}` doesn't know the type \"{1}\".", command, name), suggestion);
     }
 
     private static (string, string) BadArgument(Match m, Input i)
@@ -374,16 +377,16 @@ public static class LuaErrorExplainer
         string detail = m.Groups["detail"].Value.Trim();
 
         string explanation = detail == "value expected" || detail.EndsWith("got no value", StringComparison.Ordinal)
-            ? $"`{fn}` needs more arguments: argument {number} is missing."
-            : $"Argument {number} of `{fn}` has the wrong kind of value ({detail}).";
-        return (explanation, UsageHint(fn, i, "Check the order and the kinds of arguments in Help."));
+            ? Loc.F("`{0}` needs more arguments: argument {1} is missing.", fn, number)
+            : Loc.F("Argument {0} of `{1}` has the wrong kind of value ({2}).", number, fn, detail);
+        return (explanation, UsageHint(fn, i, Loc.T("Check the order and the kinds of arguments in Help.")));
     }
 
     private static (string, string) WrongUsage(Match m, Input i)
     {
         string fn = m.Groups["fn"].Value;
-        return ($"`{fn}` was called with arguments it doesn't understand.",
-            $"Correct forms: {m.Groups["usage"].Value.Trim()}");
+        return (Loc.F("`{0}` was called with arguments it doesn't understand.", fn),
+            Loc.F("Correct forms: {0}", m.Groups["usage"].Value.Trim()));
     }
 
     /// <summary>
@@ -397,11 +400,14 @@ public static class LuaErrorExplainer
 
         string method = FindListMethodSignature(fn);
         if (method != null)
-            return ($"The list method `{fn}` got a wrong argument: {detail}.", $"Write it like `list:{method}`.");
+            return (Loc.F("The list method `{0}` got a wrong argument: {1}.", fn, detail),
+                Loc.F("Write it like `list:{0}`.", method));
 
         if (i.Signatures.TryGetValue(fn, out string signature))
-            return ($"`{fn}` couldn't run: {detail}.",
-                string.IsNullOrEmpty(signature) ? "Check the arguments in Help." : $"Write it like `{signature}`.");
+            return (Loc.F("`{0}` couldn't run: {1}.", fn, detail),
+                string.IsNullOrEmpty(signature)
+                    ? Loc.T("Check the arguments in Help.")
+                    : Loc.F("Write it like `{0}`.", signature));
 
         return (null, null);
     }
@@ -409,9 +415,9 @@ public static class LuaErrorExplainer
     private static string UsageHint(string fn, Input i, string fallback)
     {
         if (i.Signatures.TryGetValue(fn, out string signature) && !string.IsNullOrEmpty(signature))
-            return $"Write it like `{signature}`.";
+            return Loc.F("Write it like `{0}`.", signature);
         string method = FindListMethodSignature(fn);
-        return method != null ? $"Write it like `list:{method}`." : fallback;
+        return method != null ? Loc.F("Write it like `list:{0}`.", method) : fallback;
     }
 
     private static string FindListMethodSignature(string name)
@@ -425,16 +431,16 @@ public static class LuaErrorExplainer
 
     private static (string, string) EndExpected(Match m, Input i)
     {
-        string explanation = "A block is not closed: every `if`, `for`, `while` and `function` needs its own `end`.";
+        string explanation = Loc.T("A block is not closed: every `if`, `for`, `while` and `function` needs its own `end`.");
         if (m.Groups["what"].Success && int.TryParse(m.Groups["open"].Value, out int open))
         {
             int line = ToWindowLine(i, open);
             // У доп. окна строка 1 чанка — обёртка function Title(...): её end «съел» блок внутри окна
             if (line >= 1)
-                explanation += $" The `{m.Groups["what"].Value}` on line {line} has no `end`.";
+                explanation += Loc.F(" The `{0}` on line {1} has no `end`.", m.Groups["what"].Value, line);
         }
         return (explanation,
-            "Add `end` where the block should finish. Indenting the code inside a block helps to see where it ends.");
+            Loc.T("Add `end` where the block should finish. Indenting the code inside a block helps to see where it ends."));
     }
 
     private static (string, string) TokenExpected(Match m, Input i)
@@ -443,41 +449,41 @@ public static class LuaErrorExplainer
         switch (token)
         {
             case "then":
-                return ("After the condition of `if` (or `elseif`) Lua needs the word `then`.",
-                    "Write it like `if x > 3 then ... end`. To compare use `==` (equal) and `~=` (not equal), not `=` or `!=`.");
+                return (Loc.T("After the condition of `if` (or `elseif`) Lua needs the word `then`."),
+                    Loc.T("Write it like `if x > 3 then ... end`. To compare use `==` (equal) and `~=` (not equal), not `=` or `!=`."));
             case "do":
-                return ("After `for ...` or `while ...` Lua needs the word `do`.",
-                    "Write it like `for i = 1, 3 do ... end` or `while x < 3 do ... end`.");
+                return (Loc.T("After `for ...` or `while ...` Lua needs the word `do`."),
+                    Loc.T("Write it like `for i = 1, 3 do ... end` or `while x < 3 do ... end`."));
             case "=":
-                return ("Lua expected `=` here.",
-                    "To store a value write `name = value`. To call a command add brackets: `harvest()`.");
+                return (Loc.T("Lua expected `=` here."),
+                    Loc.T("To store a value write `name = value`. To call a command add brackets: `harvest()`."));
             case ")":
-                return ("A bracket `(` is not closed, or a comma between arguments is missing.",
-                    "Separate arguments with commas, like `moveTo(3, 4)`, and close every `(` with `)`.");
+                return (Loc.T("A bracket `(` is not closed, or a comma between arguments is missing."),
+                    Loc.T("Separate arguments with commas, like `moveTo(3, 4)`, and close every `(` with `)`."));
             case "}":
-                return ("A list `{` is not closed, or a comma between its items is missing.",
-                    "Write it like `{1, 2, 3}`.");
+                return (Loc.T("A list `{` is not closed, or a comma between its items is missing."),
+                    Loc.T("Write it like `{1, 2, 3}`."));
             case "]":
-                return ("A `[` is not closed with `]`.", "Write it like `list[1]`.");
+                return (Loc.T("A `[` is not closed with `]`."), Loc.T("Write it like `list[1]`."));
             case ",":
-                return ("Lua expected a comma here. A counting `for` loop needs a start and an end separated by a comma.",
-                    "Write it like `for i = 1, 10 do ... end`.");
+                return (Loc.T("Lua expected a comma here. A counting `for` loop needs a start and an end separated by a comma."),
+                    Loc.T("Write it like `for i = 1, 10 do ... end`."));
             case "until":
-                return ("A `repeat` loop needs `until condition` at the end.",
-                    "Write it like `repeat ... until x > 3`.");
+                return (Loc.T("A `repeat` loop needs `until condition` at the end."),
+                    Loc.T("Write it like `repeat ... until x > 3`."));
             case "end":
-                return ("A block is not closed: every `if`, `for`, `while` and `function` needs its own `end`.",
-                    "Add `end` where the block should finish.");
+                return (Loc.T("A block is not closed: every `if`, `for`, `while` and `function` needs its own `end`."),
+                    Loc.T("Add `end` where the block should finish."));
             case "<eof>":
-                return ("There is something extra after the code has ended: usually an extra `end`, " +
-                        "or code after `return` / `break` in the same block.",
-                    "Remove the extra `end` (one per `if`, `for`, `while` and `function`). " +
-                    "`return` and `break` must be the last line of their block.");
+                return (Loc.T("There is something extra after the code has ended: usually an extra `end`, " +
+                        "or code after `return` / `break` in the same block."),
+                    Loc.T("Remove the extra `end` (one per `if`, `for`, `while` and `function`). " +
+                    "`return` and `break` must be the last line of their block."));
             case "<name>":
-                return ("Lua expected a name here: letters, digits and `_`, not starting with a digit and not a Lua word.",
-                    "For example `local count = 0` or `function Helper()` — a function needs a name.");
+                return (Loc.T("Lua expected a name here: letters, digits and `_`, not starting with a digit and not a Lua word."),
+                    Loc.T("For example `local count = 0` or `function Helper()` — a function needs a name."));
             default:
-                return ($"Lua expected `{token}` here.", "Compare this line with the examples in Help.");
+                return (Loc.F("Lua expected `{0}` here.", token), Loc.T("Compare this line with the examples in Help."));
         }
     }
 
@@ -485,20 +491,20 @@ public static class LuaErrorExplainer
     {
         string near = m.Groups["near"].Value.Trim();
         if (near.StartsWith("'!", StringComparison.Ordinal))
-            return ("Lua doesn't use `!`.", "\"Not equal\" is written `~=`, and \"not\" is written `not`.");
+            return (Loc.T("Lua doesn't use `!`."), Loc.T("\"Not equal\" is written `~=`, and \"not\" is written `not`."));
         if (near == "<eof>")
-            return ("The code ends too early: something is missing, for example after `=` or `+` (`x = 1 +`).",
-                "Finish the expression or remove the extra operator.");
+            return (Loc.T("The code ends too early: something is missing, for example after `=` or `+` (`x = 1 +`)."),
+                Loc.T("Finish the expression or remove the extra operator."));
 
-        return ($"Lua found {near} where it didn't expect it.",
-            "Check for a missing comma between arguments (`move(\"up\", 1)`), missing quotes around text, " +
-            "or an extra bracket.");
+        return (Loc.F("Lua found {0} where it didn't expect it.", near),
+            Loc.T("Check for a missing comma between arguments (`move(\"up\", 1)`), missing quotes around text, " +
+            "or an extra bracket."));
     }
 
     private static (string, string) SyntaxError(Match m, Input i) => (
-        "Lua couldn't understand this line. Often a word stands on its own: a command name without brackets, " +
-        "or a value that isn't stored or used.",
-        "Commands need brackets: `harvest()`, not `harvest`. To store a value write `x = value`.");
+        Loc.T("Lua couldn't understand this line. Often a word stands on its own: a command name without brackets, " +
+        "or a value that isn't stored or used."),
+        Loc.T("Commands need brackets: `harvest()`, not `harvest`. To store a value write `x = value`."));
 
     private static string DecodeToken(string token)
     {
@@ -512,8 +518,8 @@ public static class LuaErrorExplainer
     private static (string, string) CallNil(Match m, Input i)
     {
         if (!m.Groups["name"].Success)
-            return ("Your code called something that doesn't exist (it is nil).",
-                "Check the spelling of command and function names in Help.");
+            return (Loc.T("Your code called something that doesn't exist (it is nil)."),
+                Loc.T("Check the spelling of command and function names in Help."));
 
         string name = m.Groups["name"].Value;
         string kind = m.Groups["kind"].Value;
@@ -529,55 +535,55 @@ public static class LuaErrorExplainer
         if (kind != "method") candidates.AddRange(LuaGlobals);
 
         string closest = FindClosest(name, candidates);
-        string explanation = $"`{name}` is not a command or function that Lua knows, so it can't be called.";
+        string explanation = Loc.F("`{0}` is not a command or function that Lua knows, so it can't be called.", name);
 
         string suggestion;
         if (closest != null)
         {
             suggestion = string.Equals(closest, name, StringComparison.OrdinalIgnoreCase)
-                ? $"Did you mean `{closest}`? Names are case-sensitive."
-                : $"Did you mean `{closest}`?";
+                ? Loc.F("Did you mean `{0}`? Names are case-sensitive.", closest)
+                : Loc.F("Did you mean `{0}`?", closest);
             if (i.Signatures.TryGetValue(closest, out string signature) && !string.IsNullOrEmpty(signature))
-                suggestion += $" Write it like `{signature}`.";
+                suggestion += " " + Loc.F("Write it like `{0}`.", signature);
         }
         else
         {
-            suggestion = "Check the spelling in Help. Names are case-sensitive: `moveTo`, not `moveto`.";
+            suggestion = Loc.T("Check the spelling in Help. Names are case-sensitive: `moveTo`, not `moveto`.");
         }
         return (explanation, suggestion);
     }
 
     private static (string, string) CallNonFunction(Match m, Input i)
     {
-        string name = m.Groups["name"].Success ? $"`{m.Groups["name"].Value}`" : "This value";
-        return ($"{name} is a {m.Groups["type"].Value}, not a function, so it can't be called with `( )`.",
-            "Maybe a variable has the same name as a command or function — give the variable another name.");
+        string name = m.Groups["name"].Success ? $"`{m.Groups["name"].Value}`" : Loc.T("This value");
+        return (Loc.F("{0} is a {1}, not a function, so it can't be called with `( )`.", name, m.Groups["type"].Value),
+            Loc.T("Maybe a variable has the same name as a command or function — give the variable another name."));
     }
 
     private static (string, string) IndexNil(Match m, Input i)
     {
         string name = m.Groups["name"].Success ? m.Groups["name"].Value : null;
-        string what = name != null ? $"`{name}` is nil (empty)" : "A value is nil (empty)";
-        string explanation = $"{what}, so you can't use `.` or `:` on it. This often happens when a command found nothing: " +
-                             "`getNear()`, `find()` or `check()` returned nil.";
+        string what = name != null ? Loc.F("`{0}` is nil (empty)", name) : Loc.T("A value is nil (empty)");
+        string explanation = Loc.F("{0}, so you can't use `.` or `:` on it. This often happens when a command found nothing: " +
+                                   "`getNear()`, `find()` or `check()` returned nil.", what);
 
         // Пока `if` закрыт, совет «проверь через if» бесполезен — подсказываем, что делать без условий
         if (!i.IsUnlocked(LuaConstructs.If))
             return (explanation,
-                "Make sure something is in sight before you look for it (`findObjects(...).count` shows how many), " +
-                "or explore first. Conditions (`if`) unlock after your first harvest.");
+                Loc.T("Make sure something is in sight before you look for it (`findObjects(...).count` shows how many), " +
+                "or explore first. Conditions (`if`) unlock after your first harvest."));
 
         return (explanation,
             name != null
-                ? $"Check it before use: `if {name} then ... end`. Also check the spelling of the variable."
-                : "Check the value before use: `if obj then ... end`.");
+                ? Loc.F("Check it before use: `if {0} then ... end`. Also check the spelling of the variable.", name)
+                : Loc.T("Check the value before use: `if obj then ... end`."));
     }
 
     private static (string, string) IndexNonTable(Match m, Input i)
     {
-        string name = m.Groups["name"].Success ? $"`{m.Groups["name"].Value}`" : "This value";
-        return ($"{name} is a {m.Groups["type"].Value}, not a table, so it has no fields to read with `.`.",
-            "Fields of found objects are plain values: write `obj.x`, not `obj.x.y`.");
+        string name = m.Groups["name"].Success ? $"`{m.Groups["name"].Value}`" : Loc.T("This value");
+        return (Loc.F("{0} is a {1}, not a table, so it has no fields to read with `.`.", name, m.Groups["type"].Value),
+            Loc.T("Fields of found objects are plain values: write `obj.x`, not `obj.x.y`."));
     }
 
     private static (string, string) Arithmetic(Match m, Input i)
@@ -590,33 +596,38 @@ public static class LuaErrorExplainer
         switch (bad)
         {
             case "nil":
-                return ($"You did math with {name ?? "a value"} that is nil (has no value). " +
-                        "Maybe the name is misspelled, it was never set, or a command returned nothing.",
-                    "Give it a value first (`local count = 0`) or check it: `if x then ... end`.");
+                return (Loc.F("You did math with {0} that is nil (has no value). " +
+                              "Maybe the name is misspelled, it was never set, or a command returned nothing.",
+                        name ?? Loc.T("a value")),
+                    Loc.T("Give it a value first (`local count = 0`) or check it: `if x then ... end`."));
             case "string":
-                return ($"You did math with text{(name != null ? $" ({name})" : "")}. Numbers in quotes are text: \"5\" is not 5.",
-                    "Remove the quotes or convert the text: `tonumber(\"5\")`.");
+                return (name != null
+                        ? Loc.F("You did math with text ({0}). Numbers in quotes are text: \"5\" is not 5.", name)
+                        : Loc.T("You did math with text. Numbers in quotes are text: \"5\" is not 5."),
+                    Loc.T("Remove the quotes or convert the text: `tonumber(\"5\")`."));
             default:
-                return ($"You did math with a {bad} value{(name != null ? $" ({name})" : "")}. Only numbers can be added, subtracted or multiplied.",
-                    "If it is a found object, use its number field: `obj.x`, `obj.distance`.");
+                return (name != null
+                        ? Loc.F("You did math with a {0} value ({1}). Only numbers can be added, subtracted or multiplied.", bad, name)
+                        : Loc.F("You did math with a {0} value. Only numbers can be added, subtracted or multiplied.", bad),
+                    Loc.T("If it is a found object, use its number field: `obj.x`, `obj.distance`."));
         }
     }
 
     private static (string, string) Length(Match m, Input i) => (
-        $"`#` gives the length of a list or text, but this value is a {m.Groups["type"].Value}.",
-        "Check that the list exists. For findObjects results you can also use `list.count`.");
+        Loc.F("`#` gives the length of a list or text, but this value is a {0}.", m.Groups["type"].Value),
+        Loc.T("Check that the list exists. For findObjects results you can also use `list.count`."));
 
     private static (string, string) Compare(Match m, Input i)
     {
         bool hasNil = m.Groups["both"].Value == "nil" || m.Groups["t1"].Value == "nil" || m.Groups["t2"].Value == "nil";
         if (hasNil)
-            return ("One side of the comparison (`<`, `>`, `<=`, `>=`) is nil — it has no value, so Lua can't compare it.",
-                "Maybe a name is misspelled or a command returned nil. Check first: `if x and x > 3 then ... end`.");
+            return (Loc.T("One side of the comparison (`<`, `>`, `<=`, `>=`) is nil — it has no value, so Lua can't compare it."),
+                Loc.T("Maybe a name is misspelled or a command returned nil. Check first: `if x and x > 3 then ... end`."));
 
         string a = m.Groups["both"].Success ? m.Groups["both"].Value : m.Groups["t1"].Value;
         string b = m.Groups["both"].Success ? m.Groups["both"].Value : m.Groups["t2"].Value;
-        return ($"You compared a {a} with a {b}. `<` and `>` work only for two numbers (or two texts).",
-            "Compare a field instead, for example `obj.distance < 5`.");
+        return (Loc.F("You compared a {0} with a {1}. `<` and `>` work only for two numbers (or two texts).", a, b),
+            Loc.T("Compare a field instead, for example `obj.distance < 5`."));
     }
 
     private static (string, string) Concatenate(Match m, Input i)
@@ -626,10 +637,10 @@ public static class LuaErrorExplainer
         string bad = t1 != "string" && t1 != "number" ? t1 : t2 ?? t1;
 
         if (bad == "nil")
-            return ("`..` joins texts, but one of the parts is nil (has no value).",
-                "Wrap the value in `tostring(...)`, for example `\"x = \" .. tostring(x)`.");
-        return ($"`..` joins texts and numbers, but one of the parts is a {bad}.",
-            "Join a field instead, for example `\"found \" .. obj.type`.");
+            return (Loc.T("`..` joins texts, but one of the parts is nil (has no value)."),
+                Loc.T("Wrap the value in `tostring(...)`, for example `\"x = \" .. tostring(x)`."));
+        return (Loc.F("`..` joins texts and numbers, but one of the parts is a {0}.", bad),
+            Loc.T("Join a field instead, for example `\"found \" .. obj.type`."));
     }
 
     private static string Name(Match m, string group) =>

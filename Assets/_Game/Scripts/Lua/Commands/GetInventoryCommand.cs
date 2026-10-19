@@ -10,10 +10,11 @@ public class GetInventoryCommand : LuaCommandBase
     public override string Name => "getInventory";
     public override float EnergyCost => 1f;
     public override string Signature => "getInventory()";
-    public override string Description => "Содержимое инвентаря: список занятых ячеек { slot, name, count }, " +
-                                          "у инструментов ещё tool, durability и maxDurability, " +
-                                          "у еды — food = true, energy и health (сколько восстанавливает eat). " +
-                                          "У результата есть count (занято ячеек) и free (свободно)";
+    public override string Description =>
+        "Inventory contents: a list of occupied slots { slot, name, count }, " +
+        "tools also have tool, durability and maxDurability, " +
+        "food has food = true, energy and health (how much eat restores). " +
+        "The result has count (occupied slots) and free (free slots)";
 
     private readonly PlayerInventory _inventory;
 

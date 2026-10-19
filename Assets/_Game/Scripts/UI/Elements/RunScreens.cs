@@ -43,6 +43,7 @@ public class RunScreens : VisualElement
     // Сброс всего прогресса — так же, вторым кликом в течение ResetConfirmMs
     private bool _resetProgressArmed;
     private IVisualElementScheduledItem _resetProgressDisarm;
+    private Button _btnHubLanguage;
 
     private VisualElement _exitConfirm;
     private Button _btnExitConfirm;
@@ -69,10 +70,14 @@ public class RunScreens : VisualElement
     public event Action OnResetTutorialRequested;
     /// <summary>Reset progress в лагере, подтверждён вторым кликом (сброс и перезагрузку делает RunController).</summary>
     public event Action OnResetProgressRequested;
+    /// <summary>Кнопка языка в лагере — сменить язык (сохранение и перезагрузку делает CodeEditorManager).</summary>
+    public event Action OnLanguageToggleRequested;
 
     public RunScreens(VisualTreeAsset template)
     {
         VisualElement root = template.Instantiate();
+        // Статические тексты UXML (включая вложенные шаблоны: лагерь, достижения, попап, тосты, туториал)
+        LocUxml.Translate(root);
         QueryElements(root);
         ValidateReferences();
 
@@ -93,7 +98,7 @@ public class RunScreens : VisualElement
         foreach (Button button in new[]
                  {
                      _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubResetTutorial,
-                     _btnHubResetProgress,
+                     _btnHubResetProgress, _btnHubLanguage,
                      _btnExitConfirm, _btnExitCancel, _btnToHub
                  })
             button.focusable = false;
@@ -101,6 +106,9 @@ public class RunScreens : VisualElement
         _btnHubHints.clicked += () => OnHintsToggleRequested?.Invoke();
         _btnHubResetTutorial.clicked += HandleResetTutorialClicked;
         _btnHubResetProgress.clicked += HandleResetProgressClicked;
+        _btnHubLanguage.clicked += () => OnLanguageToggleRequested?.Invoke();
+        // Подпись — на языке, на который переключит кнопка (её поймёт тот, кто этот язык знает)
+        _btnHubLanguage.text = Loc.IsRussian ? "Language: English" : "Язык: Русский";
 
         _btnStartRun.clicked += () => OnStartRunRequested?.Invoke();
         _btnExitCancel.clicked += HideExitConfirm;
@@ -122,6 +130,7 @@ public class RunScreens : VisualElement
         _btnHubHints = root.Q<Button>("btn-hub-hints");
         _btnHubResetTutorial = root.Q<Button>("btn-hub-reset-tutorial");
         _btnHubResetProgress = root.Q<Button>("btn-hub-reset-progress");
+        _btnHubLanguage = root.Q<Button>("btn-hub-language");
 
         _exitConfirm = root.Q<VisualElement>("exit-confirm");
         _btnExitConfirm = root.Q<Button>("btn-exit-confirm");
@@ -143,7 +152,8 @@ public class RunScreens : VisualElement
         Debug.Assert(_hubScreen != null && _hubStats != null && _hubMaterials != null
                      && _hubMaterialsEmpty != null && _btnStartRun != null && _btnHubAchievements != null,
             "RunScreens: hub elements not found");
-        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null && _btnHubResetProgress != null,
+        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null && _btnHubResetProgress != null
+                     && _btnHubLanguage != null,
             "RunScreens: hub tutorial settings not found");
         Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
             "RunScreens: exit confirmation elements not found");
@@ -160,7 +170,7 @@ public class RunScreens : VisualElement
     public bool IsSummaryShown => !_summary.ClassListContains(HiddenClass);
 
     /// <summary>Текст кнопки Hints в лагере.</summary>
-    public void SetHintsEnabled(bool enabled) => _btnHubHints.text = enabled ? "Hints: On" : "Hints: Off";
+    public void SetHintsEnabled(bool enabled) => _btnHubHints.text = Loc.T(enabled ? "Hints: On" : "Hints: Off");
 
     /// <summary>Элемент экрана по имени (якорь подсказки туториала).</summary>
     public VisualElement FindElement(string name) => this.Q<VisualElement>(name);
@@ -205,15 +215,15 @@ public class RunScreens : VisualElement
         if (progress == null) return;
 
         _hubStats.text = progress.RunsFinished == 0
-            ? "No runs yet"
-            : $"Runs finished: {progress.RunsFinished} (defeats: {progress.Defeats})";
+            ? Loc.T("No runs yet")
+            : Loc.F("Runs finished: {0} (defeats: {1})", progress.RunsFinished, progress.Defeats);
 
         _hubMaterials.Clear();
         foreach (StoredMaterial stored in progress.Materials)
         {
             if (stored.count <= 0) continue;
             Sprite icon = HubIconResolver?.Invoke(stored.itemId);
-            _hubMaterials.Add(CreateItemRow(icon, stored.displayName ?? stored.itemId, stored.count));
+            _hubMaterials.Add(CreateItemRow(icon, Loc.T(stored.displayName ?? stored.itemId), stored.count));
         }
         _hubMaterialsEmpty.EnableInClassList(HiddenClass, _hubMaterials.childCount > 0);
     }
@@ -226,18 +236,18 @@ public class RunScreens : VisualElement
     {
         HideExitConfirm();
 
-        _summaryTitle.text = summary.Defeated ? "Defeat" : "Run complete";
+        _summaryTitle.text = Loc.T(summary.Defeated ? "Defeat" : "Run complete");
         _summaryTitle.EnableInClassList("screen-title--defeat", summary.Defeated);
         _summaryStats.text = summary.Defeated
-            ? $"Your health ran out on day {summary.Days}. Everything gathered in this run is lost."
-            : $"Days in the run: {summary.Days}";
+            ? Loc.F("Your health ran out on day {0}. Everything gathered in this run is lost.", summary.Days)
+            : Loc.F("Days in the run: {0}", summary.Days);
 
         _summaryLoot.Clear();
         foreach (ItemStack stack in summary.Carried)
-            _summaryLoot.Add(CreateItemRow(stack.item.Icon, stack.item.DisplayName, stack.amount));
+            _summaryLoot.Add(CreateItemRow(stack.item.Icon, Loc.T(stack.item.DisplayName), stack.amount));
         _summaryLootEmpty.EnableInClassList(HiddenClass, summary.Carried.Count > 0);
 
-        _summaryLost.text = summary.Left.Count > 0 ? $"Stays in the run: {FormatStacks(summary.Left)}" : string.Empty;
+        _summaryLost.text = summary.Left.Count > 0 ? Loc.F("Stays in the run: {0}", FormatStacks(summary.Left)) : string.Empty;
         _summaryLost.EnableInClassList(HiddenClass, summary.Left.Count == 0);
 
         // Достижения забега — прогресс и награды сохраняются и при поражении
@@ -259,7 +269,7 @@ public class RunScreens : VisualElement
         if (!_resetArmed)
         {
             _resetArmed = true;
-            _btnHubResetTutorial.text = "Click again to reset";
+            _btnHubResetTutorial.text = Loc.T("Click again to reset");
             _btnHubResetTutorial.AddToClassList("screen-btn--confirm");
             _resetDisarm?.Pause();
             _resetDisarm = _btnHubResetTutorial.schedule.Execute(DisarmReset).StartingIn(ResetConfirmMs);
@@ -275,7 +285,7 @@ public class RunScreens : VisualElement
         _resetArmed = false;
         _resetDisarm?.Pause();
         _resetDisarm = null;
-        _btnHubResetTutorial.text = "Reset tutorial";
+        _btnHubResetTutorial.text = Loc.T("Reset tutorial");
         _btnHubResetTutorial.RemoveFromClassList("screen-btn--confirm");
     }
 
@@ -287,7 +297,7 @@ public class RunScreens : VisualElement
         if (!_resetProgressArmed)
         {
             _resetProgressArmed = true;
-            _btnHubResetProgress.text = "Click again to reset ALL";
+            _btnHubResetProgress.text = Loc.T("Click again to reset ALL");
             _btnHubResetProgress.AddToClassList("screen-btn--confirm");
             _resetProgressDisarm?.Pause();
             _resetProgressDisarm = _btnHubResetProgress.schedule.Execute(DisarmResetProgress).StartingIn(ResetConfirmMs);
@@ -303,7 +313,7 @@ public class RunScreens : VisualElement
         _resetProgressArmed = false;
         _resetProgressDisarm?.Pause();
         _resetProgressDisarm = null;
-        _btnHubResetProgress.text = "Reset progress";
+        _btnHubResetProgress.text = Loc.T("Reset progress");
         _btnHubResetProgress.RemoveFromClassList("screen-btn--confirm");
     }
 
@@ -342,14 +352,14 @@ public class RunScreens : VisualElement
         var row = new VisualElement();
         row.AddToClassList("summary-achievement");
 
-        var title = new Label(achievement.Title) { enableRichText = false };
+        var title = new Label(Loc.T(achievement.Title)) { enableRichText = false };
         title.AddToClassList("summary-achievement-title");
         row.Add(title);
 
         string rewards = AchievementText.FormatRewards(achievement);
         if (!string.IsNullOrEmpty(rewards))
         {
-            var rewardsLabel = new Label($"Rewards: {rewards}") { enableRichText = false };
+            var rewardsLabel = new Label(Loc.F("Rewards: {0}", rewards)) { enableRichText = false };
             rewardsLabel.AddToClassList("summary-achievement-rewards");
             row.Add(rewardsLabel);
         }
@@ -361,7 +371,7 @@ public class RunScreens : VisualElement
     {
         var parts = new List<string>(stacks.Count);
         foreach (ItemStack stack in stacks)
-            parts.Add($"{stack.item.DisplayName} ×{stack.amount}");
+            parts.Add($"{Loc.T(stack.item.DisplayName)} ×{stack.amount}");
         return string.Join(", ", parts);
     }
 }

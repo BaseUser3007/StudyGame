@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Lua;
 
@@ -7,7 +7,8 @@ public class GetPositionCommand : PlayerCommandBase
     public override string Name => "getPosition";
     public override float EnergyCost => 1f;
     public override string Signature => "getPosition()";
-    public override string Description => "Текущая позиция: таблица { x, y }";
+    public override string Description =>
+        "Current position: a table { x, y }";
 
     public GetPositionCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }

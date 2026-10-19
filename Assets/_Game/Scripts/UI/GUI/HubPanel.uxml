@@ -22,6 +22,8 @@
                 <ui:Button name="btn-hub-reset-tutorial" class="screen-btn screen-btn--small" text="Reset tutorial"/>
                 <!-- Сброс всего мета-прогресса (библиотека кода остаётся), второй клик — подтверждение -->
                 <ui:Button name="btn-hub-reset-progress" class="screen-btn screen-btn--small" text="Reset progress"/>
+                <!-- Язык интерфейса: подпись ставит RunScreens на целевом языке; смена перезагружает лагерь -->
+                <ui:Button name="btn-hub-language" class="screen-btn screen-btn--small" text=""/>
             </ui:VisualElement>
         </ui:VisualElement>
 

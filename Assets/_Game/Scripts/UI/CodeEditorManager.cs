@@ -297,7 +297,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         _runScreens.RefreshHub(_hubService.Progress);
         _hubPanel?.Refresh();
-        UIEventBus.PublishNotification($"{definition.Title} built", LogEntryType.Success);
+        UIEventBus.PublishNotification(Loc.F("{0} built", Loc.T(definition.Title)), LogEntryType.Success);
     }
 
     /// <summary>Иконка материала склада: предмет ищется среди стоимостей построек (ResourceItem.Icon).</summary>
@@ -386,6 +386,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _runScreens.OnHintsToggleRequested += HandleHintsToggleRequested;
         _runScreens.OnResetTutorialRequested += HandleResetTutorialRequested;
         _runScreens.OnStartRunRequested += HandleStartRunRequested;
+        _runScreens.OnLanguageToggleRequested += HandleLanguageToggleRequested;
 
         UpdateTutorialCode();
         _container.schedule.Execute(StartTutorial);
@@ -470,7 +471,23 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandleResetTutorialRequested()
     {
         _tutorial?.ResetTutorial();
-        UIEventBus.PublishNotification("Tutorial reset: hints will guide you again", LogEntryType.Success);
+        UIEventBus.PublishNotification(Loc.T("Tutorial reset: hints will guide you again"), LogEntryType.Success);
+    }
+
+    /// <summary>
+    /// Кнопка языка в лагере: другой язык, сохранение и перезагрузка лагеря — тексты UXML и C#
+    /// переводятся при создании, поэтому живого обновления нет. В забеге кнопки нет: перезагрузка
+    /// сцены потеряла бы забег.
+    /// </summary>
+    private void HandleLanguageToggleRequested()
+    {
+        if (!IsHub || _luaSandbox.IsRunning) return;
+
+        Loc.SetLanguage(Loc.IsRussian ? GameLanguage.English : GameLanguage.Russian);
+        MetaProgress progress = GameSession.Progress;
+        Loc.SaveTo(progress);
+        progress.Save();
+        GameSession.ReturnToHub();
     }
 
     // ─── Window Layer ─────────────────────────────────────────
@@ -561,7 +578,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         if (string.IsNullOrWhiteSpace(window.Code))
         {
-            UIEventBus.PublishNotification($"{window.Title}: nothing to save, the code is empty", LogEntryType.Warning);
+            UIEventBus.PublishNotification(
+                Loc.F("{0}: nothing to save, the code is empty", window.Title), LogEntryType.Warning);
             return;
         }
 
@@ -570,13 +588,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             bool updated = _codeLibrary.Save(window.Title, window.Code);
             _tutorial?.Notify(TutorialFacts.WindowSaved);
             UIEventBus.PublishNotification(
-                updated ? $"{window.Title} updated in the library" : $"{window.Title} saved to the library",
+                updated
+                    ? Loc.F("{0} updated in the library", window.Title)
+                    : Loc.F("{0} saved to the library", window.Title),
                 LogEntryType.Success);
         }
         catch (System.Exception e)
         {
             Debug.LogException(e);
-            UIEventBus.PublishNotification($"Failed to save {window.Title}: {e.Message}", LogEntryType.Error);
+            UIEventBus.PublishNotification(Loc.F("Failed to save {0}: {1}", window.Title, e.Message), LogEntryType.Error);
         }
     }
 
@@ -624,7 +644,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         if (!AreClassesUnlocked())
         {
             UIEventBus.PublishNotification(
-                $"{LuaConstructs.GetDisplayName(LuaConstructs.Classes)} are not unlocked yet", LogEntryType.Warning);
+                Loc.F("{0} are not unlocked yet", Loc.T(LuaConstructs.GetDisplayName(LuaConstructs.Classes))),
+                LogEntryType.Warning);
             return;
         }
 
@@ -761,17 +782,17 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         ExecutionResult result = await _luaSandbox.ExecuteAsync(mainCode, auxiliaryWindows);
 
         // Расход за запуск (CodeRunReport.EnergySpent) — бесплатный для игрока замер (GameDesign §6.2.6)
-        string spent = _hasRunReport ? $" — spent {FormatEnergy(_lastRunSpent)} energy" : string.Empty;
+        string spent = _hasRunReport ? Loc.F(" — spent {0} energy", FormatEnergy(_lastRunSpent)) : string.Empty;
 
         if (result.IsSuccess)
-            UIEventBus.PublishNotification($"Execution completed{spent}", LogEntryType.Success);
+            UIEventBus.PublishNotification(Loc.T("Execution completed") + spent, LogEntryType.Success);
         else if (result.IsCancelled)
-            UIEventBus.PublishNotification($"Execution stopped{spent}", LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T("Execution stopped") + spent, LogEntryType.Warning);
         else
         {
             ReportCodeError(result.ErrorMessage);
             if (_hasRunReport)
-                UIEventBus.PublishNotification($"Run finished{spent}", LogEntryType.Info);
+                UIEventBus.PublishNotification(Loc.T("Run finished") + spent, LogEntryType.Info);
         }
     }
 
@@ -857,7 +878,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandleEndDayRequested()
     {
         if (_dayCycle != null && !_dayCycle.TryEndDay())
-            UIEventBus.PublishNotification("Can't end the day while the code is running", LogEntryType.Warning);
+            UIEventBus.PublishNotification(Loc.T("Can't end the day while the code is running"), LogEntryType.Warning);
     }
 
     private void HandleSimulationRequested()

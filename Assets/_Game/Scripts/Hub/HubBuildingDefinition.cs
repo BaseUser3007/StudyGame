@@ -36,11 +36,12 @@ public class HubBuildingEffect
         string value = amount >= 0f ? $"+{FormatAmount()}" : FormatAmount();
         switch (type)
         {
-            case HubEffectType.EnergyLimit: return $"{value} energy limit";
-            case HubEffectType.ThreatDays: return $"{value} day(s) before the threat";
-            case HubEffectType.InventorySlots: return $"{value} inventory slot(s)";
-            case HubEffectType.MaxHealth: return $"{value} max health";
-            case HubEffectType.RunsPerDay: return $"{value} code run(s) per day";
+            // Тексты для UI — на языке игры (шаблоны в LocRuContent)
+            case HubEffectType.EnergyLimit: return Loc.F("{0} energy limit", value);
+            case HubEffectType.ThreatDays: return Loc.F("{0} day(s) before the threat", value);
+            case HubEffectType.InventorySlots: return Loc.F("{0} inventory slot(s)", value);
+            case HubEffectType.MaxHealth: return Loc.F("{0} max health", value);
+            case HubEffectType.RunsPerDay: return Loc.F("{0} code run(s) per day", value);
             default: return $"{value} {type}";
         }
     }

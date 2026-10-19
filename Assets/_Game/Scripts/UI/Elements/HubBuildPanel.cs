@@ -146,7 +146,7 @@ public class HubBuildPanel : INotificationDisplay
 
         if (!string.IsNullOrWhiteSpace(definition.Description))
         {
-            var description = new Label(definition.Description) { enableRichText = false };
+            var description = new Label(Loc.T(definition.Description)) { enableRichText = false };
             description.AddToClassList("hub-card-description");
             card.Add(description);
         }
@@ -177,12 +177,12 @@ public class HubBuildPanel : INotificationDisplay
         var heading = new VisualElement();
         heading.AddToClassList("hub-card-heading");
 
-        var title = new Label(definition.Title) { enableRichText = false };
+        var title = new Label(Loc.T(definition.Title)) { enableRichText = false };
         title.AddToClassList("hub-card-title");
         heading.Add(title);
 
         Vector2Int size = definition.Size;
-        var sizeLabel = new Label($"{size.x}×{size.y} cells");
+        var sizeLabel = new Label(Loc.F("{0}×{1} cells", size.x, size.y));
         sizeLabel.AddToClassList("hub-card-size");
         heading.Add(sizeLabel);
 
@@ -204,7 +204,7 @@ public class HubBuildPanel : INotificationDisplay
             var chip = new VisualElement();
             chip.AddToClassList("hub-cost-chip");
             chip.EnableInClassList("hub-cost-chip--missing", missing);
-            chip.tooltip = cost.Item != null ? cost.Item.DisplayName : cost.Key;
+            chip.tooltip = cost.Item != null ? Loc.T(cost.Item.DisplayName) : cost.Key;
 
             Sprite sprite = cost.Item != null ? cost.Item.Icon : null;
             if (sprite != null)
@@ -243,7 +243,7 @@ public class HubBuildPanel : INotificationDisplay
         if (availability == HubBuildResult.AlreadyBuilt) return footer;
 
         // UI управляется только мышью — кнопка не должна забирать фокус
-        var button = new Button { text = placingThis ? "Cancel" : "Build", focusable = false };
+        var button = new Button { text = Loc.T(placingThis ? "Cancel" : "Build"), focusable = false };
         button.AddToClassList("screen-btn");
         button.AddToClassList(placingThis ? "screen-btn--danger" : "screen-btn--primary");
         button.AddToClassList("hub-card-build");
@@ -259,15 +259,15 @@ public class HubBuildPanel : INotificationDisplay
         switch (availability)
         {
             case HubBuildResult.Ok:
-                return placingThis ? "Placing — click a free cell" : "Ready to build";
+                return Loc.T(placingThis ? "Placing — click a free cell" : "Ready to build");
             case HubBuildResult.AlreadyBuilt:
-                return "Built";
+                return Loc.T("Built");
             case HubBuildResult.Locked:
                 return _unlockSources.TryGetValue(definition.Id, out string achievement)
-                    ? $"Locked · Unlock: {achievement}"
-                    : "Locked · complete an achievement";
+                    ? Loc.F("Locked · Unlock: {0}", Loc.T(achievement))
+                    : Loc.T("Locked · complete an achievement");
             default:
-                return HubService.Describe(availability);
+                return Loc.T(HubService.Describe(availability));
         }
     }
 
@@ -303,7 +303,7 @@ public class HubBuildPanel : INotificationDisplay
         bool placing = _placement != null && _placement.IsPlacing;
         bool hasStatus = !_status.ClassListContains(HiddenClass);
 
-        _hintTitle.text = placing ? $"Placing: {_placement.Selected.Title}" : string.Empty;
+        _hintTitle.text = placing ? Loc.F("Placing: {0}", Loc.T(_placement.Selected.Title)) : string.Empty;
         _hintTitle.EnableInClassList(HiddenClass, !placing);
         _hintText.EnableInClassList(HiddenClass, !placing);
         _hint.EnableInClassList(HiddenClass, !placing && !hasStatus);

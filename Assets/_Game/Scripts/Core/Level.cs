@@ -114,6 +114,9 @@ public class Level : MonoBehaviour
 
     private void InitializeLevel()
     {
+        // 0. Язык интерфейса — до создания UI (тексты переводятся при построении)
+        Loc.LoadFrom(GameSession.Progress);
+
         // 1. Карта
         tilemapGenerator.GenerateMap();
         ConfigureDepthSorting();
