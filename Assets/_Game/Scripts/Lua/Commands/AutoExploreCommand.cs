@@ -6,9 +6,11 @@ using UnityEngine;
 public class AutoExploreCommand : PlayerCommandBase
 {
     public override string Name => "autoExplore";
-    public override float EnergyCost => 25f;
+    // Готовая команда: аналог из базовых — move(dir, 5) ≈ 1–2 энергии; наценка за удобство (GameDesign §9, решение 3)
+    public override float EnergyCost => 10f;
+    public override bool IsReadyMade => true;
     public override string Signature => "autoExplore()";
-    public override string Description => "Пройти 5 шагов в случайном направлении";
+    public override string Description => "Готовая команда: пройти 5 шагов в случайном направлении. Дороже, чем move(direction, 5)";
 
     public AutoExploreCommand(PlayerCommandExecutor executor, IMapDataProvider mapData)
         : base(executor, mapData) { }

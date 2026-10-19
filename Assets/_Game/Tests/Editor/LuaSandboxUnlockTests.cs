@@ -38,7 +38,7 @@ public class LuaSandboxUnlockTests
         _host = new GameObject("LuaSandboxTest");
         _sandbox = _host.AddComponent<LuaSandbox>();
         _sandbox.Initialize(null, null, null, TestHelpers.ProjectEnergyConfig(), null, _energy, null, null,
-            null, null, 1f, null, _unlocks);
+            null, null, 1f, null, _unlocks, null, null);
 
         _appliedCount = 0;
         _sandbox.OnUnlocksApplied += HandleApplied;

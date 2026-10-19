@@ -167,6 +167,25 @@ public class PlayerInventory
     }
 
     /// <summary>
+    /// Ячейка с лучшим исправным оружием: наибольший урон, при равном — самое изношенное.
+    /// -1, если оружия нет (бой — кулаками, см. CombatService).
+    /// </summary>
+    public int FindWeaponSlot()
+    {
+        int best = -1;
+        for (int i = 0; i < _items.Length; i++)
+        {
+            if (!(_items[i] is WeaponItem weapon) || _durability[i] <= 0) continue;
+            if (best < 0) { best = i; continue; }
+
+            int bestDamage = ((WeaponItem)_items[best]).Damage;
+            if (weapon.Damage > bestDamage || (weapon.Damage == bestDamage && _durability[i] < _durability[best]))
+                best = i;
+        }
+        return best;
+    }
+
+    /// <summary>
     /// Износ инструмента в ячейке. Прочность кончилась — инструмент ломается и исчезает.
     /// Возвращает true, если инструмент сломался.
     /// </summary>

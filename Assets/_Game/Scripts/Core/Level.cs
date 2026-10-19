@@ -21,6 +21,10 @@ public class Level : MonoBehaviour
     [Header("Objects")]
     [SerializeField] private ObjectManager objectManager;
 
+    [Header("Enemies")]
+    [Tooltip("Лагеря врагов, патрули после угрозы, характеристики по умолчанию. Пусто — забег без врагов (предупреждение)")]
+    [SerializeField] private EnemyConfig enemyConfig;
+
     [Header("Crafting")]
     [SerializeField] private RecipeBook recipeBook;
 
@@ -39,9 +43,13 @@ public class Level : MonoBehaviour
     [SerializeField] private UIManager uiManager;
 
     private AchievementTracker _achievementTracker;
+    private EnemyManager _enemyManager;
 
     /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
     public AchievementTracker AchievementTracker => _achievementTracker;
+
+    /// <summary>Враги забега (в лагере — пустой список).</summary>
+    public EnemyManager Enemies => _enemyManager;
 
     private void Awake()
     {
@@ -65,6 +73,10 @@ public class Level : MonoBehaviour
         Debug.Assert(achievementCatalog != null, "Level: achievementCatalog is not assigned");
         Debug.Assert(codeEditorManager != null, "Level: CodeEditorManager is not assigned");
         Debug.Assert(uiManager != null, "Level: UIManager is not assigned");
+
+        // Без конфига врагов игра работает (до привязки ассетов), враги просто не появляются
+        if (enemyConfig == null)
+            Debug.LogWarning("Level: enemyConfig is not assigned — no enemies in the run");
     }
 
     private void InitializeLevel()
@@ -110,13 +122,24 @@ public class Level : MonoBehaviour
             tilemapGenerator, executor, playerConfig.structureInteractionRadius);
 
         // 9. День: запуски кода, восстановление энергии, штраф/бонус к максимуму
-        DayCycle dayCycle = new DayCycle(playerConfig, modifiers, playerEnergy, structures);
+        DayCycle dayCycle = new DayCycle(playerConfig, modifiers, playerEnergy, structures, playerHealth);
+
+        // 9a. Враги и бой: лагеря — только в забеге, после объектов (не ставятся на ресурсы);
+        // патрули — по началу дня после угрозы; время врагов идёт, пока выполняется код
+        _enemyManager = new EnemyManager(
+            tilemapGenerator, fogOfWarSystem, executor, playerHealth, inventory, objectManager, enemyConfig,
+            dayCycle, spawnEnabled: mode == GameMode.Run);
+        _enemyManager.SpawnInitial(startTile);
+        // Удар по врагу (attack) — общий сервис, как ResourceHarvester; Lua-команда attack оборачивает его
+        CombatService combat = new CombatService(executor, inventory, _enemyManager);
 
         // 10. Lua песочница
         luaSandbox.Initialize(
             executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
-            inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks);
+            inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks,
+            _enemyManager, combat);
         dayCycle.Attach(luaSandbox);
+        _enemyManager.Attach(luaSandbox);
 
         // 10a. Достижения: после песочницы (известны все команды для проверки наград), до UI
         _achievementTracker = new AchievementTracker(achievementCatalog, progress, unlocks, playerEnergy);
@@ -148,6 +171,10 @@ public class Level : MonoBehaviour
         // Трекер подписан на статическую GameEventBus и дописывает несохранённый прогресс
         _achievementTracker?.Dispose();
         _achievementTracker = null;
+
+        // Останавливает игровое время врагов и отписывается от песочницы и дня
+        _enemyManager?.Dispose();
+        _enemyManager = null;
     }
 
     private System.Collections.Generic.IEnumerable<string> GetRecipeKeys()

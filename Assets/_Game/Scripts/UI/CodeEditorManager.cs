@@ -37,6 +37,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private AchievementsPanel _achievementsPanel;
     private AchievementToasts _achievementToasts;
     private UnlockPopup _unlockPopup;
+    private TutorialOverlay _tutorialOverlay;
+    private TutorialController _tutorial;
+    private readonly Dictionary<TutorialAnchor, VisualElement> _tutorialAnchors =
+        new Dictionary<TutorialAnchor, VisualElement>();
     private int _windowCount = 0;
     private bool _isUIFocused;
     private bool _navigationBlocked;
@@ -100,6 +104,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _runScreens = new RunScreens(runScreensTemplate);
         _container.Add(_runScreens);
         CreateAchievementOverlays();
+        CreateTutorial();
 
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
         _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
@@ -207,6 +212,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         if (_unlocks != null)
             _unlocks.OnUnlocked -= HandleUnlocked;
+
+        // Туториал подписан на статическую GameEventBus
+        _tutorial?.Dispose();
+        _tutorial = null;
     }
 
     private void HandleUIFocused() => _isUIFocused = true;
@@ -258,7 +267,11 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             _unlocks.OnUnlocked += HandleUnlocked;
     }
 
-    private void HandleAchievementsRequested() => _achievementsPanel.Toggle();
+    private void HandleAchievementsRequested()
+    {
+        _achievementsPanel.Toggle();
+        if (_achievementsPanel.IsOpen) _tutorial?.Notify(TutorialFacts.AchievementsOpened);
+    }
 
     private void HandleAchievementCompleted(AchievementDefinition definition)
     {
@@ -274,6 +287,111 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     /// см. HandleRunningChanged.
     /// </summary>
     private void HandleUnlocked(UnlockKind kind, string id) => _unlockPopup.Enqueue(kind, id);
+
+    // ─── Туториал и подсказки ─────────────────────────────────
+
+    /// <summary>
+    /// Подсказки туториала (шаблон внутри RunScreens.uxml, выше всех оверлеев). Режим (лагерь/забег)
+    /// известен после RunController.Start — туториал запускается в следующем обновлении панели.
+    /// </summary>
+    private void CreateTutorial()
+    {
+        MetaProgress progress = GameSession.Progress;
+
+        _tutorialOverlay = new TutorialOverlay(_runScreens.GetOverlay("tutorial-overlay"), _context.Highlighter);
+        var state = new TutorialState(progress, _unlocks, _dayCycle, IsKeywordLocked);
+        _tutorial = new TutorialController(_tutorialOverlay, progress, state, ResolveTutorialAnchor, IsTutorialBlocked);
+        _tutorial.OnHintsChanged += HandleHintsChanged;
+        HandleHintsChanged(_tutorial.HintsEnabled);
+
+        _topBar.OnHelpOpened += HandleHelpOpened;
+        _topBar.OnHintsToggleRequested += HandleHintsToggleRequested;
+        _runScreens.OnHintsToggleRequested += HandleHintsToggleRequested;
+        _runScreens.OnResetTutorialRequested += HandleResetTutorialRequested;
+        _runScreens.OnStartRunRequested += HandleStartRunRequested;
+
+        UpdateTutorialCode();
+        _container.schedule.Execute(StartTutorial);
+    }
+
+    private void StartTutorial()
+    {
+        // Режим известен только сейчас: в лагере угрозы нет — индикатор в верхней панели скрыт
+        _topBar.SetHubMode(_runScreens.IsHubShown);
+        _tutorial?.Start(_runScreens.IsHubShown ? TutorialMode.Hub : TutorialMode.Run);
+    }
+
+    /// <summary>Модальные окна поверх: пока они открыты, карточка подсказки скрыта.</summary>
+    private bool IsTutorialBlocked()
+    {
+        return (_unlockPopup != null && _unlockPopup.IsOpen)
+            || (_achievementsPanel != null && _achievementsPanel.IsOpen)
+            || _runScreens.IsExitConfirmOpen
+            || _runScreens.IsSummaryShown;
+    }
+
+    private VisualElement ResolveTutorialAnchor(TutorialAnchor anchor)
+    {
+        if (anchor == TutorialAnchor.None) return null;
+        if (_tutorialAnchors.TryGetValue(anchor, out VisualElement cached) && cached != null && cached.panel != null)
+            return cached;
+
+        VisualElement element = FindTutorialAnchor(anchor);
+        _tutorialAnchors[anchor] = element;
+        return element;
+    }
+
+    private VisualElement FindTutorialAnchor(TutorialAnchor anchor)
+    {
+        switch (anchor)
+        {
+            case TutorialAnchor.StartRunButton: return _runScreens.FindElement("btn-start-run");
+            case TutorialAnchor.HubAchievementsButton: return _runScreens.FindElement("btn-hub-achievements");
+            case TutorialAnchor.MainWindow: return _mainWindow?.Q<VisualElement>("window");
+            case TutorialAnchor.LineCosts: return _mainWindow?.Q<VisualElement>(className: "gutter-costs");
+            case TutorialAnchor.AddWindowButton: return _mainWindow?.Q<VisualElement>("btn-add-method");
+            case TutorialAnchor.RunButton: return _topBar.FindElement("btn-run");
+            case TutorialAnchor.Energy: return _topBar.FindElement("energy-label");
+            case TutorialAnchor.DayLabel: return _topBar.FindElement("day-label");
+            case TutorialAnchor.ThreatLabel: return _topBar.FindElement("threat-label");
+            case TutorialAnchor.HelpButton: return _topBar.FindElement("btn-help");
+            case TutorialAnchor.EndDayButton: return _topBar.FindElement("btn-end-day");
+            case TutorialAnchor.AchievementsButton: return _topBar.FindElement("btn-achievements");
+            case TutorialAnchor.ExitRunButton: return _topBar.FindElement("btn-exit-run");
+            case TutorialAnchor.Inventory: return _inventoryBar.Q<VisualElement>("inventory-bar");
+            case TutorialAnchor.CraftButton: return _craftingPanel.Q<VisualElement>("btn-craft");
+            case TutorialAnchor.LibraryTab: return _codeLibraryPanel.Q<VisualElement>("btn-library-toggle");
+            default: return null;
+        }
+    }
+
+    private void UpdateTutorialCode()
+    {
+        if (_tutorial == null || _mainWindow == null) return;
+        _tutorial.SetCode(_mainWindow.Code, GetAllWindowCode().Values);
+    }
+
+    private void HandleHelpOpened() => _tutorial?.Notify(TutorialFacts.HelpOpened);
+
+    private void HandleStartRunRequested() => _tutorial?.Notify(TutorialFacts.StartRunRequested);
+
+    private void HandleHintsToggleRequested()
+    {
+        if (_tutorial == null) return;
+        _tutorial.SetHintsEnabled(!_tutorial.HintsEnabled);
+    }
+
+    private void HandleHintsChanged(bool enabled)
+    {
+        _topBar.SetHintsEnabled(enabled);
+        _runScreens.SetHintsEnabled(enabled);
+    }
+
+    private void HandleResetTutorialRequested()
+    {
+        _tutorial?.ResetTutorial();
+        UIEventBus.PublishNotification("Tutorial reset: hints will guide you again", LogEntryType.Success);
+    }
 
     // ─── Window Layer ─────────────────────────────────────────
 
@@ -334,8 +452,17 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _container.Add(_codeLibraryPanel);
     }
 
-    private void HandleCodeLibraryOpened() => _craftingPanel.Close();
-    private void HandleCraftingOpened() => _codeLibraryPanel.Close();
+    private void HandleCodeLibraryOpened()
+    {
+        _craftingPanel.Close();
+        _tutorial?.Notify(TutorialFacts.LibraryOpened);
+    }
+
+    private void HandleCraftingOpened()
+    {
+        _codeLibraryPanel.Close();
+        _tutorial?.Notify(TutorialFacts.CraftingOpened);
+    }
 
     private void HandleWindowDragMoved(CodeEditorWindowBase window, Vector2 position)
     {
@@ -361,6 +488,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         try
         {
             bool updated = _codeLibrary.Save(window.Title, window.Code);
+            _tutorial?.Notify(TutorialFacts.WindowSaved);
             UIEventBus.PublishNotification(
                 updated ? $"{window.Title} updated in the library" : $"{window.Title} saved to the library",
                 LogEntryType.Success);
@@ -436,6 +564,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         if (!string.IsNullOrEmpty(code))
             window.SetCode(code);
+
+        _tutorial?.Notify(TutorialFacts.AuxWindowCreated);
     }
 
     private string MakeUniqueTitle(string title)
@@ -461,6 +591,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         PublishWindowCost(changedWindow, newCode);
         UpdateProgramCost();
+        UpdateTutorialCode();
     }
 
     private void PublishWindowCost(CodeEditorWindowBase window, string code)
@@ -554,6 +685,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _topBar?.SetRunning(running);
         // «Unlocked: X» — только между запусками: модальное окно не должно появляться посреди работы кода
         _unlockPopup?.SetSuspended(running);
+        // Подсказки туториала тоже ждут конца запуска (кроме шагов, которые объясняют сам запуск)
+        _tutorial?.SetRunning(running);
     }
 
     /// <summary>
@@ -576,6 +709,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _windows.Remove(window);
         window.DestroyWindow();
         UpdateProgramCost();
+        UpdateTutorialCode();
     }
 
     // ─── Public API ───────────────────────────────────────────

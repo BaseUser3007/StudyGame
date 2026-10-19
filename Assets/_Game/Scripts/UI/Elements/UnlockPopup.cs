@@ -8,7 +8,10 @@ using UnityEngine.UIElements;
 ///   • команда — Signature + Description + цена из ILuaCommand (LuaSandbox.AllCommands);
 ///   • конструкция — объяснение и пример кода из <see cref="LuaConstructGuide"/>, цена из EnergyConfig;
 ///   • рецепт — иконка результата (ResourceItem.Icon), ингредиенты, станция, энергия;
-///   • постройка хаба / событие на карте — короткая строка.
+///   • постройка хаба / событие на карте — короткая строка;
+///   • «декомпиляция» — если в очереди команды из одной записи <see cref="LuaDecompileGuide"/> и все её
+///     базовые команды уже открыты, они показываются одним окном «Decompiled: X()»: из чего состояла
+///     готовая команда, новые команды, пример и сравнение цены (реестр команд + EnergyConfig).
 /// Пока выполняется код, окно не показывается (SetSuspended), открытия копятся в очереди и идут после
 /// окончания запуска — к этому моменту песочница уже применила их (OnUnlocksApplied).
 /// Несколько открытий — по очереди, кнопка Next (N) / OK. Кнопка не фокусируемая, управление только мышью.
@@ -34,6 +37,7 @@ public class UnlockPopup
     private readonly LuaSandbox _sandbox;
     private readonly RecipeBook _recipeBook;
     private readonly LuaSyntaxHighlighter _highlighter;
+    private readonly LuaTokenizer _tokenizer = new LuaTokenizer();
 
     private readonly VisualElement _backdrop;
     private readonly Label _caption;
@@ -122,12 +126,24 @@ public class UnlockPopup
             return;
         }
 
-        PendingUnlock next = _queue[0];
-        _queue.RemoveAt(0);
-
         _content.Clear();
         _icon.AddToClassList(HiddenClass);
-        Build(next.Kind, next.Id);
+
+        // Команды одной декомпиляции — одним окном, остальные открытия — по одному
+        List<int> group = CollectDecompileGroup(0, out LuaDecompileGuide.Entry decompile);
+        if (group != null)
+        {
+            var commands = new List<string>(group.Count);
+            foreach (int index in group) commands.Add(_queue[index].Id);
+            for (int i = group.Count - 1; i >= 0; i--) _queue.RemoveAt(group[i]);
+            BuildDecompile(decompile, commands);
+        }
+        else
+        {
+            PendingUnlock next = _queue[0];
+            _queue.RemoveAt(0);
+            Build(next.Kind, next.Id);
+        }
 
         RefreshOkButton();
         _backdrop.RemoveFromClassList(HiddenClass);
@@ -148,7 +164,54 @@ public class UnlockPopup
 
     private void RefreshOkButton()
     {
-        _btnOk.text = _queue.Count > 0 && !_suspended ? $"Next ({_queue.Count})" : "OK";
+        int pages = CountPages();
+        _btnOk.text = pages > 0 && !_suspended ? $"Next ({pages})" : "OK";
+    }
+
+    // ─── Decompile grouping ───────────────────────────────────
+
+    /// <summary>
+    /// Индексы (по возрастанию) открытий команд одной декомпиляции, начиная с <paramref name="start"/>,
+    /// или null, если открытие под этим индексом — не команда декомпиляции. Группа образуется, только
+    /// когда готовая команда есть в игре и все базовые команды записи уже открыты (иначе — обычные окна).
+    /// </summary>
+    private List<int> CollectDecompileGroup(int start, out LuaDecompileGuide.Entry entry)
+    {
+        entry = default;
+        PendingUnlock first = _queue[start];
+        if (first.Kind != UnlockKind.Command) return null;
+        if (!LuaDecompileGuide.TryGetByBasic(first.Id, out LuaDecompileGuide.Entry candidate)) return null;
+        if (FindCommand(candidate.ReadyMade) == null) return null;
+
+        UnlockRegistry unlocks = _sandbox.Unlocks;
+        if (unlocks != null)
+            foreach (string basic in candidate.Basics)
+                if (!unlocks.IsCommandUnlocked(basic)) return null;
+
+        var group = new List<int>();
+        for (int i = start; i < _queue.Count; i++)
+            if (_queue[i].Kind == UnlockKind.Command && candidate.Contains(_queue[i].Id))
+                group.Add(i);
+
+        entry = candidate;
+        return group;
+    }
+
+    /// <summary>Сколько окон ещё покажет очередь (команды одной декомпиляции — одно окно).</summary>
+    private int CountPages()
+    {
+        int pages = 0;
+        var consumed = new bool[_queue.Count];
+        for (int i = 0; i < _queue.Count; i++)
+        {
+            if (consumed[i]) continue;
+            pages++;
+
+            List<int> group = CollectDecompileGroup(i, out _);
+            if (group == null) continue;
+            foreach (int index in group) consumed[index] = true;
+        }
+        return pages;
     }
 
     // ─── Content ──────────────────────────────────────────────
@@ -210,6 +273,125 @@ public class UnlockPopup
         {
             AddText("Example", "unlock-section");
             AddCode(entry.Example);
+        }
+    }
+
+    /// <summary>
+    /// «Decompiled: obtain()»: из чего состояла готовая команда, новые базовые команды, пример на них
+    /// и сравнение цены: вызов готовой команды против одного прохода примера.
+    /// </summary>
+    private void BuildDecompile(LuaDecompileGuide.Entry entry, List<string> newCommands)
+    {
+        ILuaCommand readyMade = FindCommand(entry.ReadyMade);
+        SetHeader("Decompiled", $"{entry.ReadyMade}()");
+
+        AddText(entry.Explanation, "unlock-text");
+
+        AddText(newCommands.Count == 1 ? "New command" : "New commands", "unlock-section");
+        foreach (string basic in entry.Basics)
+        {
+            if (!newCommands.Contains(basic)) continue;
+
+            ILuaCommand command = FindCommand(basic);
+            if (command == null) continue;
+
+            AddCode(command.Signature);
+            AddText(command.Description, "unlock-note");
+            AddText($"Costs {Format(command.EnergyCost)} energy per call.", "unlock-cost");
+        }
+
+        AddText("The same, with your own code", "unlock-section");
+        AddCode(entry.Example);
+
+        AddText("Energy", "unlock-section");
+        _content.Add(CreateCostRow($"{entry.ReadyMade}()", Format(readyMade.EnergyCost), "unlock-cost-ready"));
+
+        float ownCost = CalculateCost(entry.Example, out List<(string Name, float Cost)> parts);
+        string breakdown = string.Join(" + ", parts.ConvertAll(FormatPart));
+        string total = parts.Count > 1 ? $"{breakdown} = {Format(ownCost)}" : Format(ownCost);
+        _content.Add(CreateCostRow("Your code", total, "unlock-cost-own"));
+
+        float saved = readyMade.EnergyCost - ownCost;
+        if (saved > 0f)
+            AddText($"Your own code saves {Format(saved)} energy on every pass — and you decide " +
+                    "which steps you actually need.", "unlock-cost");
+
+        AddText($"{entry.ReadyMade}() stays available: handy, but expensive.", "unlock-note");
+        AddText("The new commands are listed in Help and suggested by autocompletion.", "unlock-note");
+    }
+
+    private static string FormatPart((string Name, float Cost) part) => $"{part.Name} {Format(part.Cost)}";
+
+    private static VisualElement CreateCostRow(string name, string value, string valueClass)
+    {
+        var row = new VisualElement();
+        row.AddToClassList("unlock-cost-row");
+
+        var nameLabel = new Label(name) { enableRichText = false };
+        nameLabel.AddToClassList("unlock-cost-name");
+        row.Add(nameLabel);
+
+        var valueLabel = new Label(value) { enableRichText = false };
+        valueLabel.AddToClassList("unlock-cost-value");
+        valueLabel.AddToClassList(valueClass);
+        row.Add(valueLabel);
+
+        return row;
+    }
+
+    /// <summary>
+    /// Цена одного прохода кода по тем же правилам, что EnergyCounter (команды, методы массива findObjects,
+    /// ключевые слова), но команды берутся из всего реестра — независимо от того, что открыто.
+    /// parts — платные элементы по порядку появления, повторы сложены.
+    /// </summary>
+    private float CalculateCost(string code, out List<(string Name, float Cost)> parts)
+    {
+        parts = new List<(string Name, float Cost)>();
+        float total = 0f;
+        if (string.IsNullOrEmpty(code)) return total;
+
+        foreach (LuaTokenizer.Token token in _tokenizer.Tokenize(code))
+        {
+            float cost = GetTokenCost(token);
+            if (cost <= 0f) continue;
+
+            total += cost;
+            int index = parts.FindIndex(p => p.Name == token.Value);
+            if (index >= 0) parts[index] = (token.Value, parts[index].Cost + cost);
+            else parts.Add((token.Value, cost));
+        }
+        return total;
+    }
+
+    private float GetTokenCost(LuaTokenizer.Token token)
+    {
+        if (token.Type == LuaTokenizer.TokenType.Keyword)
+            return GetKeywordCost(token.Value, _sandbox.EnergyConfig);
+
+        if (token.Type != LuaTokenizer.TokenType.Identifier) return 0f;
+
+        ILuaCommand command = FindCommand(token.Value);
+        if (command != null) return command.EnergyCost;
+        return LuaObjectList.IsMethod(token.Value) ? LuaObjectList.MethodCost : 0f;
+    }
+
+    /// <summary>Те же поля EnergyConfig, что в EnergyCounter.</summary>
+    private static float GetKeywordCost(string keyword, EnergyConfig config)
+    {
+        if (config == null) return 0f;
+
+        switch (keyword)
+        {
+            case "if": return config.ifCost;
+            case "elseif": return config.elseifCost;
+            case "else": return config.elseCost;
+            case "for": return config.forCost;
+            case "while": return config.whileCost;
+            case "repeat": return config.repeatCost;
+            case "function": return config.functionCost;
+            case "local": return config.localCost;
+            case "return": return config.returnCost;
+            default: return 0f;
         }
     }
 

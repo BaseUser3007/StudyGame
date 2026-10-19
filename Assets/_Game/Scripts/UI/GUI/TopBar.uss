@@ -94,6 +94,28 @@
     color: rgb(150, 220, 150);
 }
 
+/* ── Threat ──────────────────────────────────────────────── */
+.threat-label {
+    font-size: 12px;
+    margin-left: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: rgb(190, 170, 140);
+}
+
+/* Угроза завтра — предупреждение */
+.threat-label--soon {
+    color: rgb(240, 180, 90);
+    -unity-font-style: bold;
+}
+
+/* Угроза идёт — красная плашка */
+.threat-label--active {
+    color: rgb(255, 235, 235);
+    background-color: rgb(150, 40, 40);
+    -unity-font-style: bold;
+}
+
 .btn-end-day {
     color: rgb(230, 200, 110);
 }
@@ -117,12 +139,38 @@
     border-color: rgb(70, 70, 70);
     background-color: rgb(45, 30, 30);
     overflow: hidden;
+    transition-property: border-color, background-color;
+    transition-duration: 0.3s;
 }
 
 .health-fill {
     height: 100%;
     width: 100%;
     background-color: rgb(200, 70, 70);
+    transition-property: background-color;
+    transition-duration: 0.3s;
+}
+
+/* Флэш при уроне: класс снимается из TopBar через HealthFlashMs */
+.health--hit .health-bar {
+    border-color: rgb(255, 200, 200);
+    background-color: rgb(110, 40, 40);
+    transition-duration: 0s;
+}
+
+.health--hit .health-fill {
+    background-color: rgb(255, 170, 170);
+    transition-duration: 0s;
+}
+
+.health-label {
+    transition-property: color;
+    transition-duration: 0.3s;
+}
+
+.health--hit .health-label {
+    color: rgb(255, 220, 220);
+    transition-duration: 0s;
 }
 
 .health-label {
@@ -283,4 +331,8 @@
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden {
     display: none;
+}
+/* Подсказки туториала выключены — кнопка приглушена */
+.btn-hints--off {
+    color: rgb(140, 140, 140);
 }

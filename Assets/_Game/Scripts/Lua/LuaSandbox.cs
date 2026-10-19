@@ -38,6 +38,8 @@ public class LuaSandbox : MonoBehaviour
     private float _buildReach;
     private DayCycle _dayCycle;
     private UnlockRegistry _unlocks;
+    private EnemyManager _enemies;
+    private CombatService _combat;
 
     private LuaState _state;
     // Все команды игры; в _registry (и в Lua) попадают только открытые
@@ -72,7 +74,9 @@ public class LuaSandbox : MonoBehaviour
         StructureManager structures,
         float buildReach,
         DayCycle dayCycle,
-        UnlockRegistry unlocks)
+        UnlockRegistry unlocks,
+        EnemyManager enemies,
+        CombatService combat)
     {
         _executor = executor;
         _mapData = mapData;
@@ -87,6 +91,9 @@ public class LuaSandbox : MonoBehaviour
         _buildReach = buildReach;
         _dayCycle = dayCycle;
         _unlocks = unlocks;
+        // Враги и бой могут отсутствовать (тесты без сцены) — команды тогда «никого не видят»
+        _enemies = enemies;
+        _combat = combat;
         UnityEngine.Debug.Assert(_unlocks != null, "LuaSandbox: UnlockRegistry is not assigned");
 
         _registry = new LuaCommandRegistry();
@@ -122,10 +129,13 @@ public class LuaSandbox : MonoBehaviour
 
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
-        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager));
-        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures));
-        AddCommand(new HarvestCommand(_executor, _mapData, harvester));
-        AddCommand(new MineCommand(_executor, _mapData, harvester));
+        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager, _enemies));
+        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures, _enemies));
+        AddCommand(new HarvestCommand(_executor, _mapData, harvester, _objectManager, _enemies));
+        AddCommand(new MineCommand(_executor, _mapData, harvester, _objectManager, _enemies));
+
+        // Бой (удар — CombatService, общий с будущими готовыми командами)
+        AddCommand(new AttackCommand(_executor, _mapData, _enemies, _combat));
 
         // Готовые команды: удобнее, но дороже самописного аналога
         AddCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));

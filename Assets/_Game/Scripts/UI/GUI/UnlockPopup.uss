@@ -133,6 +133,44 @@
     margin: 0;
 }
 
+/* ── Decompile: сравнение цены ───────────────────────────── */
+/* Строка «имя — цена»: готовая команда против своего кода */
+.unlock-cost-row {
+    flex-direction: row;
+    align-items: flex-start;
+    margin: 1px 0;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background-color: rgb(42, 42, 42);
+}
+
+.unlock-cost-name {
+    width: 110px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: rgb(220, 220, 170);
+    padding: 0;
+    margin: 0;
+}
+
+.unlock-cost-value {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 12px;
+    white-space: normal;
+    -unity-text-align: upper-right;
+    padding: 0;
+    margin: 0;
+}
+
+.unlock-cost-ready {
+    color: rgb(230, 150, 120);
+}
+
+.unlock-cost-own {
+    color: rgb(150, 220, 150);
+}
+
 /* ── Buttons ─────────────────────────────────────────────── */
 .unlock-buttons {
     flex-direction: row;

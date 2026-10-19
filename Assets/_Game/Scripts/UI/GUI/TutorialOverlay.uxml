@@ -1,0 +1,22 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="TutorialOverlay.uss"/>
+    <!-- Подсказка туториала: рамка вокруг элемента UI, стрелка и карточка. Не модальная:
+         слой, рамка и стрелка не ловят мышь, только карточка. Контроллер — TutorialOverlay/TutorialController -->
+    <ui:VisualElement name="tutorial-layer" class="tutorial-layer" picking-mode="Ignore">
+        <ui:VisualElement name="tutorial-frame" class="tutorial-frame hidden" picking-mode="Ignore"/>
+        <ui:VisualElement name="tutorial-arrow" class="tutorial-arrow hidden" picking-mode="Ignore"/>
+        <ui:VisualElement name="tutorial-card" class="tutorial-card hidden">
+            <ui:Label name="tutorial-caption" class="tutorial-caption" text="Tutorial"/>
+            <ui:Label name="tutorial-title" class="tutorial-title hidden" text=""/>
+            <ui:Label name="tutorial-text" class="tutorial-text" text=""/>
+            <ui:Label name="tutorial-example" class="tutorial-example hidden" text=""/>
+            <ui:Label name="tutorial-waiting" class="tutorial-waiting hidden" text=""/>
+            <ui:VisualElement class="tutorial-buttons">
+                <ui:Button name="btn-tutorial-skip" class="tutorial-btn tutorial-btn--link" text="Skip tutorial"/>
+                <ui:Button name="btn-tutorial-hints-off" class="tutorial-btn tutorial-btn--link" text="Hints off"/>
+                <ui:VisualElement class="tutorial-buttons-spacer" picking-mode="Ignore"/>
+                <ui:Button name="btn-tutorial-next" class="tutorial-btn tutorial-btn--primary" text="Next"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

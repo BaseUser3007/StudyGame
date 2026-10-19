@@ -10,8 +10,14 @@ using UnityEngine;
 /// (where, sortBy, take), создают новый такой же массив — их можно выстраивать в цепочку:
 ///   findObjects("stone"):where("distance", "<", 5):sortBy("durability"):take(3)
 ///
-/// Объекты, которые уже собраны, методы пропускают. Расстояние считается на момент вызова
+/// Объекты, которые уже собраны, и погибшие враги методы пропускают. Расстояние считается на момент вызова
 /// метода (поле distance у объектов в новом списке обновляется).
+///
+/// Список может быть смешанным: ресурсы (kind = "object") и враги (kind = "enemy", поля health,
+/// maxHealth, state, durability = 0). У врага id = <see cref="EnemyIdOffset"/> + Enemy.Id — не пересекается
+/// с id объектов (GetInstanceID объектов, созданных во время игры, отрицательные). Позиция, здоровье
+/// и состояние врага читаются методами на момент вызова (враг двигается), а distance до врага —
+/// от точной позиции персонажа, как её проверяет attack().
 /// Каждый вызов метода стоит <see cref="MethodCost"/> энергии.
 /// </summary>
 public class LuaObjectList
@@ -39,7 +45,17 @@ public class LuaObjectList
     };
 
     /// <summary>Поля объекта, с которыми работают методы.</summary>
-    public const string Fields = "distance, durability, x, y, id, type, tool";
+    public const string Fields = "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state";
+
+    /// <summary>Значение поля kind у ресурсов и врагов.</summary>
+    public const string KindObject = "object";
+    public const string KindEnemy = "enemy";
+
+    /// <summary>
+    /// id врага в Lua = EnemyIdOffset + Enemy.Id. Объекты карты создаются во время игры, их GetInstanceID
+    /// отрицательные, так что диапазоны не пересекаются: a.id == b.id и find("id", …) работают в смешанном списке.
+    /// </summary>
+    public const int EnemyIdOffset = 1000000000;
 
     private static readonly HashSet<string> MethodNames = new HashSet<string>();
 
@@ -53,16 +69,40 @@ public class LuaObjectList
 
     private readonly PlayerCommandExecutor _executor;
 
+    /// <summary>
+    /// Элемент списка: ресурс или враг (ровно одно из двух) и его таблица для Lua.
+    /// </summary>
     private readonly struct Entry
     {
         public readonly ResourceObject Obj;
+        public readonly Enemy Enemy;
+        // Враги берутся из пула: после гибели тот же компонент может стать другим врагом с новым Id
+        public readonly int EnemyId;
         public readonly LuaTable Table;
 
         public Entry(ResourceObject obj, LuaTable table)
         {
             Obj = obj;
+            Enemy = null;
+            EnemyId = 0;
             Table = table;
         }
+
+        public Entry(Enemy enemy, LuaTable table)
+        {
+            Obj = null;
+            Enemy = enemy;
+            EnemyId = enemy.Id;
+            Table = table;
+        }
+
+        public bool IsEnemy => !ReferenceEquals(Enemy, null);
+
+        public bool IsAlive => IsEnemy
+            ? Enemy != null && Enemy.IsAlive && Enemy.Id == EnemyId
+            : Obj != null && Obj.IsAvailable;
+
+        public Vector2 Position => IsEnemy ? Enemy.Position : Obj.Position;
     }
 
     public LuaObjectList(PlayerCommandExecutor executor)
@@ -74,11 +114,37 @@ public class LuaObjectList
 
     public LuaTable Build(List<ResourceObject> objects, EnergyMeter meter)
     {
-        var entries = new List<Entry>(objects.Count);
-        foreach (ResourceObject obj in objects)
-            entries.Add(new Entry(obj, BuildObjectTable(obj)));
+        return Build(objects, null, meter);
+    }
+
+    /// <summary>
+    /// Смешанный список: сначала ресурсы, затем живые враги (видимость проверяет вызывающий).
+    /// </summary>
+    public LuaTable Build(List<ResourceObject> objects, List<Enemy> enemies, EnergyMeter meter)
+    {
+        var entries = new List<Entry>((objects?.Count ?? 0) + (enemies?.Count ?? 0));
+        if (objects != null)
+            foreach (ResourceObject obj in objects)
+                entries.Add(new Entry(obj, BuildObjectTable(obj)));
+        if (enemies != null)
+            foreach (Enemy enemy in enemies)
+                if (enemy != null && enemy.IsAlive)
+                    entries.Add(new Entry(enemy, BuildEnemyTable(enemy)));
 
         return BuildList(entries, meter);
+    }
+
+    /// <summary>
+    /// Таблица — враг из findObjects/check (kind = "enemy"): возвращает Enemy.Id.
+    /// </summary>
+    public static bool TryGetEnemyId(LuaTable table, out int enemyId)
+    {
+        enemyId = 0;
+        if (table == null || !table["kind"].TryRead(out string kind) || kind != KindEnemy) return false;
+        if (!table["id"].TryRead(out double id)) return false;
+
+        enemyId = (int)(id - EnemyIdOffset);
+        return true;
     }
 
     // ─── List ─────────────────────────────────────────────────
@@ -93,8 +159,8 @@ public class LuaObjectList
         // Сколько элементов (то же, что #list) — удобно для проверок: if list.count > 0
         list["count"] = (double)entries.Count;
 
-        AddMethod(list, meter, "getNear", args => Pick(entries, e => -Distance(e.Obj)));
-        AddMethod(list, meter, "getFar", args => Pick(entries, e => Distance(e.Obj)));
+        AddMethod(list, meter, "getNear", args => Pick(entries, e => -Distance(e)));
+        AddMethod(list, meter, "getFar", args => Pick(entries, e => Distance(e)));
         AddMethod(list, meter, "getMin", args =>
         {
             string field = RequireField(args, 0, "getMin");
@@ -118,7 +184,7 @@ public class LuaObjectList
             float bestDistance = float.MaxValue;
             foreach (Entry e in Alive(entries))
             {
-                float d = Vector2.Distance(point, e.Obj.Position);
+                float d = Vector2.Distance(point, e.Position);
                 if (d <= radius && d < bestDistance)
                 {
                     bestDistance = d;
@@ -217,11 +283,29 @@ public class LuaObjectList
     // ─── Objects ──────────────────────────────────────────────
 
     /// <summary>
-    /// Имя типа объекта для Lua: TreeObject → "tree".
+    /// Имя типа объекта для Lua: TreeObject → "tree", GoldOreObject → "gold_ore".
     /// </summary>
     public static string GetTypeName(ResourceObject obj)
     {
-        return obj.GetType().Name.ToLower().Replace("object", "");
+        return GetTypeName(obj.GetType());
+    }
+
+    public static string GetTypeName(Type type)
+    {
+        const string suffix = "Object";
+        string name = type.Name;
+        if (name.EndsWith(suffix, StringComparison.Ordinal) && name.Length > suffix.Length)
+            name = name.Substring(0, name.Length - suffix.Length);
+
+        // CamelCase → snake_case
+        var sb = new System.Text.StringBuilder(name.Length + 4);
+        for (int i = 0; i < name.Length; i++)
+        {
+            char c = name[i];
+            if (char.IsUpper(c) && i > 0) sb.Append('_');
+            sb.Append(char.ToLowerInvariant(c));
+        }
+        return sb.ToString();
     }
 
     private LuaTable BuildObjectTable(ResourceObject obj)
@@ -230,6 +314,7 @@ public class LuaObjectList
 
         // Уникален для каждого объекта на карте — для сравнения: a.id == b.id
         table["id"] = (double)obj.GetInstanceID();
+        table["kind"] = KindObject;
         table["x"] = (double)obj.Position.x;
         table["y"] = (double)obj.Position.y;
         table["type"] = GetTypeName(obj);
@@ -244,18 +329,66 @@ public class LuaObjectList
         return table;
     }
 
+    private LuaTable BuildEnemyTable(Enemy enemy)
+    {
+        LuaTable table = new LuaTable();
+
+        table["id"] = (double)(EnemyIdOffset + enemy.Id);
+        table["kind"] = KindEnemy;
+        table["type"] = enemy.TypeId;
+        // Врага не добывают (harvest/mine → «use attack()»); удар стоит только цену вызова attack
+        table["durability"] = 0d;
+        // tool = nil: оружие не обязательно, кулак тоже бьёт
+        RefreshEnemy(table, enemy);
+        return table;
+    }
+
+    /// <summary>
+    /// Изменчивые поля врага: позиция, здоровье, состояние, расстояние.
+    /// </summary>
+    private void RefreshEnemy(LuaTable table, Enemy enemy)
+    {
+        table["x"] = (double)enemy.Position.x;
+        table["y"] = (double)enemy.Position.y;
+        table["health"] = (double)enemy.Health;
+        table["maxHealth"] = (double)enemy.MaxHealth;
+        table["state"] = enemy.StateName;
+        table["distance"] = (double)Distance(enemy);
+    }
+
     private float Distance(ResourceObject obj)
     {
         return Vector2.Distance(_executor.CurrentTile, obj.Position);
     }
 
+    // До врага — от точной позиции персонажа: так дистанцию проверяет удар (CombatService)
+    private float Distance(Enemy enemy)
+    {
+        return Vector2.Distance(_executor.Position, enemy.Position);
+    }
+
+    private float Distance(Entry e)
+    {
+        return e.IsEnemy ? Distance(e.Enemy) : Distance(e.Obj);
+    }
+
     private LuaValue GetField(Entry e, string field)
     {
-        switch (field)
+        if (field == "distance") return (double)Distance(e);
+
+        // Враг двигается и теряет здоровье — читаем на момент вызова метода
+        if (e.IsEnemy)
         {
-            case "distance": return (double)Distance(e.Obj);
-            default: return e.Table[field];
+            switch (field)
+            {
+                case "x": return (double)e.Enemy.Position.x;
+                case "y": return (double)e.Enemy.Position.y;
+                case "health": return (double)e.Enemy.Health;
+                case "state": return e.Enemy.StateName;
+            }
         }
+
+        return e.Table[field];
     }
 
     // ─── Helpers ──────────────────────────────────────────────
@@ -264,18 +397,21 @@ public class LuaObjectList
     {
         var alive = new List<Entry>(entries.Count);
         foreach (Entry e in entries)
-            if (e.Obj != null && e.Obj.IsAvailable)
+            if (e.IsAlive)
                 alive.Add(e);
         return alive;
     }
 
     /// <summary>
-    /// Обновляет distance у объектов, попадающих в новый список.
+    /// Обновляет distance (у врагов — ещё позицию, здоровье, состояние) у элементов нового списка.
     /// </summary>
     private List<Entry> Refreshed(List<Entry> entries)
     {
         foreach (Entry e in entries)
-            e.Table["distance"] = (double)Distance(e.Obj);
+        {
+            if (e.IsEnemy) RefreshEnemy(e.Table, e.Enemy);
+            else e.Table["distance"] = (double)Distance(e.Obj);
+        }
         return entries;
     }
 
@@ -330,7 +466,7 @@ public class LuaObjectList
     {
         if (GetField(e, field).TryRead(out double value))
             return value;
-        throw new ArgumentException($"{method}: field '{field}' is not a number (numeric fields: distance, durability, x, y, id)");
+        throw new ArgumentException($"{method}: field '{field}' is not a number (numeric fields: distance, durability, x, y, id; enemies: health, maxHealth)");
     }
 
     private static bool IsOperator(string op)

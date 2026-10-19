@@ -32,6 +32,12 @@ public class RunScreens : VisualElement
     private Label _hubMaterialsEmpty;
     private Button _btnStartRun;
     private Button _btnHubAchievements;
+    private Button _btnHubHints;
+    private Button _btnHubResetTutorial;
+    // Сброс туториала — вторым кликом в течение ResetConfirmMs
+    private bool _resetArmed;
+    private IVisualElementScheduledItem _resetDisarm;
+    private const long ResetConfirmMs = 3000;
 
     private VisualElement _exitConfirm;
     private Button _btnExitConfirm;
@@ -52,6 +58,10 @@ public class RunScreens : VisualElement
     public event Action OnReturnToHubRequested;
     /// <summary>Кнопка Achievements в лагере — панель показывает CodeEditorManager.</summary>
     public event Action OnAchievementsRequested;
+    /// <summary>Кнопка Hints в лагере — переключить подсказки (сохраняет TutorialController).</summary>
+    public event Action OnHintsToggleRequested;
+    /// <summary>Reset tutorial в лагере, подтверждён вторым кликом.</summary>
+    public event Action OnResetTutorialRequested;
 
     public RunScreens(VisualTreeAsset template)
     {
@@ -70,8 +80,15 @@ public class RunScreens : VisualElement
         style.bottom = 0;
 
         // UI управляется только мышью — кнопки не должны забирать фокус
-        foreach (Button button in new[] { _btnStartRun, _btnHubAchievements, _btnExitConfirm, _btnExitCancel, _btnToHub })
+        foreach (Button button in new[]
+                 {
+                     _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubResetTutorial,
+                     _btnExitConfirm, _btnExitCancel, _btnToHub
+                 })
             button.focusable = false;
+
+        _btnHubHints.clicked += () => OnHintsToggleRequested?.Invoke();
+        _btnHubResetTutorial.clicked += HandleResetTutorialClicked;
 
         _btnStartRun.clicked += () => OnStartRunRequested?.Invoke();
         _btnExitCancel.clicked += HideExitConfirm;
@@ -90,6 +107,8 @@ public class RunScreens : VisualElement
         _hubMaterialsEmpty = root.Q<Label>("hub-materials-empty");
         _btnStartRun = root.Q<Button>("btn-start-run");
         _btnHubAchievements = root.Q<Button>("btn-hub-achievements");
+        _btnHubHints = root.Q<Button>("btn-hub-hints");
+        _btnHubResetTutorial = root.Q<Button>("btn-hub-reset-tutorial");
 
         _exitConfirm = root.Q<VisualElement>("exit-confirm");
         _btnExitConfirm = root.Q<Button>("btn-exit-confirm");
@@ -111,6 +130,8 @@ public class RunScreens : VisualElement
         Debug.Assert(_hubScreen != null && _hubStats != null && _hubMaterials != null
                      && _hubMaterialsEmpty != null && _btnStartRun != null && _btnHubAchievements != null,
             "RunScreens: hub elements not found");
+        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null,
+            "RunScreens: hub tutorial settings not found");
         Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
             "RunScreens: exit confirmation elements not found");
         Debug.Assert(_summary != null && _summaryTitle != null && _summaryStats != null && _summaryLoot != null
@@ -122,6 +143,14 @@ public class RunScreens : VisualElement
     // ─── Public API ───────────────────────────────────────────
 
     public bool IsExitConfirmOpen => !_exitConfirm.ClassListContains(HiddenClass);
+    public bool IsHubShown => !_hubScreen.ClassListContains(HiddenClass);
+    public bool IsSummaryShown => !_summary.ClassListContains(HiddenClass);
+
+    /// <summary>Текст кнопки Hints в лагере.</summary>
+    public void SetHintsEnabled(bool enabled) => _btnHubHints.text = enabled ? "Hints: On" : "Hints: Off";
+
+    /// <summary>Элемент экрана по имени (якорь подсказки туториала).</summary>
+    public VisualElement FindElement(string name) => this.Q<VisualElement>(name);
 
     /// <summary>
     /// Хост шаблона поверх экранов (achievements-overlay, unlock-overlay, toast-overlay в RunScreens.uxml):
@@ -188,6 +217,34 @@ public class RunScreens : VisualElement
     }
 
     // ─── Helpers ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Первый клик — «Click again to reset» на несколько секунд, второй — сброс (подтверждение внутри UI).
+    /// </summary>
+    private void HandleResetTutorialClicked()
+    {
+        if (!_resetArmed)
+        {
+            _resetArmed = true;
+            _btnHubResetTutorial.text = "Click again to reset";
+            _btnHubResetTutorial.AddToClassList("screen-btn--confirm");
+            _resetDisarm?.Pause();
+            _resetDisarm = _btnHubResetTutorial.schedule.Execute(DisarmReset).StartingIn(ResetConfirmMs);
+            return;
+        }
+
+        DisarmReset();
+        OnResetTutorialRequested?.Invoke();
+    }
+
+    private void DisarmReset()
+    {
+        _resetArmed = false;
+        _resetDisarm?.Pause();
+        _resetDisarm = null;
+        _btnHubResetTutorial.text = "Reset tutorial";
+        _btnHubResetTutorial.RemoveFromClassList("screen-btn--confirm");
+    }
 
     private void HandleExitConfirmed()
     {

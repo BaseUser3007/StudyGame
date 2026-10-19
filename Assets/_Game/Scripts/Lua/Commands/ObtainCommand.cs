@@ -43,6 +43,8 @@ public class ObtainCommand : PlayerCommandBase
         {
             if (!context.GetArgument(0).TryRead(out string typeName))
                 error = "usage: obtain() or obtain(\"type\")";
+            else if (FindObjectsCommand.IsEnemyType(typeName))
+                error = $"{typeName} can't be obtained — use attack()";
             else if (!FindObjectsCommand.TryGetType(typeName, out type))
                 error = $"unknown type: {typeName}";
         }

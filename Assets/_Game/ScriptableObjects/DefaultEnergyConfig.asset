@@ -18,8 +18,6 @@ MonoBehaviour:
   forCost: 1
   whileCost: 1
   repeatCost: 1
-  functionCost: 0
+  functionCost: 0.5
   localCost: 0
   returnCost: 0
-  apiCallCost: 1
-  variableCost: 1

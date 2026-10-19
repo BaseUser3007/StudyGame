@@ -9,6 +9,9 @@ using UnityEngine.UIElements;
 /// </summary>
 public class CommandHelp
 {
+    /// <summary>Справку открыли (условие шага туториала).</summary>
+    public event System.Action OnOpened;
+
     private readonly Button _toggleButton;
     private readonly VisualElement _popup;
     private readonly ScrollView _content;
@@ -138,6 +141,7 @@ public class CommandHelp
     {
         _popup.EnableInClassList("hidden", !open);
         _toggleButton.EnableInClassList("btn-help--active", open);
+        if (open) OnOpened?.Invoke();
     }
 
     private void AddSection(string title, string note)

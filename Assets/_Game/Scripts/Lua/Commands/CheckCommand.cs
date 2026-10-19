@@ -17,15 +17,16 @@ public class CheckCommand : PlayerCommandBase
     public override string Description =>
         "Что находится в тайле: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
         "(направления как у move, дистанция в тайлах, по умолчанию 1, по диагонали — шаги по обеим осям). " +
-        "Только тайлы без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects } " +
-        "или nil и причину. type — главное в тайле: постройка, иначе первый объект, иначе \"water\" или \"empty\"; " +
-        "objects — массив объектов тайла с теми же методами, что у findObjects";
+        "Только тайлы без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies } " +
+        "или nil и причину. type — главное в тайле: постройка, иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
+        "objects — массив ресурсов тайла, enemies — массив врагов в нём (с теми же методами, что у findObjects)";
 
     private const string UsageMessage = "usage: check(x, y), check(obj) or check(direction, [distance])";
 
     private readonly IFogProvider _fog;
     private readonly ObjectManager _objectManager;
     private readonly StructureManager _structures;
+    private readonly EnemyManager _enemies;
     private readonly LuaObjectList _objectList;
 
     public CheckCommand(
@@ -33,12 +34,14 @@ public class CheckCommand : PlayerCommandBase
         IMapDataProvider mapData,
         IFogProvider fog,
         ObjectManager objectManager,
-        StructureManager structures)
+        StructureManager structures,
+        EnemyManager enemies)
         : base(executor, mapData)
     {
         _fog = fog;
         _objectManager = objectManager;
         _structures = structures;
+        _enemies = enemies;
         _objectList = new LuaObjectList(executor);
     }
 
@@ -106,6 +109,9 @@ public class CheckCommand : PlayerCommandBase
         Structure structure = _structures.GetStructureAt(tile);
         List<ResourceObject> objects = _objectManager.GetObjectsAtTile(tile);
         LuaTable objectList = _objectList.Build(objects, Meter);
+        // Тайл виден (проверено выше) — враги в нём видны тоже
+        List<Enemy> enemies = _enemies != null ? _enemies.GetEnemiesAtTile(tile) : new List<Enemy>();
+        LuaTable enemyList = _objectList.Build(null, enemies, Meter);
 
         var table = new LuaTable();
         table["x"] = (double)tile.x;
@@ -114,6 +120,7 @@ public class CheckCommand : PlayerCommandBase
         table["walkable"] = MapData.IsWalkable(tile.x, tile.y);
         table["player"] = Executor.CurrentTile == tile;
         table["objects"] = objectList;
+        table["enemies"] = enemyList;
 
         Biome biome = MapData.GetBiome(tile.x, tile.y);
         if (biome != null)
@@ -124,7 +131,9 @@ public class CheckCommand : PlayerCommandBase
             table["structure"] = structureName;
 
         // Главное в тайле — для коротких проверок: if check("north").type == "tree" then …
+        // Враг важнее ресурса: if check("north").type == "goblin" then attack(…)
         table["type"] = structureName
+            ?? (enemies.Count > 0 ? enemies[0].TypeId : null)
             ?? (objects.Count > 0 ? LuaObjectList.GetTypeName(objects[0]) : null)
             ?? (water ? "water" : "empty");
 

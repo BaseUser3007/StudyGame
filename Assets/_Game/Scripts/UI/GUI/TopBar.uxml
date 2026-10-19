@@ -6,6 +6,8 @@
             <!-- Левая часть — День -->
             <ui:VisualElement name="left-section" class="top-bar-section top-bar-left">
                 <ui:Label name="day-label" class="day-label" text="Day 1 · Runs 0/3"/>
+                <!-- Мировая угроза: «Threat in N days» → «Threat tomorrow!» → «Threat!» -->
+                <ui:Label name="threat-label" class="threat-label hidden" text=""/>
                 <ui:Label name="day-summary" class="day-summary" text=""/>
             </ui:VisualElement>
             <!-- Центр — Энергия -->
@@ -23,6 +25,7 @@
             <ui:VisualElement name="right-section" class="top-bar-section top-bar-right">
                 <ui:Button name="btn-help"       class="top-bar-btn btn-help" text="Help"/>
                 <ui:Button name="btn-achievements" class="top-bar-btn btn-achievements" text="Achievements"/>
+                <ui:Button name="btn-hints"      class="top-bar-btn btn-hints" text="Hints: On" tooltip="Tutorial and concept hints"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-end-day"    class="top-bar-btn btn-end-day" text="End Day"/>
                 <ui:Button name="btn-exit-run"   class="top-bar-btn btn-exit-run" text="Exit Run" tooltip="Return to the camp: only materials are carried over"/>

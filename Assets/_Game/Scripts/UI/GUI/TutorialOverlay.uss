@@ -1,0 +1,138 @@
+/* ── Layer ───────────────────────────────────────────────── */
+/* Растянут на весь экран, мышь не ловит — клики проходят в остальной UI и на карту */
+.tutorial-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* ── Frame ───────────────────────────────────────────────── */
+/* Рамка вокруг элемента, на который указывает подсказка; позицию и размер ставит TutorialOverlay */
+.tutorial-frame {
+    position: absolute;
+    border-width: 2px;
+    border-radius: 5px;
+    border-color: rgb(240, 200, 80);
+    transition-property: border-color;
+    transition-duration: 0.6s;
+}
+
+.tutorial-frame--pulse {
+    border-color: rgba(240, 200, 80, 0.35);
+}
+
+/* ── Arrow ───────────────────────────────────────────────── */
+/* Ромб на краю карточки: видна внешняя половина — указатель к элементу */
+.tutorial-arrow {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    rotate: 45deg;
+    background-color: rgb(34, 38, 46);
+    border-width: 2px;
+    border-color: rgb(240, 200, 80);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.tutorial-card {
+    position: absolute;
+    width: 320px;
+    padding: 10px 12px;
+    background-color: rgb(34, 38, 46);
+    border-width: 2px;
+    border-color: rgb(240, 200, 80);
+    border-radius: 6px;
+}
+
+.tutorial-caption {
+    font-size: 10px;
+    color: rgb(240, 200, 80);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0 0 4px 0;
+}
+
+.tutorial-title {
+    font-size: 15px;
+    color: rgb(150, 190, 240);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0 0 4px 0;
+}
+
+.tutorial-text {
+    font-size: 12px;
+    color: rgb(225, 225, 225);
+    white-space: normal;
+    padding: 0;
+    margin: 0;
+}
+
+.tutorial-example {
+    font-size: 11px;
+    color: rgb(220, 220, 220);
+    white-space: pre;
+    padding: 6px 8px;
+    margin: 8px 0 0 0;
+    border-radius: 3px;
+    background-color: rgb(20, 20, 20);
+}
+
+.tutorial-waiting {
+    font-size: 11px;
+    color: rgb(160, 160, 160);
+    -unity-font-style: italic;
+    white-space: normal;
+    padding: 0;
+    margin: 8px 0 0 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.tutorial-buttons {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.tutorial-buttons-spacer {
+    flex-grow: 1;
+}
+
+.tutorial-btn {
+    height: 24px;
+    padding: 0 12px;
+    margin: 0;
+    border-width: 0;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.tutorial-btn--primary {
+    background-color: rgb(50, 100, 50);
+    color: rgb(170, 230, 170);
+}
+
+.tutorial-btn--primary:hover {
+    background-color: rgb(60, 130, 60);
+}
+
+/* Второстепенные действия — как ссылка */
+.tutorial-btn--link {
+    padding: 0 6px;
+    margin-right: 4px;
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(150, 150, 150);
+    font-size: 11px;
+}
+
+.tutorial-btn--link:hover {
+    color: rgb(220, 220, 220);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

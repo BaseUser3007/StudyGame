@@ -267,6 +267,6 @@ public class ResourceHarvester
 
     private static string TypeName(ResourceObject obj)
     {
-        return obj.GetType().Name.ToLower().Replace("object", "");
+        return LuaObjectList.GetTypeName(obj);
     }
 }

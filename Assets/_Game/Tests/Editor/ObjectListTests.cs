@@ -113,6 +113,36 @@ public class ObjectListTests
         Assert.Catch(() => _lua.Run("return L:getMin('type')"), "type is not numeric");
     }
 
+    [Test]
+    public void Objects_HaveKindObject()
+    {
+        Assert.AreEqual(3, TestHelpers.Number(_lua.Run("return L:where('kind', '==', 'object').count")));
+    }
+
+    [Test]
+    public void TypeName_IsSnakeCase()
+    {
+        Assert.AreEqual("stone", LuaObjectList.GetTypeName(typeof(StoneObject)));
+        Assert.AreEqual("gold_ore", LuaObjectList.GetTypeName(typeof(GoldOreObject)));
+        Assert.IsTrue(FindObjectsCommand.TryGetType("gold_ore", out System.Type type));
+        Assert.AreEqual(typeof(GoldOreObject), type);
+    }
+
+    [Test]
+    public void EnemyTable_IdIsOffsetAndRecognized()
+    {
+        var enemy = new LuaTable();
+        enemy["kind"] = LuaObjectList.KindEnemy;
+        enemy["id"] = (double)(LuaObjectList.EnemyIdOffset + 7);
+        Assert.IsTrue(LuaObjectList.TryGetEnemyId(enemy, out int id));
+        Assert.AreEqual(7, id);
+
+        // Таблица ресурса — не враг, даже с тем же числом в id
+        LuaValue stone = _lua.Run("return L[1]");
+        Assert.IsTrue(stone.TryRead(out LuaTable stoneTable));
+        Assert.IsFalse(LuaObjectList.TryGetEnemyId(stoneTable, out _));
+    }
+
     // ─── Helpers ──────────────────────────────────────────────
 
     private T Create<T>(string name) where T : Component

@@ -11,18 +11,24 @@ public class HarvestCommand : PlayerCommandBase
     public override string Signature => "harvest([x, y])";
     public override string Description => "Подобрать с земли в инвентарь: палки, камни, выпавшую добычу. " +
                                           "Без аргументов — ближайшее к персонажу, harvest(x, y) или harvest(obj) — в точке рядом. " +
-                                          "Стоит только плату за вызов. Деревья и валуны не подбираются — для них mine(). " +
+                                          "Стоит только плату за вызов. Деревья и валуны не подбираются — для них mine(), врагов бьют attack(). " +
                                           "Возвращает true или false и причину";
 
     private readonly ResourceHarvester _harvester;
+    private readonly ObjectManager _objectManager;
+    private readonly EnemyManager _enemies;
 
     public HarvestCommand(
         PlayerCommandExecutor executor,
         IMapDataProvider mapData,
-        ResourceHarvester harvester)
+        ResourceHarvester harvester,
+        ObjectManager objectManager,
+        EnemyManager enemies)
         : base(executor, mapData)
     {
         _harvester = harvester;
+        _objectManager = objectManager;
+        _enemies = enemies;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -32,7 +38,9 @@ public class HarvestCommand : PlayerCommandBase
         if (context.ArgumentCount == 0 || context.GetArgument(0).Type == LuaValueType.Nil)
             error = _harvester.TryHarvestNearest();
         else if (TryReadPoint(context, out Vector2 point))
-            error = _harvester.TryHarvestAt(point);
+            // Враг — не ресурс: подсказываем attack() вместо «no object at»
+            error = AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "harvested")
+                    ?? _harvester.TryHarvestAt(point);
         else
             error = "usage: harvest(), harvest(x, y) or harvest(obj)";
 

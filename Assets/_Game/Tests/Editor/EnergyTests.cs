@@ -56,12 +56,27 @@ public class EnergyTests
     }
 
     [Test]
-    public void FunctionsLocalsAndReturns_AreFree()
+    public void FunctionCall_CostsHalf_LocalsAndReturnsAreFree()
     {
         LuaValue result = _lua.Run("local function f(a) local b = a * 2 return b end return f(1) + f(2) + f(3)");
 
         Assert.AreEqual(12, TestHelpers.Number(result));
-        Assert.AreEqual(0f, _lua.Spent, 0.001f);
+        Assert.AreEqual(1.5f, _lua.Spent, 0.001f, "3 calls × 0.5, local/return free");
+    }
+
+    [Test]
+    public void RecursionThroughAnd_IsNotFree()
+    {
+        // Без цены вызова функции такая рекурсия была бы бесплатным циклом (GameDesign §9, решение 11)
+        _lua.Run("local function f(n) return n > 0 and f(n - 1) end f(10)");
+        Assert.AreEqual(5.5f, _lua.Spent, 0.001f, "11 calls (10..0) × 0.5");
+    }
+
+    [Test]
+    public void AnonymousFunction_ChargedPerCall()
+    {
+        _lua.Run("local g = function() end g() g()");
+        Assert.AreEqual(1f, _lua.Spent, 0.001f);
     }
 
     [Test]

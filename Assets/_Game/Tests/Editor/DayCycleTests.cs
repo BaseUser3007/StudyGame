@@ -112,4 +112,49 @@ public class DayCycleTests
         _day.TryEndDay();
         Assert.AreEqual(_config.minEnergyLimit, _energy.Max, 0.001f);
     }
+
+    // ─── Угроза ───────────────────────────────────────────────
+
+    [Test]
+    public void Threat_StartsOnThreatDay_AndIsReachedOnce()
+    {
+        int reached = 0;
+        int startedDays = 0;
+        _day.OnThreatReached += () => reached++;
+        _day.OnDayStarted += _ => startedDays++;
+
+        Assert.AreEqual(3, _day.ThreatDay);
+        Assert.AreEqual(2, _day.DaysUntilThreat);
+        Assert.IsFalse(_day.IsThreatActive);
+
+        _day.TryEndDay();
+        Assert.AreEqual(1, _day.DaysUntilThreat);
+        Assert.IsFalse(_day.IsThreatActive);
+        Assert.AreEqual(0, reached);
+
+        _day.TryEndDay();
+        Assert.AreEqual(0, _day.DaysUntilThreat);
+        Assert.IsTrue(_day.IsThreatActive);
+        Assert.AreEqual(1, reached);
+
+        _day.TryEndDay();
+        Assert.IsTrue(_day.IsThreatActive);
+        Assert.AreEqual(1, reached, "ThreatReached — один раз за забег");
+        Assert.AreEqual(3, startedDays);
+    }
+
+    [Test]
+    public void SleepingInBed_HealsPlayer()
+    {
+        var health = new PlayerHealth(100f);
+        var day = new DayCycle(_config, RunModifiers.Create(_config, new MetaProgress()), _energy, _bed, health);
+        health.TakeDamage(50f);
+
+        day.TryEndDay();
+        Assert.AreEqual(50f, health.Current, 0.001f, "не у кровати — без лечения");
+
+        _bed.Near = true;
+        day.TryEndDay();
+        Assert.AreEqual(50f + _config.sleepHealAmount, health.Current, 0.001f);
+    }
 }

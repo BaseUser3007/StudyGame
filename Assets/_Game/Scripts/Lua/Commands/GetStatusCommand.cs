@@ -11,7 +11,9 @@ public class GetStatusCommand : LuaCommandBase
     public override string Name => "getStatus";
     public override float EnergyCost => 1f;
     public override string Signature => "getStatus()";
-    public override string Description => "Состояние: таблица { energy, maxEnergy, health, maxHealth, day, runsLeft }. " +
+    public override string Description => "Состояние: таблица { energy, maxEnergy, health, maxHealth, day, runsLeft, threatDay, daysToThreat, threat }. " +
+                                          "threatDay — день, с которого гоблины патрулируют карту, daysToThreat — сколько дней до него " +
+                                          "(0 — угроза уже идёт), threat — идёт ли угроза. " +
                                           "Закончить день с энергией меньше 1 — штраф к максимуму на завтра, " +
                                           "у кровати (build(\"bed\")) — бонус";
 
@@ -37,6 +39,10 @@ public class GetStatusCommand : LuaCommandBase
         status["day"] = (double)_dayCycle.Day;
         // Текущий запуск засчитается, когда закончится, — показываем, сколько останется после него
         status["runsLeft"] = (double)(_dayCycle.RunsLeft - 1 < 0 ? 0 : _dayCycle.RunsLeft - 1);
+        // Мировая угроза: с threatDay на карте патрули (GameDesign §10.1)
+        status["threatDay"] = (double)_dayCycle.ThreatDay;
+        status["daysToThreat"] = (double)_dayCycle.DaysUntilThreat;
+        status["threat"] = _dayCycle.IsThreatActive;
 
         context.Return(status);
         return new ValueTask<int>(1);

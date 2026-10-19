@@ -33,13 +33,15 @@ public enum GameEventType
     /// <summary>Закончился запуск кода. Id — "success" или "failed".</summary>
     RunFinished,
 
-    // ─── Будущие события (публикация появится на этапах 3–7) ───
-    /// <summary>Этап 3: наступил день угрозы.</summary>
+    // ─── Этап 3 ───
+    /// <summary>Наступил день угрозы (DayCycle, один раз за забег). Amount — 1, Tag — номер дня.</summary>
     ThreatReached,
-    /// <summary>Этап 3: враг найден кодом (findObjects/check). Id — тип врага.</summary>
+    /// <summary>Враг найден кодом (findObjects/check). Id — тип врага. Публикует Lua-команда (этап 3, lua).</summary>
     EnemyFound,
-    /// <summary>Этап 3: враг побеждён. Id — тип врага.</summary>
+    /// <summary>Враг побеждён (EnemyManager). Id — тип врага ("goblin"), Tag — "guard" / "patrol".</summary>
     EnemyKilled,
+
+    // ─── Будущие события (публикация появится на этапах 4–7) ───
     /// <summary>Этап 6: решена головоломка. Id — тип/id головоломки.</summary>
     PuzzleSolved,
     /// <summary>Этап 3–5: съедена еда. Id — ключ предмета.</summary>

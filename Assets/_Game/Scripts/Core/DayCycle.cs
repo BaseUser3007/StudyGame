@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 /// <summary>
 /// Снимок состояния дня для UI.
@@ -11,16 +12,26 @@ public readonly struct DayInfo
     public readonly float MaxEnergy;
     /// <summary>Чем закончился прошлый день (штраф/бонус) — пусто в первый день.</summary>
     public readonly string Summary;
+    /// <summary>День, с которого действует мировая угроза (патрули врагов).</summary>
+    public readonly int ThreatDay;
+    /// <summary>Сколько дней до угрозы: 1 — завтра, 0 — угроза уже идёт.</summary>
+    public readonly int DaysUntilThreat;
+    public readonly bool ThreatActive;
 
     public int RunsLeft => Mathf.Max(0, RunsPerDay - RunsUsed);
 
-    public DayInfo(int day, int runsUsed, int runsPerDay, float maxEnergy, string summary)
+    public DayInfo(
+        int day, int runsUsed, int runsPerDay, float maxEnergy, string summary,
+        int threatDay = 0, int daysUntilThreat = 0, bool threatActive = false)
     {
         Day = day;
         RunsUsed = runsUsed;
         RunsPerDay = runsPerDay;
         MaxEnergy = maxEnergy;
         Summary = summary;
+        ThreatDay = threatDay;
+        DaysUntilThreat = daysUntilThreat;
+        ThreatActive = threatActive;
     }
 }
 
@@ -31,9 +42,16 @@ public readonly struct DayInfo
 ///   • закончил день без энергии (меньше 1) — штраф baseEnergyLimit × energyPenaltyMultiplier на следующий день;
 ///   • закончил день у спального места — бонус homeBonusPerDay за каждую ночь подряд, не больше maxEnergyBonus.
 /// Максимум не опускается ниже minEnergyLimit.
+/// Мировая угроза: с дня RunModifiers.ThreatDay действует угроза (IsThreatActive, GameEventBus ThreatReached —
+/// один раз за забег), за день до неё — предупреждение в уведомлениях. Патрули по OnDayStarted спавнит EnemyManager.
 /// </summary>
 public class DayCycle
 {
+    /// <summary>Начался новый день (после восстановления энергии). Аргумент — номер дня.</summary>
+    public event Action<int> OnDayStarted;
+    /// <summary>Наступила мировая угроза (один раз за забег, до OnDayStarted того же дня).</summary>
+    public event Action OnThreatReached;
+
     // Энергии меньше этого — «закончил день с нулём»: на базовую команду уже не хватает
     private const float ExhaustedThreshold = 1f;
 
@@ -41,19 +59,29 @@ public class DayCycle
     private readonly RunModifiers _modifiers;
     private readonly PlayerEnergy _energy;
     private readonly ISleepingPlaceProvider _sleepingPlaces;
+    private readonly PlayerHealth _health;
     private LuaSandbox _sandbox;
 
     private int _sleepStreak;
     private string _summary = string.Empty;
+    private bool _threatAnnounced;
 
     public int Day { get; private set; } = 1;
     public int RunsUsed { get; private set; }
     public int RunsPerDay => _modifiers.RunsPerDay;
     public int RunsLeft => Mathf.Max(0, RunsPerDay - RunsUsed);
 
+    /// <summary>День, с которого действует мировая угроза.</summary>
+    public int ThreatDay => _modifiers.ThreatDay;
+    /// <summary>Сколько дней до угрозы: 1 — завтра, 0 — угроза уже идёт.</summary>
+    public int DaysUntilThreat => Mathf.Max(0, ThreatDay - Day);
+    public bool IsThreatActive => Day >= ThreatDay;
+
     public DayCycle(
-        PlayerConfig config, RunModifiers modifiers, PlayerEnergy energy, ISleepingPlaceProvider sleepingPlaces)
+        PlayerConfig config, RunModifiers modifiers, PlayerEnergy energy, ISleepingPlaceProvider sleepingPlaces,
+        PlayerHealth health = null)
     {
+        _health = health;
         _config = config;
         _modifiers = modifiers;
         _energy = energy;
@@ -67,6 +95,9 @@ public class DayCycle
     {
         _sandbox = sandbox;
         _sandbox.OnRunningChanged += HandleRunningChanged;
+
+        // Угроза с первого дня (ThreatDay = 1) — объявляем сразу, как только забег собран
+        if (IsThreatActive) AnnounceThreat();
     }
 
     // ─── Public API ───────────────────────────────────────────
@@ -83,7 +114,8 @@ public class DayCycle
 
     public void Publish()
     {
-        UIEventBus.PublishDayChanged(new DayInfo(Day, RunsUsed, RunsPerDay, _energy.Max, _summary));
+        UIEventBus.PublishDayChanged(new DayInfo(
+            Day, RunsUsed, RunsPerDay, _energy.Max, _summary, ThreatDay, DaysUntilThreat, IsThreatActive));
     }
 
     // ─── Day ──────────────────────────────────────────────────
@@ -120,7 +152,16 @@ public class DayCycle
             _config.minEnergyLimit,
             baseLimit + _config.maxEnergyBonus);
 
-        _summary = BuildSummary(exhausted, penalty, slept, bonus);
+        // Ночь у спального места лечит
+        float healed = 0f;
+        if (slept && _health != null && !_health.IsDead)
+        {
+            float before = _health.Current;
+            _health.Heal(_config.sleepHealAmount);
+            healed = _health.Current - before;
+        }
+
+        _summary = BuildSummary(exhausted, penalty, slept, bonus, healed);
 
         PlayerEventBus.PublishDayEnded();
         GameEventBus.Publish(GameEventType.DayPassed, null, 1, exhausted ? "exhausted" : slept ? "slept" : null);
@@ -131,10 +172,37 @@ public class DayCycle
 
         Publish();
         UIEventBus.PublishNotification($"Day {Day}: max energy {max:0.#}. {_summary}", LogEntryType.Success);
+        NotifyThreat();
         PlayerEventBus.PublishDayStarted();
+        OnDayStarted?.Invoke(Day);
     }
 
-    private string BuildSummary(bool exhausted, float penalty, bool slept, float bonus)
+    // ─── Threat ───────────────────────────────────────────────
+
+    /// <summary>
+    /// В начале дня: за день до угрозы — предупреждение, в день угрозы — объявление (один раз).
+    /// </summary>
+    private void NotifyThreat()
+    {
+        if (IsThreatActive)
+            AnnounceThreat();
+        else if (DaysUntilThreat == 1)
+            UIEventBus.PublishNotification("Goblins will start patrolling tomorrow.", LogEntryType.Warning);
+    }
+
+    private void AnnounceThreat()
+    {
+        if (_threatAnnounced) return;
+        _threatAnnounced = true;
+
+        UIEventBus.PublishNotification(
+            "The threat has begun: goblin patrols come out of the fog every day.", LogEntryType.Error);
+        // Amount — 1 (счётчики достижений), номер дня — в Tag
+        GameEventBus.Publish(GameEventType.ThreatReached, null, 1, Day.ToString());
+        OnThreatReached?.Invoke();
+    }
+
+    private string BuildSummary(bool exhausted, float penalty, bool slept, float bonus, float healed)
     {
         if (!exhausted && !slept) return string.Empty;
 
@@ -144,6 +212,7 @@ public class DayCycle
         {
             if (text.Length > 0) text += ", ";
             text += $"+{bonus:0.#}: slept in bed ({_sleepStreak} night{(_sleepStreak > 1 ? "s" : "")})";
+            if (healed > 0f) text += $", +{healed:0.#} health";
         }
         return text;
     }

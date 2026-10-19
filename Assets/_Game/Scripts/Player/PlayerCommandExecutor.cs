@@ -317,6 +317,10 @@ public class PlayerCommandExecutor : MonoBehaviour
     // ─── Public Data ──────────────────────────────────────────
 
     public Vector2Int CurrentTile => _currentTile;
+    /// <summary>
+    /// Точная позиция персонажа на карте (в тайлах, не центр тайла) — для расстояний до врагов.
+    /// </summary>
+    public Vector2 Position => MapPosition.FromWorld(_mapData, transform.position);
     public int VisionRadius => _playerConfig.visionRadius;
 }
 

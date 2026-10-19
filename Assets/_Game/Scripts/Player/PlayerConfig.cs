@@ -46,6 +46,8 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
     public float maxEnergyBonus = 25f;
     [Tooltip("Прибавка к максимуму за каждую ночь подряд на спальном месте")]
     public float homeBonusPerDay = 5f;
+    [Tooltip("Сколько здоровья восстанавливает ночь у спального места")]
+    [Min(0f)] public float sleepHealAmount = 15f;
 
     [Tooltip("Штраф к максимуму на следующий день, если день закончился без энергии (доля от базового запаса)")]
     [Range(0f, 1f)]

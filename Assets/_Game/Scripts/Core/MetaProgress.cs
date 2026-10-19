@@ -112,6 +112,8 @@ public class MetaProgress
 
     public bool HasTutorialFlag(string flag) => _data.tutorialFlags.Contains(flag);
     public bool SetTutorialFlag(string flag) => AddUnique(_data.tutorialFlags, flag);
+    /// <summary>Сброс туториала: пройденные шаги и показанные подсказки (флаги tutorialFlags).</summary>
+    public void ClearTutorialFlags() => _data.tutorialFlags.Clear();
 
     // ─── Достижения ───────────────────────────────────────────
 
