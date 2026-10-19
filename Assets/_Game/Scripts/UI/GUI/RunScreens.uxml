@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Template name="HubPanel" src="HubPanel.uxml"/>
-    <ui:Template name="AchievementsPanel"src="AchievementsPanel.uxml"/>
+    <ui:Template name="AchievementsPanel" src="AchievementsPanel.uxml"/>
     <ui:Template name="UnlockPopup" src="UnlockPopup.uxml"/>
     <ui:Template name="AchievementToast" src="AchievementToast.uxml"/>
     <ui:Template name="TutorialOverlay" src="TutorialOverlay.uxml"/>
