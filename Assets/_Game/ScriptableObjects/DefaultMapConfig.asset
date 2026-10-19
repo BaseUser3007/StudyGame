@@ -23,3 +23,12 @@ MonoBehaviour:
   waterTile: {fileID: 11400000, guid: aaaeaeb8e1cd0504da686b2de0de5b64, type: 2}
   fogTile: {fileID: 11400000, guid: 72822bb2c8088984e86502c22173e5b0, type: 2}
   biomeConfig: {fileID: 11400000, guid: ef77073776894395b47c125bc69bebe6, type: 2}
+  starterResources:
+  - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
+    count: 4
+  - prefab: {fileID: 1852307222561421786, guid: 8ce1258080cb4b41b18e52d9690f6318, type: 3}
+    count: 4
+  - prefab: {fileID: 1852307222561421786, guid: f875ddb5847034c479c3ef8e6f0c2604, type: 3}
+    count: 2
+  starterMinRadius: 3
+  starterMaxRadius: 5

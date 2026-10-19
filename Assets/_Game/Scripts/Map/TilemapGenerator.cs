@@ -14,6 +14,8 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
     private BiomeMap _biomeMap;
     private int _seed;
 
+    // Для систем, которым нужны параметры генерации помимо IMapDataProvider (стартовый набор у спавна)
+    public MapGenerationConfig Config => config;
     public int MapWidth => config.mapWidth;
     public int MapHeight => config.mapHeight;
     public int Seed => _seed;

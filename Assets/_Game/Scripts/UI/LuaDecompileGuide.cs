@@ -53,13 +53,18 @@ public static class LuaDecompileGuide
         new Entry(
             "autoExplore",
             new[] { "move", "check" },
-            "autoExplore() just picked a random direction and walked 5 tiles (move) — even toward water " +
-            "or back where you have already been. With move you choose the direction and the distance yourself, " +
-            "and check lets you look at a tile before you go there.",
-            "-- look one tile ahead, walk 5 tiles if it is land\n" +
-            "local tile = check(\"east\")\n" +
-            "if tile and tile.walkable then\n" +
-            "  move(\"east\", 5)\n" +
+            "autoExplore() was a walk with a good memory. It compared the 8 directions, picked the one where " +
+            "6 tiles of walking (move) would reveal the most land you had never seen, and stopped at water; " +
+            "when everything around was already explored, it headed for the nearest edge of the fog. " +
+            "check only sees tiles that are in sight, so your code can't count hidden land — but it doesn't need to: " +
+            "keep walking one way while check shows land ahead, and turn when it shows water. " +
+            "Every step goes into new ground, and a check plus a move costs a fraction of autoExplore().",
+            "-- go east while there is land ahead, otherwise turn north\n" +
+            "local ahead = check(\"east\", 2)\n" +
+            "if ahead and ahead.walkable then\n" +
+            "  move(\"east\", 6)\n" +
+            "else\n" +
+            "  move(\"north\", 6)\n" +
             "end")
     };
 

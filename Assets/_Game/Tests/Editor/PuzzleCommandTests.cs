@@ -330,5 +330,6 @@ public class PuzzleCommandTests
     {
         public bool Visible;
         public bool IsVisible(int x, int y) => Visible;
+        public bool IsExplored(int x, int y) => Visible;
     }
 }

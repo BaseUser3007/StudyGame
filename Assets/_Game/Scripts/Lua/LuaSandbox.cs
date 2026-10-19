@@ -129,7 +129,7 @@ public class LuaSandbox : MonoBehaviour
         AddCommand(new GetPositionCommand(_executor, _mapData));
 
         // Авто команды
-        AddCommand(new AutoExploreCommand(_executor, _mapData));
+        AddCommand(new AutoExploreCommand(_executor, _mapData, _fog, _objectManager, _enemies, _puzzles));
 
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);

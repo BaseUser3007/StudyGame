@@ -135,11 +135,12 @@ public class Level : MonoBehaviour
         // 5. Камера
         cameraController.Initialize(tilemapGenerator, player.transform, codeEditorManager);
 
-        // 6. Объекты
-        objectManager.Initialize(tilemapGenerator, startTile);
+        // 6. Объекты (в забеге — плюс гарантированный стартовый набор у спавна из MapGenerationConfig)
+        GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
+        objectManager.Initialize(
+            tilemapGenerator, startTile, mode == GameMode.Run ? tilemapGenerator.Config : null);
 
         // 7. Параметры забега (база из PlayerConfig + постройки лагеря), открытия, энергия, здоровье, инвентарь
-        GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
         MetaProgress progress = GameSession.Progress;
         RunModifiers modifiers = RunModifiers.Create(playerConfig, progress, hubBuildingCatalog);
         UnlockRegistry unlocks = new UnlockRegistry(unlockConfig, progress);

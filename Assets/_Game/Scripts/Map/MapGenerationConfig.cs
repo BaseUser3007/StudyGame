@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Tilemaps;
 
 [CreateAssetMenu(fileName = "MapGenerationConfig", menuName = "CodeRogue/Map/MapGenerationConfig")]
@@ -44,4 +46,34 @@ public class MapGenerationConfig : ScriptableObject
     [Header("Biomes")]
     [Tooltip("Биомы и ресурсы в них. Раскладка биомов случайная при каждой генерации")]
     public BiomeConfig biomeConfig;
+
+    [Header("Starter Resources (Run only)")]
+    [Tooltip("Гарантированный набор в обзоре со спавна: после обычной генерации ObjectGenerator досыпает " +
+             "объекты каждого типа до count (уже лежащие в пределах starterMaxRadius засчитываются). " +
+             "Строки без префаба пропускаются. Только в режиме Run")]
+    public List<StarterResource> starterResources = new List<StarterResource>
+    {
+        // Цепочка §6.1: кремень = 2 камня, топор = 2 палки + кремень, верстак — брёвна и палки с 2 деревьев
+        new StarterResource { count = 4 }, // палка
+        new StarterResource { count = 4 }, // камень
+        new StarterResource { count = 2 }  // дерево
+    };
+
+    [Tooltip("Внутренний радиус кольца (в тайлах, от центра тайла спавна до позиции объекта). " +
+             "Не меньше spawnClearRadius в ObjectGenerator — иначе берётся он")]
+    [Min(0f)] public float starterMinRadius = 3f;
+
+    [Tooltip("Внешний радиус кольца. Обзор — квадрат ±visionRadius тайлов (4) вокруг тайла игрока, " +
+             "видна любая точка с |dx|, |dy| < visionRadius + 0.5, поэтому 4 — ещё целиком в обзоре")]
+    [Min(0f)] public float starterMaxRadius = 4f;
+}
+
+/// <summary>
+/// Строка стартового набора: префаб объекта и сколько таких должно быть у спавна.
+/// </summary>
+[Serializable]
+public class StarterResource
+{
+    public ResourceObject prefab;
+    [Min(0)] public int count = 1;
 }

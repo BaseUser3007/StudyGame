@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DefaultPlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConfig
   moveSpeed: 0.2
-  visionRadius: 4
+  visionRadius: 6
   baseEnergyLimit: 100
   minEnergyLimit: 40
   maxEnergyBonus: 25

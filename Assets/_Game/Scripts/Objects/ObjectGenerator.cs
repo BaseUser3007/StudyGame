@@ -4,7 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Раскладывает ресурсы по карте: в каждом биоме — свои ресурсы со своей плотностью
-/// (настраивается в BiomeConfig, который назначен в MapGenerationConfig).
+/// (настраивается в BiomeConfig, который назначен в MapGenerationConfig). В забеге затем досыпает
+/// стартовый набор (MapGenerationConfig.starterResources) в кольце вокруг спавна, видимом сразу.
 /// </summary>
 public class ObjectGenerator : MonoBehaviour
 {
@@ -18,12 +19,16 @@ public class ObjectGenerator : MonoBehaviour
     [SerializeField] private float spawnClearRadius = 3f;
 
     private const int SpawnAttempts = 30;
+    // Кольцо стартового набора маленькое — попыток на объект больше
+    private const int StarterSpawnAttempts = 100;
     // Объект лежит внутри своего тайла, чуть отступив от границы
     private const float TileMargin = 0.1f;
 
     private IMapDataProvider _mapData;
     private ObjectPool _objectPool;
     private Vector2 _spawnCenter;
+    // null — стартовый набор не нужен (лагерь)
+    private MapGenerationConfig _starterConfig;
     // От seed карты: при фиксированном seed объекты раскладываются так же, как карта и биомы
     private System.Random _random;
     // Позиции созданных объектов по тайлам — для быстрой проверки расстояния
@@ -32,20 +37,25 @@ public class ObjectGenerator : MonoBehaviour
 
     // ─── Инициализация ────────────────────────────────────────
 
+    /// <param name="starterConfig">Откуда брать стартовый набор у спавна; null — не досыпать (лагерь).</param>
     public void Initialize(
         IMapDataProvider mapData,
         ObjectPool objectPool,
-        Vector2Int spawnCenter)
+        Vector2Int spawnCenter,
+        MapGenerationConfig starterConfig)
     {
         ValidateReferences(mapData, objectPool);
 
         _mapData = mapData;
         _objectPool = objectPool;
         _spawnCenter = new Vector2(spawnCenter.x, spawnCenter.y);
+        _starterConfig = starterConfig;
         // Сдвиг, чтобы последовательность не совпадала с той, что раздала биомы
         _random = new System.Random(unchecked(mapData.Seed * 31 + 7919));
 
-        GenerateAll();
+        List<ResourceObject> generated = GenerateAll();
+        // После обычной генерации и тем же _random — детерминированно от seed
+        GenerateStarterResources(generated);
     }
 
     private void ValidateReferences(IMapDataProvider mapData, ObjectPool objectPool)
@@ -56,8 +66,12 @@ public class ObjectGenerator : MonoBehaviour
 
     // ─── Generation ───────────────────────────────────────────
 
-    private void GenerateAll()
+    /// <summary>
+    /// Обычная раскладка по биомам. Возвращает созданные объекты (их учитывает стартовый набор).
+    /// </summary>
+    private List<ResourceObject> GenerateAll()
     {
+        var generated = new List<ResourceObject>();
         Dictionary<Biome, List<Vector2Int>> tilesByBiome = CollectLandTiles();
 
         if (tilesByBiome.Count == 0)
@@ -84,8 +98,12 @@ public class ObjectGenerator : MonoBehaviour
 
                 int spawned = 0;
                 for (int i = 0; i < count; i++)
-                    if (TrySpawnObject(resource.prefab, footprint, candidates))
-                        spawned++;
+                {
+                    ResourceObject obj = TrySpawnObject(resource.prefab, footprint, candidates);
+                    if (obj == null) continue;
+                    generated.Add(obj);
+                    spawned++;
+                }
 
                 if (spawned < count)
                     Debug.LogWarning(
@@ -93,6 +111,81 @@ public class ObjectGenerator : MonoBehaviour
                         "не хватает свободного места");
             }
         }
+
+        return generated;
+    }
+
+    // ─── Starter Resources ────────────────────────────────────
+
+    /// <summary>
+    /// Гарантированный набор в обзоре со спавна: для каждого типа из starterResources досыпает объекты
+    /// до count в кольце [max(starterMinRadius, spawnClearRadius), starterMaxRadius]; уже лежащие не дальше
+    /// starterMaxRadius объекты того же типа засчитываются. Правила места — как у обычной генерации.
+    /// </summary>
+    private void GenerateStarterResources(List<ResourceObject> generated)
+    {
+        if (_starterConfig == null || _starterConfig.starterResources == null) return;
+
+        // Тип объекта — как ключ пула; создаём первый префаб этого типа из списка
+        var prefabByType = new Dictionary<Type, ResourceObject>();
+        var required = new List<(Type key, int count)>();
+        foreach (StarterResource resource in _starterConfig.starterResources)
+        {
+            if (resource == null || resource.prefab == null || resource.count <= 0) continue;
+
+            Type type = resource.prefab.GetType();
+            if (!prefabByType.ContainsKey(type)) prefabByType[type] = resource.prefab;
+            required.Add((type, resource.count));
+        }
+
+        if (required.Count == 0) return;
+
+        float minRadius = Mathf.Max(_starterConfig.starterMinRadius, spawnClearRadius);
+        float maxRadius = _starterConfig.starterMaxRadius;
+        if (maxRadius <= minRadius)
+        {
+            Debug.LogWarning($"ObjectGenerator: starterMaxRadius ({maxRadius}) должен быть больше " +
+                             $"starterMinRadius/spawnClearRadius ({minRadius}) — стартовый набор не создан");
+            return;
+        }
+
+        var existing = new List<(Type key, Vector2 position)>(generated.Count);
+        foreach (ResourceObject obj in generated)
+            existing.Add((obj.GetType(), obj.Position));
+
+        foreach ((Type type, int missing) in
+                 StarterResourcePlanner.GetMissing(required, existing, _spawnCenter, maxRadius))
+        {
+            ResourceObject prefab = prefabByType[type];
+            Rect footprint = ObjectFootprint.Get(prefab);
+
+            int spawned = 0;
+            for (int i = 0; i < missing; i++)
+                if (TrySpawnInRing(prefab, footprint, minRadius, maxRadius) != null)
+                    spawned++;
+
+            if (spawned < missing)
+                Debug.LogWarning(
+                    $"ObjectGenerator: стартовый набор {prefab.name} — создано {spawned} из {missing}, " +
+                    "у спавна не хватает свободной суши");
+        }
+    }
+
+    private ResourceObject TrySpawnInRing(ResourceObject prefab, Rect footprint, float minRadius, float maxRadius)
+    {
+        for (int attempt = 0; attempt < StarterSpawnAttempts; attempt++)
+        {
+            Vector2 position = StarterResourcePlanner.RandomPointInRing(_random, _spawnCenter, minRadius, maxRadius);
+
+            // Точка может выйти за край кольца из-за округления float
+            if (!StarterResourcePlanner.IsInRing(_spawnCenter, position, minRadius, maxRadius)) continue;
+            // Суша под коллайдером, зона спавна (до края коллайдера), minObjectSpacing
+            if (!IsValidSpawnPosition(position, footprint)) continue;
+
+            return SpawnAt(prefab, position);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -130,9 +223,9 @@ public class ObjectGenerator : MonoBehaviour
         return count;
     }
 
-    private bool TrySpawnObject(ResourceObject prefab, Rect footprint, List<Vector2Int> tiles)
+    private ResourceObject TrySpawnObject(ResourceObject prefab, Rect footprint, List<Vector2Int> tiles)
     {
-        if (tiles.Count == 0) return false;
+        if (tiles.Count == 0) return null;
 
         for (int attempt = 0; attempt < SpawnAttempts; attempt++)
         {
@@ -141,11 +234,10 @@ public class ObjectGenerator : MonoBehaviour
 
             if (!IsValidSpawnPosition(position, footprint)) continue;
 
-            SpawnAt(prefab, position);
-            return true;
+            return SpawnAt(prefab, position);
         }
 
-        return false;
+        return null;
     }
 
     /// <summary>

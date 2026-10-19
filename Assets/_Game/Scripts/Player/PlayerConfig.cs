@@ -20,7 +20,7 @@ public class PlayerConfig : ScriptableObject, IPlayerDataProvider
 {
     [Header("Movement")]
     public float moveSpeed = 0.2f;
-    public int visionRadius = 4;
+    public int visionRadius = 6;
 
     [Tooltip("Если персонаж упёрся и столько секунд не приближается к цели, команда движения завершается")]
     [Min(0.1f)] public float stuckTimeout = 2f;

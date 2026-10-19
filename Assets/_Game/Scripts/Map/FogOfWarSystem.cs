@@ -205,6 +205,8 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
                 if (IsInBounds(x, y))
                     SetTileState(x, y, FogState.Visible);
     }
+
+    /// <summary>Тайл хоть раз был в поле зрения (Explored или Visible); за картой — false.</summary>
     public bool IsExplored(int x, int y) => GetFogState(x, y) != FogState.Unexplored;
 
     /// <summary>
