@@ -38,9 +38,14 @@ public class CodeEditor
     // Строка последней ошибки запуска (номер в колонке слева выделен цветом); 0 — нет
     private int _errorLine;
 
-    // Строка, которая выполняется сейчас (полоса за текстом + цвет номера); 0 — нет
+    // Строка, которая выполняется сейчас (полоса за текстом + цвет номера); 0 — нет.
+    // На паузе (точка останова, шаг) полоса другого цвета
     private int _activeLine;
+    private bool _activeLinePaused;
     private readonly VisualElement _activeLineBar;
+
+    // Точки останова (номера строк); ставятся кликом по номеру строки, только где строка стоит энергию
+    private readonly HashSet<int> _breakpoints = new HashSet<int>();
 
     private int CursorIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.cursorIndex;
     private int SelectIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.selectIndex;
@@ -135,6 +140,7 @@ public class CodeEditor
         {
             // Код изменился — место ошибки прошлого запуска уже может быть не там
             _errorLine = 0;
+            PruneBreakpoints(evt.newValue);
             Refresh();
             OnCodeChanged?.Invoke(evt.newValue);
 
@@ -144,6 +150,14 @@ public class CodeEditor
         });
 
         _codeField.RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
+
+        // Клик по колонке номеров — поставить / снять точку останова
+        VisualElement numbersGutter = _lineNumbers?.parent;
+        if (numbersGutter != null)
+        {
+            numbersGutter.tooltip = Loc.T("Click a line number to set a breakpoint: the code will pause there");
+            numbersGutter.RegisterCallback<PointerDownEvent>(HandleGutterPointerDown);
+        }
 
         // Tab не должен переводить фокус на другой элемент
         _codeField.RegisterCallback<NavigationMoveEvent>(evt =>
@@ -512,8 +526,12 @@ public class CodeEditor
                 _context.Theme != null ? _context.Theme.logColorError : Color.red);
             string activeColor = ColorUtility.ToHtmlStringRGB(
                 _context.Theme != null ? _context.Theme.activeLineNumberColor : Color.yellow);
+            string breakpointColor = ColorUtility.ToHtmlStringRGB(
+                _context.Theme != null ? _context.Theme.breakpointColor : Color.red);
             for (int i = 1; i <= lineCount; i++)
             {
+                if (_breakpoints.Contains(i))
+                    sb.Append("<color=#").Append(breakpointColor).Append(">●</color>");
                 // В колонке только цифры и теги цвета — номер строки с ошибкой (или выполняемой) выделен
                 if (i == _errorLine)
                     sb.Append("<color=#").Append(errorColor).Append('>').Append(i).Append("</color>");
@@ -589,12 +607,8 @@ public class CodeEditor
             return;
         }
 
-        float oneLine = _textElement.MeasureTextSize("X", 0, VisualElement.MeasureMode.Undefined, 0,
-            VisualElement.MeasureMode.Undefined).y;
-        float twoLines = _textElement.MeasureTextSize("X\nX", 0, VisualElement.MeasureMode.Undefined, 0,
-            VisualElement.MeasureMode.Undefined).y;
-        float lineHeight = twoLines - oneLine;
-        if (float.IsNaN(lineHeight) || lineHeight <= 0f)
+        float lineHeight = GetLineHeight();
+        if (lineHeight <= 0f)
         {
             _activeLineBar.style.display = DisplayStyle.None;
             return;
@@ -604,7 +618,68 @@ public class CodeEditor
         float top = _textElement.layout.y + s.borderTopWidth + s.paddingTop + (_activeLine - 1) * lineHeight;
         _activeLineBar.style.top = top;
         _activeLineBar.style.height = lineHeight;
+        _activeLineBar.style.backgroundColor = _context.Theme == null
+            ? new Color(0.95f, 0.80f, 0.20f, 0.16f)
+            : _activeLinePaused ? _context.Theme.pausedLineColor : _context.Theme.activeLineColor;
         _activeLineBar.style.display = DisplayStyle.Flex;
+    }
+
+    /// <summary>Высота строки текста: разница высот текста из двух строк и из одной; 0 — ещё не измерить.</summary>
+    private float GetLineHeight()
+    {
+        float oneLine = _textElement.MeasureTextSize("X", 0, VisualElement.MeasureMode.Undefined, 0,
+            VisualElement.MeasureMode.Undefined).y;
+        float twoLines = _textElement.MeasureTextSize("X\nX", 0, VisualElement.MeasureMode.Undefined, 0,
+            VisualElement.MeasureMode.Undefined).y;
+        float lineHeight = twoLines - oneLine;
+        return float.IsNaN(lineHeight) || lineHeight <= 0f ? 0f : lineHeight;
+    }
+
+    // ─── Breakpoints ──────────────────────────────────────────
+
+    private void HandleGutterPointerDown(PointerDownEvent evt)
+    {
+        if (evt.button != 0) return;
+        float lineHeight = GetLineHeight();
+        if (lineHeight <= 0f) return;
+
+        // worldBound текста уже учитывает прокрутку (как у выравнивания колонок)
+        float textTop = _textElement.worldBound.yMin + _textElement.resolvedStyle.borderTopWidth
+                        + _textElement.resolvedStyle.paddingTop;
+        int line = Mathf.FloorToInt((evt.position.y - textTop) / lineHeight) + 1;
+        ToggleBreakpoint(line);
+        evt.StopPropagation();
+    }
+
+    private void ToggleBreakpoint(int line)
+    {
+        string code = Code;
+        if (line < 1 || line > CountLines(code)) return;
+
+        if (!_breakpoints.Remove(line))
+        {
+            // Остановиться можно только там, где код платит энергию (там же, где цена строки в колонке справа)
+            if (!_context.LineCosts(code).TryGetValue(line, out float cost) || cost <= 0f) return;
+            _breakpoints.Add(line);
+        }
+        UpdateGutters(code);
+    }
+
+    private void PruneBreakpoints(string code)
+    {
+        if (_breakpoints.Count == 0) return;
+        // Строки сдвигаются при правке: точка, оказавшаяся на строке без цены, никогда не сработает — снимаем
+        Dictionary<int, float> costs = _context.LineCosts(code);
+        _breakpoints.RemoveWhere(line => !costs.TryGetValue(line, out float cost) || cost <= 0f);
+    }
+
+    private static int CountLines(string code)
+    {
+        int lines = 1;
+        if (code == null) return lines;
+        foreach (char c in code)
+            if (c == '\n') lines++;
+        return lines;
     }
 
     /// <summary>
@@ -658,13 +733,17 @@ public class CodeEditor
     /// <summary>
     /// Выделяет строку, которая выполняется сейчас (0 — снять): полоса за текстом и цвет номера.
     /// </summary>
-    public void SetActiveLine(int line)
+    public void SetActiveLine(int line, bool paused = false)
     {
         if (_codeField == null) return;
         line = Mathf.Max(0, line);
-        if (line == _activeLine) return;
+        if (line == _activeLine && paused == _activeLinePaused) return;
         _activeLine = line;
+        _activeLinePaused = paused && line > 0;
         UpdateGutters(Code);
         PositionActiveLineBar();
     }
+
+    /// <summary>Стоит ли точка останова на строке.</summary>
+    public bool HasBreakpoint(int line) => _breakpoints.Contains(line);
 }

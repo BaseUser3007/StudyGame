@@ -490,7 +490,9 @@ public class EnemyManager : IEnemyWorld, IDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                Tick(Time.deltaTime);
+                // Код стоит на точке останова — мир тоже стоит
+                if (_sandbox == null || !_sandbox.IsPaused)
+                    Tick(Time.deltaTime);
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
             }
         }

@@ -339,9 +339,10 @@ public class LuaObjectList
     /// </summary>
     private static void AddMethod(LuaTable list, EnergyMeter meter, string name, Func<List<LuaValue>, LuaValue> body)
     {
-        list[name] = new LuaFunction((context, ct) =>
+        list[name] = new LuaFunction(async (context, ct) =>
         {
-            meter?.Track(context.State);
+            // Подсветка строки и точки останова (строка с методом списка стоит энергию — на ней можно встать)
+            if (meter != null) await meter.CheckpointAsync(context.State, ct);
             meter?.Charge(MethodCost, $"{name}()");
 
             var args = new List<LuaValue>();
@@ -351,7 +352,7 @@ public class LuaObjectList
                 args.RemoveAt(0);
 
             context.Return(body(args));
-            return new ValueTask<int>(1);
+            return 1;
         });
     }
 

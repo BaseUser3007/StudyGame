@@ -35,13 +35,21 @@ public class EnergyMeter
     /// <summary>Подсветка выполняемой строки (может не быть — например, в тестах).</summary>
     public LuaLineTracker LineTracker { get; set; }
 
+    /// <summary>Точки останова и шаги (может не быть).</summary>
+    public LuaDebugger Debugger { get; set; }
+
     /// <summary>
-    /// Отметить место выполнения: вызывают обёртки команд и <c>__energy</c> — все точки,
-    /// где код игрока платит энергию, — до списания (строка видна, даже если энергия кончилась).
+    /// Отметить место выполнения и встать, если на новой строке точка останова или идёт пошаговое выполнение.
+    /// Вызывают обёртки команд, <c>__energy</c> и методы списков — все точки, где код игрока платит энергию, —
+    /// до списания (строка видна, даже если энергия кончилась; на паузе энергия не тратится).
+    /// Обычно завершается сразу; на паузе ждёт Continue / Step / отмены ct.
     /// </summary>
-    public void Track(Lua.LuaState state)
+    public Cysharp.Threading.Tasks.UniTask CheckpointAsync(Lua.LuaState state, System.Threading.CancellationToken ct)
     {
-        LineTracker?.Probe(state);
+        if (LineTracker == null || !LineTracker.Probe(state)) return Cysharp.Threading.Tasks.UniTask.CompletedTask;
+        if (Debugger == null || !Debugger.ShouldPause(LineTracker.Chunk, LineTracker.Line))
+            return Cysharp.Threading.Tasks.UniTask.CompletedTask;
+        return Debugger.PauseAsync(LineTracker.Chunk, LineTracker.Line, ct);
     }
 
     public void Charge(float amount, string source)

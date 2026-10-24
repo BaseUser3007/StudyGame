@@ -24,4 +24,8 @@ public class CodeEditorTheme : ScriptableObject
     public Color activeLineColor = new Color(0.95f, 0.80f, 0.20f, 0.16f);
     [Tooltip("Номер выполняемой строки в колонке слева")]
     public Color activeLineNumberColor = new Color(0.95f, 0.80f, 0.20f);
+    [Tooltip("Полоса за строкой, на которой код стоит (точка останова / шаг)")]
+    public Color pausedLineColor = new Color(0.35f, 0.65f, 0.95f, 0.28f);
+    [Tooltip("Метка точки останова в колонке номеров")]
+    public Color breakpointColor = new Color(0.90f, 0.30f, 0.30f);
 }

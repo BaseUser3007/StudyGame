@@ -135,6 +135,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
         _luaSandbox.OnLogMessage += HandleSandboxLogMessage;
         _luaSandbox.OnExecutingLineChanged += HandleExecutingLineChanged;
+        _luaSandbox.Debugger.BreakpointProvider = HasBreakpoint;
+        _luaSandbox.Debugger.OnPausedChanged += HandlePausedChanged;
         GameEventBus.OnRunFinished += HandleRunFinished;
     }
 
@@ -232,6 +234,11 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             _luaSandbox.OnUnlocksApplied -= HandleUnlocksApplied;
             _luaSandbox.OnLogMessage -= HandleSandboxLogMessage;
             _luaSandbox.OnExecutingLineChanged -= HandleExecutingLineChanged;
+            if (_luaSandbox.Debugger != null)
+            {
+                _luaSandbox.Debugger.OnPausedChanged -= HandlePausedChanged;
+                _luaSandbox.Debugger.BreakpointProvider = null;
+            }
         }
         GameEventBus.OnRunFinished -= HandleRunFinished;
 
@@ -526,6 +533,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _topBar.OnRunRequested += HandleRunRequested;
         _topBar.OnEndDayRequested += HandleEndDayRequested;
         _topBar.OnSimulationRequested += HandleSimulationRequested;
+        _topBar.OnContinueRequested += HandleContinueRequested;
+        _topBar.OnStepRequested += HandleStepRequested;
         _container.Add(_topBar);
     }
 
@@ -892,6 +901,49 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         window?.SetActiveLine(_executingLine);
         _shownWindow = window;
         _shownLine = window != null ? _executingLine : 0;
+    }
+
+    // ─── Debugger ─────────────────────────────────────────────
+
+    private bool HasBreakpoint(string window, int line)
+    {
+        CodeEditorWindowBase target = FindWindowByTitle(window);
+        return target != null && target.HasBreakpoint(line);
+    }
+
+    /// <summary>
+    /// Пауза на точке останова: строка рисуется сразу (без задержки перерисовки) цветом паузы,
+    /// в верхней панели — Continue / Step.
+    /// </summary>
+    private void HandlePausedChanged(string window, int line)
+    {
+        _topBar?.SetPaused(window, line);
+
+        if (line > 0)
+        {
+            _executingWindow = window;
+            _executingLine = line;
+            CodeEditorWindowBase target = FindWindowByTitle(window);
+            if (_shownWindow != target) _shownWindow?.SetActiveLine(0);
+            target?.SetActiveLine(line, paused: true);
+            _shownWindow = target;
+            _shownLine = target != null ? line : 0;
+        }
+        else
+        {
+            // Продолжили — та же строка, обычным цветом, пока выполнение не уйдёт дальше
+            _shownWindow?.SetActiveLine(_shownLine);
+        }
+    }
+
+    private void HandleContinueRequested()
+    {
+        _luaSandbox?.Debugger?.Continue();
+    }
+
+    private void HandleStepRequested()
+    {
+        _luaSandbox?.Debugger?.Step();
     }
 
     /// <summary>Снять подсветку выполняемой строки во всех окнах (конец запуска).</summary>

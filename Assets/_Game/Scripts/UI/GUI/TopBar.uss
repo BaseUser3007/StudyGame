@@ -336,3 +336,20 @@
 .btn-hints--off {
     color: rgb(140, 140, 140);
 }
+
+/* ── Отладка: пауза на точке останова ────────────────────── */
+.paused-label {
+    color: rgb(120, 180, 240);
+    -unity-font-style: bold;
+    margin: 0 6px;
+    -unity-text-align: middle-center;
+}
+
+.btn-debug {
+    background-color: rgb(40, 70, 110);
+    color: rgb(170, 205, 245);
+}
+
+.btn-debug:hover {
+    background-color: rgb(50, 90, 140);
+}

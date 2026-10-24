@@ -35,7 +35,7 @@ public abstract class LuaCommandBase : ILuaCommand
 
         state.Environment[Name] = new LuaFunction(async (context, ct) =>
         {
-            meter?.Track(context.State);
+            if (meter != null) await meter.CheckpointAsync(context.State, ct);
             meter?.Charge(EnergyCost, $"{Name}()");
             // Вызов оплачен — команда «использована» (для достижений), даже если дальше вернёт ошибку
             GameEventBus.Publish(GameEventType.CommandUsed, Name);

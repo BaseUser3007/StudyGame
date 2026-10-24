@@ -26,6 +26,9 @@
                 <ui:Button name="btn-help"       class="top-bar-btn btn-help" text="Help"/>
                 <ui:Button name="btn-achievements" class="top-bar-btn btn-achievements" text="Achievements"/>
                 <ui:Button name="btn-hints"      class="top-bar-btn btn-hints" text="Hints: On" tooltip="Tutorial and concept hints"/>
+                <ui:Label name="paused-label" class="paused-label hidden" text="Paused"/>
+                <ui:Button name="btn-continue"   class="top-bar-btn btn-debug hidden" text="Continue" tooltip="Run to the next breakpoint"/>
+                <ui:Button name="btn-step"       class="top-bar-btn btn-debug hidden" text="Step" tooltip="Run to the next line that costs energy and pause again"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-end-day"    class="top-bar-btn btn-end-day" text="End Day"/>
                 <ui:Button name="btn-exit-run"   class="top-bar-btn btn-exit-run" text="Exit Run" tooltip="Return to the camp: only materials are carried over"/>

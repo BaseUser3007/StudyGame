@@ -15,6 +15,8 @@ public class TopBar : VisualElement
     public event Action OnHintsToggleRequested;
     /// <summary>Открыта справка (кнопка Help).</summary>
     public event Action OnHelpOpened;
+    public event Action OnContinueRequested;
+    public event Action OnStepRequested;
 
     private Label _energyLabel;
     private Label _healthLabel;
@@ -30,6 +32,9 @@ public class TopBar : VisualElement
     private Button _btnSimulation;
     private Button _btnAchievements;
     private Button _btnHints;
+    private Label _pausedLabel;
+    private Button _btnContinue;
+    private Button _btnStep;
     private CommandHelp _commandHelp;
 
     // Цена прохода краснеет, если больше текущего запаса энергии
@@ -66,6 +71,11 @@ public class TopBar : VisualElement
         _btnAchievements = root.Q<Button>("btn-achievements");
         _btnHints = root.Q<Button>("btn-hints");
         Debug.Assert(_btnHints != null, "TopBar: btn-hints not found");
+        _pausedLabel = root.Q<Label>("paused-label");
+        _btnContinue = root.Q<Button>("btn-continue");
+        _btnStep = root.Q<Button>("btn-step");
+        Debug.Assert(_pausedLabel != null && _btnContinue != null && _btnStep != null,
+            "TopBar: debugger elements not found");
 
         Debug.Assert(_dayLabel != null && _daySummary != null, "TopBar: day labels not found");
         Debug.Assert(_btnEndDay != null, "TopBar: btn-end-day not found");
@@ -115,6 +125,11 @@ public class TopBar : VisualElement
 
         _btnHints.focusable = false;
         _btnHints.clicked += () => OnHintsToggleRequested?.Invoke();
+
+        _btnContinue.focusable = false;
+        _btnContinue.clicked += () => OnContinueRequested?.Invoke();
+        _btnStep.focusable = false;
+        _btnStep.clicked += () => OnStepRequested?.Invoke();
     }
 
     /// <summary>Текст кнопки Hints.</summary>
@@ -192,6 +207,18 @@ public class TopBar : VisualElement
         // Закончить день или выйти из забега во время выполнения нельзя
         _btnEndDay.SetEnabled(!running);
         _btnExitRun.SetEnabled(!running);
+    }
+
+    /// <summary>
+    /// Код стоит на точке останова: метка «Paused · окно, строка N» и кнопки Continue / Step (null — пауза снята).
+    /// </summary>
+    public void SetPaused(string window, int line)
+    {
+        bool paused = line > 0;
+        _pausedLabel.text = paused ? Loc.F("Paused · {0}, line {1}", window, line) : string.Empty;
+        _pausedLabel.EnableInClassList("hidden", !paused);
+        _btnContinue.EnableInClassList("hidden", !paused);
+        _btnStep.EnableInClassList("hidden", !paused);
     }
 
     /// <summary>

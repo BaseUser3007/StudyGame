@@ -30,6 +30,12 @@ public class LuaSandbox : MonoBehaviour
     /// </summary>
     public event Action<string, int> OnExecutingLineChanged;
 
+    /// <summary>Точки останова и пошаговое выполнение (UI задаёт BreakpointProvider и жмёт Continue/Step).</summary>
+    public LuaDebugger Debugger => _debugger;
+
+    /// <summary>Код стоит на точке останова — мир (враги) тоже стоит.</summary>
+    public bool IsPaused => _debugger != null && _debugger.IsPaused;
+
     /// <summary>Имя главного окна в сообщениях об ошибках и в чанке Lua.</summary>
     public const string MainChunkName = "Main";
 
@@ -63,6 +69,7 @@ public class LuaSandbox : MonoBehaviour
     private EnergyInstrumenter _instrumenter;
     private EnergyMeter _meter;
     private LuaLineTracker _lineTracker;
+    private LuaDebugger _debugger;
     private CancellationTokenSource _cts;
 
     // Watchdog: метка последнего кадра главного потока (Stopwatch ticks)
@@ -143,6 +150,8 @@ public class LuaSandbox : MonoBehaviour
         _lineTracker = new LuaLineTracker(MainChunkName);
         _lineTracker.OnLineChanged += HandleExecutingLineChanged;
         _meter.LineTracker = _lineTracker;
+        _debugger = new LuaDebugger();
+        _meter.Debugger = _debugger;
 
         CreateLuaState();
 
@@ -248,13 +257,14 @@ public class LuaSandbox : MonoBehaviour
 
         // Списание за выполненные конструкции языка — вызовы расставляет EnergyInstrumenter.
         // Возвращает true, чтобы `__energy(n) and cond` сохраняло значение условия
-        _state.Environment[EnergyInstrumenter.ChargeFunction] = new LuaFunction((context, ct) =>
+        _state.Environment[EnergyInstrumenter.ChargeFunction] = new LuaFunction(async (context, ct) =>
         {
             double amount = context.ArgumentCount > 0 && context.GetArgument(0).TryRead(out double n) ? n : 0d;
-            _meter.Track(context.State);
+            // Подсветка строки и точки останова; без паузы завершается сразу
+            await _meter.CheckpointAsync(context.State, ct);
             _meter.Charge((float)amount, "code");
             context.Return(true);
-            return new System.Threading.Tasks.ValueTask<int>(1);
+            return 1;
         });
     }
 
@@ -369,11 +379,13 @@ public class LuaSandbox : MonoBehaviour
             _lineTracker.OnLineChanged -= HandleExecutingLineChanged;
 
         StopWatchdog();
-        _cts?.Cancel();
-        _cts?.Dispose();
         // finally старого запуска сравнивает _cts со своим: после уничтожения он ничего не публикует
-        // (RunFinished ушёл бы в шину уже новой сцены)
+        // (RunFinished ушёл бы в шину уже новой сцены). Обнуляем до Cancel: отмена паузы на точке
+        // останова может довыполнить запуск (и его finally) прямо внутри Cancel()
+        CancellationTokenSource cts = _cts;
         _cts = null;
+        cts?.Cancel();
+        cts?.Dispose();
     }
 
     private void HandleExecutingLineChanged(string chunk, int line)
@@ -426,6 +438,7 @@ public class LuaSandbox : MonoBehaviour
         StartWatchdog(cts);
         _meter.Reset();
         _lineTracker.Clear();
+        _debugger.Reset();
         GameEventBus.PublishRunStarted();
 
         try
@@ -489,6 +502,7 @@ public class LuaSandbox : MonoBehaviour
                 GameEventBus.PublishRunFinished(new CodeRunReport(
                     succeeded, started, _playerEnergy.TotalSpent - spentAtStart, usedConstructs, outcome));
                 _lineTracker.Clear();
+                _debugger.Reset();
                 SetRunning(false);
                 if (_unlocksPending) ApplyUnlocks();
             }
@@ -560,7 +574,8 @@ public class LuaSandbox : MonoBehaviour
         _watchdog = new Timer(_ =>
         {
             long frozenFor = Stopwatch.GetTimestamp() - Interlocked.Read(ref _lastFrameTimestamp);
-            if (frozenFor <= timeoutTicks || _cts != cts) return;
+            // На точке останова главный поток свободен, а кадров может не быть (игра свёрнута) — это не зависание
+            if (frozenFor <= timeoutTicks || _cts != cts || IsPaused) return;
 
             _timedOut = true;
             try { cts.Cancel(); }

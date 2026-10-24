@@ -125,10 +125,13 @@ public abstract class CodeEditorWindowBase : VisualElement
     }
 
     /// <summary>Выделить строку, которая выполняется сейчас (0 — снять).</summary>
-    public void SetActiveLine(int line)
+    public void SetActiveLine(int line, bool paused = false)
     {
-        _codeEditor?.SetActiveLine(line);
+        _codeEditor?.SetActiveLine(line, paused);
     }
+
+    /// <summary>Стоит ли в окне точка останова на строке.</summary>
+    public bool HasBreakpoint(int line) => _codeEditor != null && _codeEditor.HasBreakpoint(line);
 
     public void SetPosition(float left, float top)
     {
