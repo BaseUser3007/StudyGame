@@ -74,10 +74,10 @@
 Числа (гоблин 40 HP / 10 урона / агрессия 3 / перезарядка 1,5 с; 3 лагеря по 1–3; патрули; меч; `attack` = 2;
 лут `gold`) — GameDesign.md §10.1. Время в мире идёт только пока выполняется код.
 
-- [ ] ★ День угрозы в `DayCycle` (из `RunModifiers`, по умолчанию 3): предупреждение за день,
+- [x] ★ День угрозы в `DayCycle` (из `RunModifiers`, по умолчанию 3): предупреждение за день,
       отображение в `TopBar`, поле в `getStatus()`. *(C#: `DayCycle.ThreatDay/DaysUntilThreat/IsThreatActive`,
       `DayInfo`, `ThreatReached`, уведомление за день, `getStatus()` (`threatDay`, `daysToThreat`, `threat`) — готово;
-      `TopBar` — ждёт UI.)*
+      `TopBar` показывает угрозу (`threat-label`).)*
 - [x] ★ Базовый класс врага (спрайты гоблинов из Tiny Swords, `DepthSortedSprite`, коллайдер),
       пул, регистрация в `ObjectManager` или отдельном `EnemyManager`.
 - [x] ★ Статические враги: генерируются вместе с объектами (лагеря у ценных мест/головоломок),
@@ -88,14 +88,14 @@
       *(`findObjects("enemy" | "goblin")`, `findObjects()` — всё видимое вместе с врагами; `kind`, `health`,
       `maxHealth`, `state`; `check(...).enemies`; `harvest`/`mine`/`obtain` по врагу → «use attack()».)*
 - [x] ★ Враги наносят урон `PlayerHealth` (радиус и перезарядка атаки), у врагов есть своё здоровье.
-- [ ] ★ Бой: команда `attack([x, y] | obj)` (с ценой энергии), урон зависит от оружия; оружие —
+- [x] ★ Бой: команда `attack([x, y] | obj)` (с ценой энергии), урон зависит от оружия; оружие —
       `ToolItem`-подобный предмет с износом, крафтится в `RecipeBook` (например, меч на верстаке).
       *(C#: `WeaponItem`, `PlayerInventory.FindWeaponSlot`, `CombatService`, команда `attack` (2 энергии,
       открывается `enemy_spotted`), тип `gold_ore` (`GoldOreObject`) — готово;
-      ассеты меча, `gold`/`gold_ore` и рецепт — ждут ассетов.)*
-- [ ] ★ Добыча с врагов (лут через `ResourceVariant.loot`) и достижения за победу над врагом.
+      ассеты меча, `gold`/`gold_ore`, рецепт есть; проверить в Play Mode.)*
+- [x] ★ Добыча с врагов (лут через `ResourceVariant.loot`) и достижения за победу над врагом.
       *(C#: лут `EnemyDefinition.loot` на землю с `SpawnRunId`, `EnemyKilled`/`EnemyFound` — готово;
-      ассеты достижений — ждут.)*
+      ассеты достижений есть; проверить в Play Mode.)*
 - [ ] Разные враги (лучник на расстоянии, сильный страж у головоломки). (Сделан `goblin_guard` — вожак лагеря на 3: `EnemyCampSpec.leader`, Black Warrior, 80 HP. Лучника нет.)
 
 ## Этап 4. Хаб (как лагерь в Loop Hero)
@@ -116,9 +116,9 @@
       Код готов: `HubService` (границы, пересечения, оплата со склада, однократность, `Save`),
       `HubPlacementController` (призрак за мышью, ЛКМ — поставить, ПКМ/Esc — отмена), панель `HubBuildPanel`
       (карточки, Build → `Begin`, подсказка размещения, причины отказа). Проверить в Play Mode.
-- [ ] ★ 3–4 сооружения для среза: + энергия, + день до угрозы, + здоровье, + слот инвентаря.
-      Эффекты в коде (`HubEffectType`); осталось завести ассеты `storage`/`shrine`/`watchtower`/`healer_hut` (§10.3).
-- [ ] ★ Достижение «построить здание в хабе» работает.
+- [x] ★ 3–4 сооружения для среза: + энергия, + день до угрозы, + здоровье, + слот инвентаря.
+      Эффекты в коде (`HubEffectType`); ассеты `storage`/`shrine`/`watchtower`/`healer_hut` заведены (`ScriptableObjects/Hub`).
+- [x] ★ Достижение «построить здание в хабе» работает (ассет `hub_builder` есть; проверить в Play Mode).
       `HubService.TryBuild` публикует `GameEventBus` `HubBuildingBuilt` (Id = id постройки); осталось условие
       `hub_builder` в ассете (Counter `HubBuildingBuilt`, пустой фильтр, 1 — §6.1) и проверка в Play Mode.
 - [ ] Бонусы за соседство сооружений (как в Loop Hero), уровни сооружений.
@@ -156,8 +156,8 @@
 `solve(obj, answer)` = 2 (`true` / `nil, причина`; открываются `hub_builder`), в `findObjects` типы `obelisk`/`code_task`,
 `maze`, `puzzle` (только без тумана, id = `LuaObjectList.PuzzleIdOffset` + Id; в `findObjects()` тоже), в `check` —
 `wall`/`chest`/`obelisk`, `walkable = false` на стене лабиринта, поле `puzzle`; harvest/mine/attack по головоломке —
-понятная ошибка; тесты `PuzzleCommandTests`. **Ждёт:** ассетов `PuzzleConfig` (на `Level`), префабов обелиска,
-стены и `maze_chest`, предмета `crystal`; проверки в Play Mode.
+понятная ошибка; тесты `PuzzleCommandTests`. **Ассеты есть** (`DefaultPuzzleConfig`, префабы обелиска,
+стены и сундука, `crystal`); ждёт проверки в Play Mode.
 - [ ] Перемещение предметов (сокобан): нужны команды толкать/поднять-положить.
 - [ ] Ещё типы: плиты в правильном порядке, расшифровка последовательности, оптимизационные (лимит энергии).
 - [ ] Уникальные ресурсы и что из них делается (рецепты/постройки хаба).
@@ -169,10 +169,10 @@
 
 - [x] ★ `FoodItem` с полями «восстанавливает энергию» и «восстанавливает здоровье»
       (`energyRestore`, `healthRestore`; бывший `FoodResource`, GUID скрипта сохранён).
-- [ ] ★ Еда для энергии (например, ягоды с куста, грибы) и отдельная еда для здоровья (например,
+- [x] ★ Еда для энергии (например, ягоды с куста, грибы) и отдельная еда для здоровья (например,
       мясо овцы, приготовленное у костра). **Код готов** (2026-10-19): `BerryBushObject` (`berry_bush`,
       harvest), `SheepObject` (`sheep`, mine топором, стоит на месте; бывший `RabbitObject`),
-      `CraftingStation.Campfire`, записи в `FindObjectsCommand.TypeMap`. **Ждёт ассетов**: `FoodItem`
+      `CraftingStation.Campfire`, записи в `FindObjectsCommand.TypeMap`. **Ассеты есть** (проверить в Play Mode): `FoodItem`
       `berries`/`raw_meat`/`cooked_meat`, префабы и варианты `berry_bush`/`sheep` в `BiomeConfig`, постройка
       `campfire` (`StructureItem` + префаб `Structure` со станцией Campfire), рецепты `campfire`/`cooked_meat`
       (закрыты до `first_blood`) в `RecipeBook` — числа в GameDesign.md §10.2.
@@ -191,7 +191,9 @@
       `functionCost` 0 → 0,5, мёртвые `apiCallCost`/`variableCost` удалены из `EnergyConfig`; остальное —
       GameDesign.md §9, §10.6).
 - [x] ★ Сброс прогресса (для тестов и новых игроков): `MetaProgress.ResetAll` (копия `.reset.bak`, библиотека кода не стирается), кнопка Reset progress в лагере, меню `CodeRogue/Reset Meta Progress`, тесты в `MetaProgressTests`.
-- [ ] Обновить CLAUDE.md под новые системы.
+- [x] Обновить CLAUDE.md под новые системы (2026-10-24: добавлена локализация).
+
+- [x] Локализация UI: русский и английский, переключатель в лагере (`Scripts/Localization`, GameDesign §11).
 
 ## Прогрессия на 2–3 забега
 
