@@ -77,11 +77,11 @@ public class CraftCommand : LuaCommandBase
         }
 
         if (!_playerEnergy.CanSpend(recipe.energyCost))
-            return $"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}";
+            return System.FormattableString.Invariant($"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}");
 
         // Энергия — до обмена: обмен публикует ItemObtained, к этому моменту крафт уже оплачен
         if (!_playerEnergy.TrySpend(recipe.energyCost))
-            return $"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}";
+            return System.FormattableString.Invariant($"not enough energy: need {recipe.energyCost:0.#}, have {_playerEnergy.Current:0.#}");
 
         if (!_inventory.TryExchange(requirements, recipe.result, recipe.resultAmount))
         {

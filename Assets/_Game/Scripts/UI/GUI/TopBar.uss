@@ -196,6 +196,51 @@
     -unity-font-style: bold;
 }
 
+/* ── Energy floaters (T06): «−N» / «+N» под надписью энергии ── */
+/* Слой и числа создаёт TopBar.cs (picking-mode: Ignore задаётся в коде) */
+.energy-floaters {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
+}
+
+.energy-floater {
+    position: absolute;
+    top: 6px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+    padding: 0;
+    margin: 0;
+    opacity: 1;
+    translate: 0 0;
+    transition-property: translate, opacity;
+    transition-duration: 1s, 1s;
+    transition-timing-function: ease-out, ease-in;
+}
+
+.energy-floater--spend {
+    color: rgb(240, 120, 110);
+}
+
+.energy-floater--gain {
+    color: rgb(130, 230, 130);
+}
+
+.energy-floater--big {
+    font-size: 17px;
+    -unity-text-outline-width: 0.5px;
+    -unity-text-outline-color: rgb(20, 20, 20);
+}
+
+.energy-floater--fly {
+    translate: 0 -22px;
+    opacity: 0;
+}
+
 /* ── Help ────────────────────────────────────────────────── */
 .btn-help {
     color: rgb(150, 190, 240);
@@ -352,4 +397,39 @@
 
 .btn-debug:hover {
     background-color: rgb(50, 90, 140);
+}
+
+/* ── Help search (T03): поле поиска и «ничего не найдено» в справке ── */
+.help-search {
+    margin: 0 0 6px 0;
+    flex-shrink: 0;
+}
+
+.help-search > .unity-text-field__input {
+    min-height: 24px;
+    padding: 2px 6px;
+    font-size: 12px;
+    color: rgb(220, 220, 220);
+    background-color: rgb(42, 42, 42);
+    border-width: 1px;
+    border-color: rgb(70, 70, 70);
+    border-radius: 3px;
+    --unity-cursor-color: rgb(220, 220, 220);
+}
+
+.help-search:focus > .unity-text-field__input {
+    border-color: rgb(100, 140, 200);
+}
+
+/* Подсказка-заглушка пустого поля */
+.help-search > .unity-base-text-field__input--placeholder {
+    color: rgb(120, 120, 120);
+}
+
+.help-nothing-found {
+    font-size: 12px;
+    color: rgb(150, 150, 150);
+    -unity-font-style: italic;
+    -unity-text-align: middle-center;
+    margin: 12px 0;
 }

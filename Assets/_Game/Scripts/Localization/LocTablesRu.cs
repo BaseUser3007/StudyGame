@@ -10,5 +10,9 @@ public static class LocTablesRu
         LocRuUi.Entries,
         LocRuCommands.Entries,
         LocRuContent.Entries,
+        // Разделы задач Docs/Tasks — каждая задача добавляет свои строки только в свой файл
+        LocRuT01.Entries,
+        LocRuT03.Entries,
+        LocRuT06.Entries,
     };
 }

@@ -61,7 +61,7 @@ public class EnergyMeter
         if (!IsExhausted)
         {
             IsExhausted = true;
-            ExhaustedMessage = $"out of energy at {source}: need {amount:0.#}, have {_energy.Current:0.#}";
+            ExhaustedMessage = System.FormattableString.Invariant($"out of energy at {source}: need {amount:0.#}, have {_energy.Current:0.#}");
             OnExhausted?.Invoke();
         }
 

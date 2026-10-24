@@ -191,7 +191,7 @@ public class ResourceHarvester
     private ResourceObject FindAt(Vector2 point, out string error)
     {
         ResourceObject obj = _objectManager.GetNearestObjectAt(point, PickTolerance);
-        error = obj == null || obj.Variant == null ? $"no object at ({point.x:0.##}, {point.y:0.##})" : null;
+        error = obj == null || obj.Variant == null ? System.FormattableString.Invariant($"no object at ({point.x:0.##}, {point.y:0.##})") : null;
         return error == null ? obj : null;
     }
 
@@ -230,7 +230,7 @@ public class ResourceHarvester
     {
         return _playerEnergy.TrySpend(cost)
             ? null
-            : $"not enough energy: need {cost:0.#}, have {_playerEnergy.Current:0.#}";
+            : System.FormattableString.Invariant($"not enough energy: need {cost:0.#}, have {_playerEnergy.Current:0.#}");
     }
 
     /// <summary>

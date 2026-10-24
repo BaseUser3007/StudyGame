@@ -42,6 +42,8 @@
                 <ui:Label class="help-title" text="Commands"/>
                 <ui:Button name="btn-help-close" class="help-close" text="×"/>
             </ui:VisualElement>
+            <!-- Поиск по справке: фокус только по клику мышью (CommandHelp) -->
+            <ui:TextField name="help-search" class="help-search"/>
             <ui:ScrollView name="help-content" class="help-content"/>
         </ui:VisualElement>
 

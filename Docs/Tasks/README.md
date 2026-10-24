@@ -83,12 +83,12 @@
 
 | ID | Задача | Область | Размер | Не брать одновременно с | Статус |
 |---|---|---|---|---|---|
-| [T01](T01-inventory-tooltip.md) | Подсказка над слотом инвентаря | UI | S | — | taken (Claude) |
+| [T01](T01-inventory-tooltip.md) | Подсказка над слотом инвентаря | UI | S | — | done |
 | [T02](T02-editor-hotkeys.md) | Горячие клавиши редактора кода | UI | S | T04 | free |
-| [T03](T03-help-search.md) | Поиск в справке по командам | UI | S | — | taken (Claude) |
+| [T03](T03-help-search.md) | Поиск в справке по командам | UI | S | — | done |
 | [T04](T04-runlog-goto-line.md) | Клик по ошибке в логе → переход к строке | UI | S | T02 | free |
 | [T05](T05-run-summary-stats.md) | Статистика на экране итогов забега | UI / мета | S | — | free |
-| [T06](T06-energy-floaters.md) | Всплывающие «−5» у полосы энергии | UI | S | — | taken (Claude) |
+| [T06](T06-energy-floaters.md) | Всплывающие «−5» у полосы энергии | UI | S | — | done |
 | [T07](T07-enemy-hp-bar.md) | Полоса здоровья над врагом | Визуал | S | T08, T13 | free |
 | [T08](T08-damage-numbers.md) | Цифры урона над врагом и игроком | Визуал | S | T07 | free |
 | [T09](T09-sound-feedback.md) | Звуки действий | Аудио | M | — | free |
@@ -100,9 +100,9 @@
 | [T15](T15-hub-adjacency.md) | Бонусы за соседство построек | Хаб | M | T14 | free |
 | [T16](T16-pressure-plates-puzzle.md) | Головоломка «плиты по порядку» | Головоломки | M | — | free |
 | [T17](T17-debug-window.md) | Окно отладки в редакторе (выдать предметы, открыть всё, телепорт) | Инструменты | S | — | free |
-| [T18](T18-combat-tests.md) | EditMode-тесты боя | Тесты | S | — | taken (Claude) |
-| [T19](T19-run-modifiers-tests.md) | EditMode-тесты эффектов построек на забег | Тесты | S | T14, T15 | taken (Claude) |
-| [T20](T20-readme.md) | README репозитория | Документация | S | — | taken (Claude) |
+| [T18](T18-combat-tests.md) | EditMode-тесты боя | Тесты | S | — | done |
+| [T19](T19-run-modifiers-tests.md) | EditMode-тесты эффектов построек на забег | Тесты | S | T14, T15 | done |
+| [T20](T20-readme.md) | README репозитория | Документация | S | — | done |
 | [T21](T21-ru-proofreading.md) | Вычитка русского перевода | Локализация | S | — | free |
 | [T22](T22-code-library-clipboard.md) | Библиотека кода: копировать / вставить через буфер обмена | UI | S | — | free |
 | [T23](T23-tutorial-energy-warning.md) | Шаг туториала: предупреждение о нехватке энергии | Туториал | S | — | free |

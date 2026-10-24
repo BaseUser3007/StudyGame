@@ -47,6 +47,23 @@ public class TopBar : VisualElement
     private float _lastHealth = -1f;
     private IVisualElementScheduledItem _healthFlashReset;
 
+    // Всплывающие «−N»/«+N» у энергии: мелкие изменения копятся окном и показываются одной суммой
+    private const long FloaterWindowMs = 250;
+    private const long FloaterLifeMs = 1100;
+    private const float FloaterMinAmount = 0.05f;
+    private const float FloaterBigAmount = 10f;
+    private const int FloaterColumns = 3;
+    private VisualElement _floaterLayer;
+    private float _lastEnergy = -1f;
+    private float _lastMax = -1f;
+    private float _pendingSpend;
+    private float _pendingGain;
+    // Последнее изменение запаса — его отменяет UpdateDay, если оно было пополнением нового дня
+    private float _lastEnergyDelta;
+    private int _lastDay;
+    private int _floaterSerial;
+    private IVisualElementScheduledItem _floaterFlush;
+
     // В лагере угрозы нет — индикатор скрыт
     private bool _hubMode;
     private bool _hasThreatInfo;
@@ -92,6 +109,7 @@ public class TopBar : VisualElement
 
         Debug.Assert(_energyLabel != null, "TopBar: energy-label not found");
         Debug.Assert(_btnRun != null, "TopBar: btn-run not found");
+        CreateFloaterLayer();
         Debug.Assert(btnHelp != null && helpPopup != null && btnHelpClose != null && helpContent != null,
             "TopBar: help elements not found");
 
@@ -148,6 +166,10 @@ public class TopBar : VisualElement
     public void UpdateDay(DayInfo info)
     {
         _dayLabel.text = Loc.F("Day {0} · Runs {1}/{2}", info.Day, info.RunsUsed, info.RunsPerDay);
+
+        // DayCycle публикует день сразу после PlayerEnergy.SetMax: пополнение запаса нового дня — не трата и не еда
+        if (_lastDay > 0 && info.Day != _lastDay) DiscardLastEnergyDelta();
+        _lastDay = info.Day;
 
         _daySummary.text = info.Summary;
         _daySummary.EnableInClassList("day-summary--penalty", info.Summary.StartsWith("−"));
@@ -239,6 +261,106 @@ public class TopBar : VisualElement
         _currentEnergy = current;
         _energyLabel.text = Loc.F("Energy: {0} / {1}", current.ToString("0.#"), Mathf.RoundToInt(max));
         RefreshCostWarning();
+        TrackEnergyDelta(current, max);
+    }
+
+    // ─── Всплывающие изменения энергии ───────────────────────
+
+    /// <summary>
+    /// Слой под надписью энергии: в нём живут числа «−N»/«+N». Мышь и фокус не забирает.
+    /// </summary>
+    private void CreateFloaterLayer()
+    {
+        if (_energyLabel == null) return;
+
+        _floaterLayer = new VisualElement { name = "energy-floaters", pickingMode = PickingMode.Ignore, focusable = false };
+        _floaterLayer.AddToClassList("energy-floaters");
+
+        // Слой — сосед надписи, а не её ребёнок: у Label с детьми пропадает измерение по тексту
+        // и надпись схлопывается, наезжая на соседей. Позицию берём из раскладки надписи
+        VisualElement host = _energyLabel.parent ?? _energyLabel;
+        host.Add(_floaterLayer);
+        _energyLabel.RegisterCallback<GeometryChangedEvent>(_ => PositionFloaterLayer());
+    }
+
+    private void PositionFloaterLayer()
+    {
+        if (_floaterLayer == null || _floaterLayer.parent == _energyLabel) return;
+        Rect label = _energyLabel.layout;
+        _floaterLayer.style.left = label.x;
+        _floaterLayer.style.top = label.yMax;
+    }
+
+    /// <summary>
+    /// Разница с прошлым значением. Первое значение и любое изменение максимума (SetMax в начале дня,
+    /// награды к лимиту) не показываются; остальное копится и выводится раз в FloaterWindowMs.
+    /// </summary>
+    private void TrackEnergyDelta(float current, float max)
+    {
+        bool first = _lastEnergy < 0f;
+        bool maxChanged = !first && !Mathf.Approximately(max, _lastMax);
+        float delta = first ? 0f : current - _lastEnergy;
+        _lastEnergy = current;
+        _lastMax = max;
+
+        _lastEnergyDelta = 0f;
+        if (first || maxChanged || Mathf.Abs(delta) < 0.0001f) return;
+
+        _lastEnergyDelta = delta;
+        if (delta < 0f) _pendingSpend -= delta;
+        else _pendingGain += delta;
+        ScheduleFloaterFlush();
+    }
+
+    /// <summary>Убирает из накопленного последнее изменение запаса (пополнение при смене дня).</summary>
+    private void DiscardLastEnergyDelta()
+    {
+        if (_lastEnergyDelta < 0f) _pendingSpend = Mathf.Max(0f, _pendingSpend + _lastEnergyDelta);
+        else if (_lastEnergyDelta > 0f) _pendingGain = Mathf.Max(0f, _pendingGain - _lastEnergyDelta);
+        _lastEnergyDelta = 0f;
+    }
+
+    private void ScheduleFloaterFlush()
+    {
+        if (_floaterLayer == null) return;
+        // Окно отсчитывается от первого изменения: в длинном цикле числа идут равномерно, а не копятся бесконечно
+        if (_floaterFlush == null)
+            _floaterFlush = _floaterLayer.schedule.Execute(FlushFloaters).StartingIn(FloaterWindowMs);
+        else if (!_floaterFlush.isActive)
+            _floaterFlush.ExecuteLater(FloaterWindowMs);
+    }
+
+    private void FlushFloaters()
+    {
+        float spend = _pendingSpend;
+        float gain = _pendingGain;
+        _pendingSpend = 0f;
+        _pendingGain = 0f;
+        _lastEnergyDelta = 0f;
+
+        if (spend >= FloaterMinAmount) SpawnFloater(-spend);
+        if (gain >= FloaterMinAmount) SpawnFloater(gain);
+    }
+
+    /// <summary>
+    /// Одно число: появляется под надписью, через кадр получает класс полёта (переход вверх с угасанием
+    /// задан в TopBar.uss) и удаляется по окончании.
+    /// </summary>
+    private void SpawnFloater(float amount)
+    {
+        bool gain = amount > 0f;
+        string text = (gain ? "+" : "−") + Mathf.Abs(amount).ToString("0.#");
+
+        var floater = new Label(text) { pickingMode = PickingMode.Ignore, focusable = false };
+        floater.AddToClassList("energy-floater");
+        floater.AddToClassList(gain ? "energy-floater--gain" : "energy-floater--spend");
+        floater.EnableInClassList("energy-floater--big", Mathf.Abs(amount) >= FloaterBigAmount);
+        // Соседние числа сдвинуты по колонкам, чтобы не накладывались друг на друга
+        floater.style.left = (_floaterSerial++ % FloaterColumns) * 34f;
+        _floaterLayer.Add(floater);
+
+        floater.schedule.Execute(() => floater.AddToClassList("energy-floater--fly")).StartingIn(16);
+        floater.schedule.Execute(floater.RemoveFromHierarchy).StartingIn(FloaterLifeMs);
     }
 
     public void UpdateHealth(float current, float max)

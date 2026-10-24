@@ -125,7 +125,7 @@ public static class LuaPuzzles
         }
 
         PuzzleStructure found = FindAt(puzzles, point);
-        if (found == null) error = $"no puzzle at ({point.x:0.##}, {point.y:0.##})";
+        if (found == null) error = System.FormattableString.Invariant($"no puzzle at ({point.x:0.##}, {point.y:0.##})");
         return found;
     }
 

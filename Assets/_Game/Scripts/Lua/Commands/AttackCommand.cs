@@ -118,7 +118,7 @@ public class AttackCommand : PlayerCommandBase
             target = _enemies?.GetNearestEnemy(point, PickTolerance);
             if (target == null)
                 error = LuaPuzzles.GetNotTargetError(context, point, _puzzles, "attacked", checkPoint: true)
-                        ?? $"no enemy at ({point.x:0.##}, {point.y:0.##})";
+                        ?? System.FormattableString.Invariant($"no enemy at ({point.x:0.##}, {point.y:0.##})");
             return target;
         }
 

@@ -138,7 +138,7 @@ public class CombatService
         if (target == null)
         {
             result = default;
-            error = $"no enemy at ({point.x:0.##}, {point.y:0.##})";
+            error = System.FormattableString.Invariant($"no enemy at ({point.x:0.##}, {point.y:0.##})");
             return false;
         }
 
@@ -156,7 +156,7 @@ public class CombatService
         float radius = AttackRadius;
         float distance = DistanceTo(target);
         if (distance > radius)
-            return $"enemy is too far: {distance:0.#} > {radius:0.#}";
+            return System.FormattableString.Invariant($"enemy is too far: {distance:0.#} > {radius:0.#}");
 
         return null;
     }

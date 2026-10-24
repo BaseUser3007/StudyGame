@@ -132,4 +132,18 @@ public static class TestHelpers
     {
         if (!condition) NUnit.Framework.Assert.Fail(message);
     }
+
+    // ─── Бой ──────────────────────────────────────────────────
+
+    /// <summary>Оружие: инструмент типа Sword (CreateInstance не вызывает Reset/OnValidate — тип ставим сами).</summary>
+    public static WeaponItem Weapon(string id, int damage = 15, int maxDurability = 3, int wear = 1, float radius = 1.5f)
+    {
+        WeaponItem weapon = Item<WeaponItem>(id, 1);
+        weapon.toolType = ToolType.Sword;
+        weapon.damage = damage;
+        weapon.attackRadius = radius;
+        weapon.maxDurability = maxDurability;
+        weapon.wearPerUse = wear;
+        return weapon;
+    }
 }
