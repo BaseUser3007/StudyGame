@@ -84,16 +84,16 @@
 | ID | Задача | Область | Размер | Не брать одновременно с | Статус |
 |---|---|---|---|---|---|
 | [T01](T01-inventory-tooltip.md) | Подсказка над слотом инвентаря | UI | S | — | done |
-| [T02](T02-editor-hotkeys.md) | Горячие клавиши редактора кода | UI | S | T04 | free |
+| [T02](T02-editor-hotkeys.md) | Горячие клавиши редактора кода | UI | S | T04 | taken (Claude) |
 | [T03](T03-help-search.md) | Поиск в справке по командам | UI | S | — | done |
 | [T04](T04-runlog-goto-line.md) | Клик по ошибке в логе → переход к строке | UI | S | T02 | free |
-| [T05](T05-run-summary-stats.md) | Статистика на экране итогов забега | UI / мета | S | — | free |
+| [T05](T05-run-summary-stats.md) | Статистика на экране итогов забега | UI / мета | S | — | taken (Claude) |
 | [T06](T06-energy-floaters.md) | Всплывающие «−5» у полосы энергии | UI | S | — | done |
-| [T07](T07-enemy-hp-bar.md) | Полоса здоровья над врагом | Визуал | S | T08, T13 | free |
+| [T07](T07-enemy-hp-bar.md) | Полоса здоровья над врагом | Визуал | S | T08, T13 | taken (Claude) |
 | [T08](T08-damage-numbers.md) | Цифры урона над врагом и игроком | Визуал | S | T07 | free |
 | [T09](T09-sound-feedback.md) | Звуки действий | Аудио | M | — | free |
-| [T10](T10-mushroom-food.md) | Грибы — еда на карте | Контент | S | T12 | free |
-| [T11](T11-achievement-icons.md) | Иконки достижений | Контент | S | — | free |
+| [T10](T10-mushroom-food.md) | Грибы — еда на карте | Контент | S | T12 | taken (Claude) |
+| [T11](T11-achievement-icons.md) | Иконки достижений | Контент | S | — | taken (Claude) |
 | [T12](T12-sheep-wander.md) | Овца бродит, пока идёт код | Геймплей | S | T10 | free |
 | [T13](T13-archer-enemy.md) | Враг-лучник | Геймплей | M | T07 | free |
 | [T14](T14-hub-building-levels.md) | Уровни построек хаба | Хаб | M | T15 | free |
@@ -104,7 +104,7 @@
 | [T19](T19-run-modifiers-tests.md) | EditMode-тесты эффектов построек на забег | Тесты | S | T14, T15 | done |
 | [T20](T20-readme.md) | README репозитория | Документация | S | — | done |
 | [T21](T21-ru-proofreading.md) | Вычитка русского перевода | Локализация | S | — | free |
-| [T22](T22-code-library-clipboard.md) | Библиотека кода: копировать / вставить через буфер обмена | UI | S | — | free |
+| [T22](T22-code-library-clipboard.md) | Библиотека кода: копировать / вставить через буфер обмена | UI | S | — | taken (Claude) |
 | [T23](T23-tutorial-energy-warning.md) | Шаг туториала: предупреждение о нехватке энергии | Туториал | S | — | free |
 
 Задачи, которые остаются за основной разработкой (не брать): баланс среза.
