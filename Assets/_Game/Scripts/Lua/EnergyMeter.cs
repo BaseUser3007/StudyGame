@@ -49,7 +49,7 @@ public class EnergyMeter
         if (LineTracker == null || !LineTracker.Probe(state)) return Cysharp.Threading.Tasks.UniTask.CompletedTask;
         if (Debugger == null || !Debugger.ShouldPause(LineTracker.Chunk, LineTracker.Line))
             return Cysharp.Threading.Tasks.UniTask.CompletedTask;
-        return Debugger.PauseAsync(LineTracker.Chunk, LineTracker.Line, ct);
+        return Debugger.PauseAsync(state, LineTracker.Chunk, LineTracker.Line, ct);
     }
 
     public void Charge(float amount, string source)

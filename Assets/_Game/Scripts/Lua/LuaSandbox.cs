@@ -266,6 +266,9 @@ public class LuaSandbox : MonoBehaviour
             context.Return(true);
             return 1;
         });
+
+        // Всё, что есть в окружении до кода игрока, на паузе не показывается как его переменные
+        _debugger.GlobalsBaseline = LuaFrameInspector.SnapshotNames(_state.Environment);
     }
 
     /// <summary>

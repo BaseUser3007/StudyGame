@@ -111,6 +111,66 @@ public class LuaDebuggerTests
         Assert.AreEqual(3, pauses);
     }
 
+    private Dictionary<string, string> Locals()
+    {
+        var result = new Dictionary<string, string>();
+        foreach (LuaVariable v in _debugger.Locals) result[v.Name] = v.Value;
+        return result;
+    }
+
+    [Test]
+    public void Pause_ShowsActiveLocals()
+    {
+        _breakpoints.Add(3);
+        _breakpoints.Add(6);
+
+        Task run = Start("local a = 5\nlocal t = {1, 2}\nprobe()\nfor i = 1, 1 do\n  local s = \"hi\"\n  probe()\nend\nlocal late = 1");
+
+        Dictionary<string, string> first = Locals();
+        Assert.AreEqual("5", first["a"]);
+        Assert.AreEqual("{1, 2}", first["t"]);
+        Assert.IsFalse(first.ContainsKey("late"), "not declared yet");
+        Assert.IsFalse(first.ContainsKey("i"));
+
+        _debugger.Continue();
+        Dictionary<string, string> inLoop = Locals();
+        Assert.AreEqual("1", inLoop["i"]);
+        Assert.AreEqual("\"hi\"", inLoop["s"]);
+        foreach (string name in inLoop.Keys)
+            Assert.IsFalse(name.StartsWith("("), "service loop variables are hidden");
+
+        _debugger.Continue();
+        Assert.IsTrue(run.IsCompleted);
+        Assert.AreEqual(0, _debugger.Locals.Count, "cleared after the pause");
+    }
+
+    [Test]
+    public void Pause_InsideFunction_ShowsItsParameters()
+    {
+        _breakpoints.Add(2);
+
+        Task run = Start("local function f(n)\n  probe()\nend\nf(7)");
+
+        Assert.AreEqual("7", Locals()["n"]);
+        _debugger.Continue();
+        Assert.IsTrue(run.IsCompleted);
+    }
+
+    [Test]
+    public void Pause_ShowsPlayerGlobalsOnly()
+    {
+        _debugger.GlobalsBaseline = LuaFrameInspector.SnapshotNames(_lua.State.Environment);
+        _breakpoints.Add(3);
+
+        Task run = Start("score = 10\nfunction helper() end\nprobe()");
+
+        Assert.AreEqual(1, _debugger.Globals.Count, "functions and built-ins are hidden");
+        Assert.AreEqual("score", _debugger.Globals[0].Name);
+        Assert.AreEqual("10", _debugger.Globals[0].Value);
+        _debugger.Continue();
+        Assert.IsTrue(run.IsCompleted);
+    }
+
     [Test]
     public void StepWhileNotPaused_IsIgnored()
     {
@@ -143,7 +203,9 @@ public class LuaDebuggerTests
         cts.Cancel();
 
         // Отмена ожидания проходит через UniTask и Lua-CSharp — запуск завершается в следующих кадрах
-        for (int frame = 0; frame < 100 && !run.IsCompleted; frame++)
+        // (в EditMode yield null может «пролететь» быстрее обновления редактора — ждём по времени)
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (!run.IsCompleted && timer.ElapsedMilliseconds < 3000)
             yield return null;
         cts.Dispose();
 

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Lua;
 
 /// <summary>
 /// Точки останова и пошаговое выполнение кода игрока.
@@ -22,6 +24,19 @@ public class LuaDebugger
     public bool IsPaused { get; private set; }
     public string PausedChunk { get; private set; }
     public int PausedLine { get; private set; }
+
+    /// <summary>Имена стартового окружения (команды, стандартная библиотека) — не показываются как глобальные игрока.</summary>
+    public ISet<string> GlobalsBaseline { get; set; }
+
+    /// <summary>Локальные переменные кадра, где стоит код (снимок на момент паузы; вне паузы — пусто).</summary>
+    public IReadOnlyList<LuaVariable> Locals => _locals;
+
+    /// <summary>Глобальные переменные игрока (снимок на момент паузы; вне паузы — пусто).</summary>
+    public IReadOnlyList<LuaVariable> Globals => _globals;
+
+    private static readonly List<LuaVariable> Empty = new List<LuaVariable>();
+    private List<LuaVariable> _locals = Empty;
+    private List<LuaVariable> _globals = Empty;
 
     private bool _stepRequested;
     private UniTaskCompletionSource _resume;
@@ -48,9 +63,12 @@ public class LuaDebugger
     }
 
     /// <summary>Ждать Continue / Step / Stop (отмена ct бросает OperationCanceledException).</summary>
-    public async UniTask PauseAsync(string chunk, int line, CancellationToken ct)
+    public async UniTask PauseAsync(LuaState state, string chunk, int line, CancellationToken ct)
     {
         _stepRequested = false;
+        // Значения на паузе не меняются — читаем один раз, до события (UI сразу их покажет)
+        _locals = LuaFrameInspector.ReadLocals(state);
+        _globals = state != null ? LuaFrameInspector.ReadGlobals(state.Environment, GlobalsBaseline) : Empty;
         var resume = new UniTaskCompletionSource();
         _resume = resume;
         SetPaused(true, chunk, line);
@@ -62,6 +80,8 @@ public class LuaDebugger
         finally
         {
             if (_resume == resume) _resume = null;
+            _locals = Empty;
+            _globals = Empty;
             SetPaused(false, null, 0);
         }
     }

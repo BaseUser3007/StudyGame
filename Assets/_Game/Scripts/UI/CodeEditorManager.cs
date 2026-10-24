@@ -23,6 +23,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private List<CodeEditorWindowBase> _windows = new List<CodeEditorWindowBase>();
     private MainCodeEditorWindow _mainWindow;
     private TopBar _topBar;
+    private DebugVariablesPanel _debugVariables;
     private InventoryBar _inventoryBar;
     private CraftingPanel _craftingPanel;
     private CodeLibrary _codeLibrary;
@@ -536,6 +537,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _topBar.OnContinueRequested += HandleContinueRequested;
         _topBar.OnStepRequested += HandleStepRequested;
         _container.Add(_topBar);
+
+        // Переменные на точке останова — под верхней панелью справа, только на паузе
+        _debugVariables = new DebugVariablesPanel();
+        _container.Add(_debugVariables);
     }
 
     // ─── InventoryBar ─────────────────────────────────────────
@@ -918,6 +923,12 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandlePausedChanged(string window, int line)
     {
         _topBar?.SetPaused(window, line);
+
+        LuaDebugger debugger = _luaSandbox != null ? _luaSandbox.Debugger : null;
+        if (line > 0 && debugger != null)
+            _debugVariables?.Show(window, line, debugger.Locals, debugger.Globals);
+        else
+            _debugVariables?.Hide();
 
         if (line > 0)
         {

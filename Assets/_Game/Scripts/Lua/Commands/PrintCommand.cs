@@ -67,6 +67,17 @@ public class PrintCommand : LuaCommandBase
         return Truncate(sb.ToString());
     }
 
+    /// <summary>
+    /// Одно значение так, как его видно в коде: строки в кавычках, таблицы на один уровень
+    /// (для просмотра переменных на точке останова).
+    /// </summary>
+    public static string FormatValue(LuaValue value)
+    {
+        var sb = new StringBuilder();
+        AppendValue(sb, value, depth: 0, quoteStrings: true);
+        return Truncate(sb.ToString());
+    }
+
     // ─── Форматирование ───────────────────────────────────────
 
     private static string Truncate(string text)
