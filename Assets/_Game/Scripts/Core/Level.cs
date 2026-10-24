@@ -57,6 +57,7 @@ public class Level : MonoBehaviour
     private HubGrid _hubGrid;
     private HubPlacementController _hubPlacement;
     private PuzzleManager _puzzleManager;
+    private RunStats _runStats;
 
     /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
     public AchievementTracker AchievementTracker => _achievementTracker;
@@ -230,9 +231,11 @@ public class Level : MonoBehaviour
         _enemyManager.PublishInitialVisibility();
 
         // 12. Лагерь / забег: выход из забега, поражение, переход в лагерь
+        // Статистика забега для экрана итогов (подписана на статическую GameEventBus — Dispose в OnDestroy)
+        _runStats = new RunStats();
         RunController runController = new RunController(
             mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
-            dayCycle, progress, _achievementTracker);
+            dayCycle, progress, _achievementTracker, _runStats);
         runController.Start();
     }
 
@@ -253,6 +256,10 @@ public class Level : MonoBehaviour
         // Отписка лабиринта от статической PlayerEventBus
         _puzzleManager?.Dispose();
         _puzzleManager = null;
+
+        // Отписка статистики забега от статической GameEventBus
+        _runStats?.Dispose();
+        _runStats = null;
     }
 
     /// <summary>

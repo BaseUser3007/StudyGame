@@ -11,6 +11,8 @@ public abstract class CodeEditorWindowBase : VisualElement
     // Перетаскивание за заголовок: позиция курсора в координатах панели
     public event Action<CodeEditorWindowBase, Vector2> OnDragMoved;
     public event Action<CodeEditorWindowBase, Vector2> OnDragEnded;
+    // Ctrl+Enter в поле кода окна — запуск / остановка, как кнопка Run
+    public event Action OnRunRequested;
 
     // ─── Данные ───────────────────────────────────────────────
     public string WindowId { get; private set; }
@@ -80,6 +82,7 @@ public abstract class CodeEditorWindowBase : VisualElement
         // Инициализируем вспомогательные классы
         _codeEditor = new CodeEditor(codeField, lineNumbers, lineCosts, _window, _context);
         _codeEditor.OnCodeChanged += code => OnCodeChanged?.Invoke(this, code);
+        _codeEditor.OnRunRequested += () => OnRunRequested?.Invoke();
 
         if (header != null)
         {

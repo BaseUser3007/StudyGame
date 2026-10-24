@@ -15,7 +15,7 @@ MonoBehaviour:
   id: first_bug
   title: Bug Report
   description: Get your first error in a code run.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: ca89e4a7c1618426e8458f6eb7fc1444, type: 3}
   condition:
     type: 0
     gameEvent: 9

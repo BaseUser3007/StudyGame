@@ -15,7 +15,7 @@ MonoBehaviour:
   id: function_fan
   title: Abstraction
   description: Use functions in 3 code runs.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 7648749918456470a9281327b80aa3bb, type: 3}
   condition:
     type: 0
     gameEvent: 7

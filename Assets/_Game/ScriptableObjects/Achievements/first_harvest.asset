@@ -15,7 +15,7 @@ MonoBehaviour:
   id: first_harvest
   title: First Haul
   description: Gather 3 resources.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 1bc87857f40ca024ba0d618b26ac511a, type: 3}
   condition:
     type: 0
     gameEvent: 0

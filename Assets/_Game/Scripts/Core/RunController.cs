@@ -17,6 +17,7 @@ public class RunController
     private readonly DayCycle _dayCycle;
     private readonly MetaProgress _progress;
     private readonly AchievementTracker _achievements;
+    private readonly RunStats _stats;
 
     private bool _finished;
     // Здоровье кончилось во время выполнения кода: итог — после остановки запуска
@@ -24,7 +25,8 @@ public class RunController
 
     public RunController(
         GameMode mode, RunScreens screens, TopBar topBar, LuaSandbox sandbox, PlayerInventory inventory,
-        PlayerHealth health, DayCycle dayCycle, MetaProgress progress, AchievementTracker achievements)
+        PlayerHealth health, DayCycle dayCycle, MetaProgress progress, AchievementTracker achievements,
+        RunStats stats = null)
     {
         _mode = mode;
         _screens = screens;
@@ -35,6 +37,7 @@ public class RunController
         _dayCycle = dayCycle;
         _progress = progress;
         _achievements = achievements;
+        _stats = stats;
 
         // Всё это живёт до перезагрузки сцены вместе с контроллером — отписка не нужна
         _screens.OnStartRunRequested += GameSession.StartRun;
@@ -138,6 +141,16 @@ public class RunController
         var summary = new RunSummary { Defeated = defeated, Days = _dayCycle.Day };
         if (_achievements != null)
             summary.Achievements.AddRange(_achievements.CompletedThisScene);
+        // Статистика — и при поражении (запуск, остановленный смертью, уже посчитан: итог строится после его конца)
+        if (_stats != null)
+        {
+            summary.CodeRuns = _stats.CodeRuns;
+            summary.EnergySpent = _stats.EnergySpent;
+            summary.CodeErrors = _stats.Errors;
+            summary.EnemiesKilled = _stats.EnemiesKilled;
+            summary.PuzzlesSolved = _stats.PuzzlesSolved;
+            summary.ItemsCrafted = _stats.ItemsCrafted;
+        }
         var carried = new Dictionary<ResourceItem, int>();
         var left = new Dictionary<ResourceItem, int>();
 

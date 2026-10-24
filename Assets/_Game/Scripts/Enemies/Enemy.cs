@@ -128,6 +128,12 @@ public class Enemy : MonoBehaviour
         // Физика не должна толкать врага — двигаем сами
         if (TryGetComponent(out Rigidbody2D body))
             body.bodyType = RigidbodyType2D.Kinematic;
+
+        // Полоса здоровья: добавляется сама, если её нет на префабе. Bind — последним, чтобы её рендереры
+        // не попали в кеш DepthSortedSprite и _renderers (общий порядок, SetVisible, flipX)
+        if (!TryGetComponent(out EnemyHealthBar healthBar))
+            healthBar = gameObject.AddComponent<EnemyHealthBar>();
+        healthBar.Bind(this);
     }
 
     /// <summary>

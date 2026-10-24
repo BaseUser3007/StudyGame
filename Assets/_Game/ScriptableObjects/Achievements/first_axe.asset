@@ -15,7 +15,7 @@ MonoBehaviour:
   id: first_axe
   title: Sharp Idea
   description: Craft an axe.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 49df2e0fb77954f0aa56465bfe992c16, type: 3}
   condition:
     type: 0
     gameEvent: 3

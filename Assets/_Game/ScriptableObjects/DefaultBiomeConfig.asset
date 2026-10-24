@@ -54,6 +54,8 @@ MonoBehaviour:
       density: 0.3
     - prefab: {fileID: 1852307222561421786, guid: 7876d5ee8d80487d87cc541561e9feb8, type: 3}
       density: 0.3
+    - prefab: {fileID: 918101029787503230, guid: 51e2b88e96ee35044b14740f769ce436, type: 3}
+      density: 1
   biomeSize: 30
   borderWarp: 6
   borderNoiseScale: 10

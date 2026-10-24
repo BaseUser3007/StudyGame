@@ -14,8 +14,11 @@ using UnityEngine.UIElements;
 public class CodeEditor
 {
     private const string Indent = "    ";
+    private const string CommentPrefix = "-- ";
 
     public event Action<string> OnCodeChanged;
+    // Ctrl+Enter в поле кода — то же, что кнопка Run (во время выполнения — Stop)
+    public event Action OnRunRequested;
 
     private readonly TextField _codeField;
     private readonly Label _lineNumbers;
@@ -29,11 +32,15 @@ public class CodeEditor
 
     private bool _focusedByMouse;
     private char _swallowNextChar;
+    // После обработанного сочетания с Ctrl символьное событие (тоже с Ctrl) поле вставлять не должно
+    private bool _swallowCtrlChar;
 
     // После программной смены value TextField применяет новую позицию курсора
     // с задержкой в несколько кадров. Пока поле её не подтвердило, настоящей
     // позицией считается _pendingCursor.
     private int _pendingCursor = -1;
+    // Второй конец выделения, которое ждёт применения вместе с _pendingCursor; -1 — выделения нет
+    private int _pendingSelect = -1;
 
     // Строка последней ошибки запуска (номер в колонке слева выделен цветом); 0 — нет
     private int _errorLine;
@@ -48,7 +55,9 @@ public class CodeEditor
     private readonly HashSet<int> _breakpoints = new HashSet<int>();
 
     private int CursorIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.cursorIndex;
-    private int SelectIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.selectIndex;
+    private int SelectIndex => _pendingCursor >= 0
+        ? (_pendingSelect >= 0 ? _pendingSelect : _pendingCursor)
+        : _codeField.selectIndex;
 
     public string Code => _codeField?.value ?? string.Empty;
 
@@ -155,7 +164,8 @@ public class CodeEditor
         VisualElement numbersGutter = _lineNumbers?.parent;
         if (numbersGutter != null)
         {
-            numbersGutter.tooltip = Loc.T("Click a line number to set a breakpoint: the code will pause there");
+            numbersGutter.tooltip = Loc.T("Click a line number to set a breakpoint: the code will pause there")
+                                    + "\n" + Loc.T("Ctrl+Enter — run / stop, Ctrl+/ — comment lines, Ctrl+D — duplicate line");
             numbersGutter.RegisterCallback<PointerDownEvent>(HandleGutterPointerDown);
         }
 
@@ -215,6 +225,15 @@ public class CodeEditor
         // Символьное событие, которое следует за уже обработанной клавишей
         if (evt.keyCode == KeyCode.None && evt.character != '\0')
         {
+            bool swallowCtrl = _swallowCtrlChar && (evt.ctrlKey || evt.commandKey);
+            _swallowCtrlChar = false;
+            if (swallowCtrl)
+            {
+                _swallowNextChar = '\0';
+                evt.StopImmediatePropagation();
+                return;
+            }
+
             char expected = _swallowNextChar;
             _swallowNextChar = '\0';
             if (expected != '\0' && (evt.character == expected ||
@@ -233,7 +252,12 @@ public class CodeEditor
             return;
         }
 
+        _swallowCtrlChar = false;
         bool ctrl = evt.ctrlKey || evt.commandKey;
+
+        // Горячие клавиши — раньше окна автодополнения: Ctrl+Enter запускает код, а не принимает подсказку
+        if (ctrl && !evt.altKey && HandleHotkey(evt))
+            return;
 
         if (_popup.IsOpen)
         {
@@ -296,6 +320,45 @@ public class CodeEditor
         }
     }
 
+    /// <summary>
+    /// Ctrl+Enter — запуск / остановка, Ctrl+/ — комментарий строк, Ctrl+D — дубль строки.
+    /// Событие поглощается, чтобы его не получили поле, навигация UI и камера.
+    /// </summary>
+    private bool HandleHotkey(KeyDownEvent evt)
+    {
+        switch (evt.keyCode)
+        {
+            case KeyCode.Return:
+            case KeyCode.KeypadEnter:
+                _popup.Hide();
+                ConsumeHotkey(evt);
+                OnRunRequested?.Invoke();
+                return true;
+            case KeyCode.Slash:
+            case KeyCode.KeypadDivide:
+                _popup.Hide();
+                ConsumeHotkey(evt);
+                ToggleLineComments();
+                return true;
+            case KeyCode.D:
+                _popup.Hide();
+                ConsumeHotkey(evt);
+                DuplicateLines();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void ConsumeHotkey(KeyDownEvent evt)
+    {
+        // Символ может прийти в этом же событии или следующим (с тем же Ctrl) — тогда его тоже съедаем
+        _swallowNextChar = '\0';
+        _swallowCtrlChar = evt.character == '\0';
+        evt.StopImmediatePropagation();
+        _codeField.focusController?.IgnoreEvent(evt);
+    }
+
     private static bool IsNavigationKey(KeyCode key)
     {
         return key == KeyCode.LeftArrow || key == KeyCode.RightArrow ||
@@ -324,12 +387,15 @@ public class CodeEditor
         ReplaceRange(start, end, text, start + text.Length);
     }
 
-    private void ReplaceRange(int start, int end, string text, int newCursor)
+    private void ReplaceRange(int start, int end, string text, int newCursor, int newSelect = -1)
     {
         string code = Code;
+        // Выделение нулевой длины — просто курсор
+        if (newSelect == newCursor) newSelect = -1;
         _pendingCursor = newCursor;
+        _pendingSelect = newSelect;
         _codeField.value = code.Substring(0, start) + text + code.Substring(end);
-        _codeField.SelectRange(newCursor, newCursor);
+        _codeField.SelectRange(newCursor, newSelect >= 0 ? newSelect : newCursor);
     }
 
     private void AfterEdit(bool typed)
@@ -343,14 +409,138 @@ public class CodeEditor
         if (_pendingCursor < 0) return;
 
         _pendingCursor = Mathf.Clamp(_pendingCursor, 0, Code.Length);
-        if (_codeField.cursorIndex == _pendingCursor && _codeField.selectIndex == _pendingCursor)
+        int select = _pendingSelect >= 0 ? Mathf.Clamp(_pendingSelect, 0, Code.Length) : _pendingCursor;
+        if (_codeField.cursorIndex == _pendingCursor && _codeField.selectIndex == select)
         {
             _pendingCursor = -1;
+            _pendingSelect = -1;
             return;
         }
 
-        _codeField.SelectRange(_pendingCursor, _pendingCursor);
+        _codeField.SelectRange(_pendingCursor, select);
         _codeField.schedule.Execute(ConfirmPendingCursor);
+    }
+
+    // ─── Line Commands ────────────────────────────────────────
+
+    /// <summary>
+    /// Границы строк, которых касается курсор или выделение: [blockStart, blockEnd), без завершающего '\n'.
+    /// Если выделение кончается в самом начале строки, эта строка не считается выделенной.
+    /// </summary>
+    private void GetSelectedLines(string code, out int blockStart, out int blockEnd)
+    {
+        int start = Mathf.Clamp(Mathf.Min(CursorIndex, SelectIndex), 0, code.Length);
+        int end = Mathf.Clamp(Mathf.Max(CursorIndex, SelectIndex), 0, code.Length);
+        if (end > start && code[end - 1] == '\n') end--;
+
+        blockStart = start == 0 ? 0 : code.LastIndexOf('\n', start - 1) + 1;
+        blockEnd = code.IndexOf('\n', end);
+        if (blockEnd < 0) blockEnd = code.Length;
+    }
+
+    /// <summary>
+    /// Ctrl+/: если все непустые строки уже начинаются с «--» — снимает комментарий,
+    /// иначе ставит «-- » на одном отступе (наименьшем среди строк). Выделение сохраняется.
+    /// </summary>
+    private void ToggleLineComments()
+    {
+        string code = Code;
+        GetSelectedLines(code, out int blockStart, out int blockEnd);
+        string[] lines = code.Substring(blockStart, blockEnd - blockStart).Split('\n');
+
+        bool anyText = false;
+        bool allCommented = true;
+        int minIndent = int.MaxValue;
+        foreach (string line in lines)
+        {
+            int indent = GetIndentLength(line);
+            if (indent == line.Length) continue;
+            anyText = true;
+            minIndent = Mathf.Min(minIndent, indent);
+            if (string.CompareOrdinal(line, indent, "--", 0, 2) != 0) allCommented = false;
+        }
+        bool uncomment = anyText && allCommented;
+
+        // Правки по строкам (по возрастанию позиции): позиция в исходном коде, сколько убрать, что вставить
+        var edits = new List<(int Pos, int Remove, string Insert)>();
+        var sb = new StringBuilder();
+        int lineStart = blockStart;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            int indent = GetIndentLength(line);
+            bool blank = indent == line.Length;
+
+            if (uncomment && !blank)
+            {
+                int remove = string.CompareOrdinal(line, indent, CommentPrefix, 0, CommentPrefix.Length) == 0
+                    ? CommentPrefix.Length
+                    : 2;
+                edits.Add((lineStart + indent, remove, string.Empty));
+                sb.Append(line, 0, indent).Append(line, indent + remove, line.Length - indent - remove);
+            }
+            else if (!uncomment && (!blank || !anyText))
+            {
+                // Пустые строки комментируем, только если выбраны одни пустые строки
+                int at = anyText ? minIndent : line.Length;
+                edits.Add((lineStart + at, 0, CommentPrefix));
+                sb.Append(line, 0, at).Append(CommentPrefix).Append(line, at, line.Length - at);
+            }
+            else
+            {
+                sb.Append(line);
+            }
+
+            if (i < lines.Length - 1) sb.Append('\n');
+            lineStart += line.Length + 1;
+        }
+
+        if (edits.Count == 0) return;
+
+        int cursor = MapIndexThroughEdits(Mathf.Clamp(CursorIndex, 0, code.Length), edits);
+        int select = MapIndexThroughEdits(Mathf.Clamp(SelectIndex, 0, code.Length), edits);
+        ReplaceRange(blockStart, blockEnd, sb.ToString(), cursor, select);
+    }
+
+    /// <summary>Позиция в коде после правок (правки идут по возрастанию позиции и не пересекаются).</summary>
+    private static int MapIndexThroughEdits(int index, List<(int Pos, int Remove, string Insert)> edits)
+    {
+        int shift = 0;
+        foreach ((int pos, int remove, string insert) in edits)
+        {
+            if (index < pos) break;
+            if (remove > 0)
+            {
+                // Курсор внутри удалённого «-- » встаёт туда, где начинался комментарий
+                if (index < pos + remove) return pos + shift;
+                shift -= remove;
+            }
+            else
+            {
+                shift += insert.Length;
+            }
+        }
+        return index + shift;
+    }
+
+    /// <summary>Ctrl+D: копия текущей строки (или всех выделенных) вставляется ниже, курсор и выделение — в копии.</summary>
+    private void DuplicateLines()
+    {
+        string code = Code;
+        GetSelectedLines(code, out int blockStart, out int blockEnd);
+        string block = code.Substring(blockStart, blockEnd - blockStart);
+
+        int offset = block.Length + 1;
+        int cursor = Mathf.Clamp(CursorIndex, 0, code.Length) + offset;
+        int select = Mathf.Clamp(SelectIndex, 0, code.Length) + offset;
+        ReplaceRange(blockEnd, blockEnd, "\n" + block, cursor, select);
+    }
+
+    private static int GetIndentLength(string line)
+    {
+        int i = 0;
+        while (i < line.Length && (line[i] == ' ' || line[i] == '\t')) i++;
+        return i;
     }
 
     /// <summary>

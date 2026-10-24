@@ -15,7 +15,7 @@ MonoBehaviour:
   id: first_blood
   title: First Blood
   description: Defeat an enemy.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 23450567bedfb472eb6f8efd4ad515da, type: 3}
   condition:
     type: 0
     gameEvent: 12

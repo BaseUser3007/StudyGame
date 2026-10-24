@@ -15,7 +15,7 @@ MonoBehaviour:
   id: threat_survivor
   title: Brace Yourself
   description: Survive until the threat day.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: f79e783d7d44f49c0a1cef17b11c736a, type: 3}
   condition:
     type: 0
     gameEvent: 10

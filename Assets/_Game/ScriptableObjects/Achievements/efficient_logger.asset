@@ -16,7 +16,7 @@ MonoBehaviour:
   title: Clean Code
   description: "Chop trees and pick up 4 of their logs in one code run, spending
     \u2264 55 energy."
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 859e44a7cf53f4e889017843532b11d2, type: 3}
   condition:
     type: 1
     gameEvent: 0

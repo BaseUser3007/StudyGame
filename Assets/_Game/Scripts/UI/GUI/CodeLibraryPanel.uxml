@@ -13,6 +13,12 @@
                     <ui:Button name="btn-close" class="library-close" text="×"/>
                 </ui:VisualElement>
 
+                <!-- Обмен кодом через буфер: Paste создаёт запись из буфера, статус — короткое сообщение -->
+                <ui:VisualElement class="library-actions">
+                    <ui:Button name="btn-paste" class="snippet-btn library-paste" text="Paste" tooltip="Create an entry from the clipboard"/>
+                    <ui:Label name="library-status" class="library-status hidden"/>
+                </ui:VisualElement>
+
                 <ui:Label name="drop-hint" class="library-drop-hint" text="Drag a window here by its header to save its code"/>
 
                 <!-- Показывается, пока окна-«классы» закрыты: записи нельзя открыть как окна -->

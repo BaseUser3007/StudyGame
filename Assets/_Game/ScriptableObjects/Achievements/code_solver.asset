@@ -15,7 +15,7 @@ MonoBehaviour:
   id: code_solver
   title: Hello, World
   description: Solve a code puzzle.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 0bc7d49263b55e644afa405308a25f2f, type: 3}
   condition:
     type: 0
     gameEvent: 13

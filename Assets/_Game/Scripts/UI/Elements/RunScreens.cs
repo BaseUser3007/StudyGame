@@ -16,6 +16,17 @@ public class RunSummary
     public readonly List<ItemStack> Left = new List<ItemStack>();
     /// <summary>Достижения, выполненные в этом забеге.</summary>
     public readonly List<AchievementDefinition> Achievements = new List<AchievementDefinition>();
+
+    // Статистика забега (RunStats на момент итога)
+    /// <summary>Завершённых запусков кода.</summary>
+    public int CodeRuns;
+    /// <summary>Энергии потрачено за все запуски.</summary>
+    public float EnergySpent;
+    /// <summary>Запусков с ошибкой в коде.</summary>
+    public int CodeErrors;
+    public int EnemiesKilled;
+    public int PuzzlesSolved;
+    public int ItemsCrafted;
 }
 
 /// <summary>
@@ -52,6 +63,7 @@ public class RunScreens : VisualElement
     private VisualElement _summary;
     private Label _summaryTitle;
     private Label _summaryStats;
+    private VisualElement _summaryRunStats;
     private ScrollView _summaryLoot;
     private Label _summaryLootEmpty;
     private Label _summaryLost;
@@ -139,6 +151,7 @@ public class RunScreens : VisualElement
         _summary = root.Q<VisualElement>("run-summary");
         _summaryTitle = root.Q<Label>("summary-title");
         _summaryStats = root.Q<Label>("summary-stats");
+        _summaryRunStats = root.Q<VisualElement>("summary-run-stats");
         _summaryLoot = root.Q<ScrollView>("summary-loot");
         _summaryLootEmpty = root.Q<Label>("summary-loot-empty");
         _summaryLost = root.Q<Label>("summary-lost");
@@ -159,7 +172,8 @@ public class RunScreens : VisualElement
             "RunScreens: exit confirmation elements not found");
         Debug.Assert(_summary != null && _summaryTitle != null && _summaryStats != null && _summaryLoot != null
                      && _summaryLootEmpty != null && _summaryLost != null && _btnToHub != null
-                     && _summaryAchievements != null && _summaryAchievementsEmpty != null,
+                     && _summaryAchievements != null && _summaryAchievementsEmpty != null
+                     && _summaryRunStats != null,
             "RunScreens: summary elements not found");
     }
 
@@ -241,6 +255,15 @@ public class RunScreens : VisualElement
         _summaryStats.text = summary.Defeated
             ? Loc.F("Your health ran out on day {0}. Everything gathered in this run is lost.", summary.Days)
             : Loc.F("Days in the run: {0}", summary.Days);
+
+        // Статистика забега — показывается и при поражении
+        _summaryRunStats.Clear();
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Code runs"), summary.CodeRuns.ToString()));
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Energy spent"), FormatEnergy(summary.EnergySpent)));
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Code errors"), summary.CodeErrors.ToString()));
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Enemies defeated"), summary.EnemiesKilled.ToString()));
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Puzzles solved"), summary.PuzzlesSolved.ToString()));
+        _summaryRunStats.Add(CreateStatRow(Loc.T("Items crafted"), summary.ItemsCrafted.ToString()));
 
         _summaryLoot.Clear();
         foreach (ItemStack stack in summary.Carried)
@@ -345,6 +368,30 @@ public class RunScreens : VisualElement
         row.Add(countLabel);
 
         return row;
+    }
+
+    private static VisualElement CreateStatRow(string name, string value)
+    {
+        var row = new VisualElement();
+        row.AddToClassList("stat-row");
+
+        var nameLabel = new Label(name) { enableRichText = false };
+        nameLabel.AddToClassList("stat-name");
+        row.Add(nameLabel);
+
+        var valueLabel = new Label(value) { enableRichText = false };
+        valueLabel.AddToClassList("stat-value");
+        row.Add(valueLabel);
+
+        return row;
+    }
+
+    /// <summary>Энергия дробная (if — 0.5): целое без дробной части, иначе один знак.</summary>
+    private static string FormatEnergy(float energy)
+    {
+        float rounded = Mathf.Round(energy * 10f) / 10f;
+        return rounded.ToString(Mathf.Approximately(rounded, Mathf.Round(rounded)) ? "0" : "0.0",
+            System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static VisualElement CreateAchievementRow(AchievementDefinition achievement)

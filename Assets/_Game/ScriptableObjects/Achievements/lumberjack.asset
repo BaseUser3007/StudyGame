@@ -15,7 +15,7 @@ MonoBehaviour:
   id: lumberjack
   title: Lumberjack
   description: Chop down 5 trees.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: a1c1e555a725e4b15b512516e3dec87c, type: 3}
   condition:
     type: 0
     gameEvent: 1

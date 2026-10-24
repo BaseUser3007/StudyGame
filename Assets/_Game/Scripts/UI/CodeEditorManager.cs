@@ -642,6 +642,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         _mainWindow.SetPosition(20, 50);
         _mainWindow.OnCodeChanged += HandleCodeChanged;
+        _mainWindow.OnRunRequested += HandleRunRequested;
         _mainWindow.OnAddMethodRequested += CreateAuxiliaryWindow;
         // Главное окно в библиотеку не сохраняется — на перетаскивание не подписываемся
         _uiManager.RegisterWindow(_mainWindow);
@@ -687,6 +688,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         window.SetPosition(20 + offset, 50 + offset);
         window.OnCloseRequested += HandleCloseRequested;
         window.OnCodeChanged += HandleCodeChanged;
+        window.OnRunRequested += HandleRunRequested;
         window.OnDragMoved += HandleWindowDragMoved;
         window.OnDragEnded += HandleWindowDragEnded;
         _uiManager.RegisterWindow(window);

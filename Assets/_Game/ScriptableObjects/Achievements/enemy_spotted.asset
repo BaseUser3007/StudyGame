@@ -15,7 +15,7 @@ MonoBehaviour:
   id: enemy_spotted
   title: Know Your Enemy
   description: Spot an enemy.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: c77e5d756e1804d31aa70c886c64c24d, type: 3}
   condition:
     type: 0
     gameEvent: 11

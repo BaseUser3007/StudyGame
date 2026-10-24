@@ -15,7 +15,7 @@ MonoBehaviour:
   id: sweet_dreams
   title: Sweet Dreams
   description: Build a bed.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 36cb4957ce73c404cbf529bfd7bde888, type: 3}
   condition:
     type: 0
     gameEvent: 4

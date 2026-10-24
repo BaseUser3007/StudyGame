@@ -15,7 +15,7 @@ MonoBehaviour:
   id: loop_lover
   title: In the Loop
   description: Use a for loop in 5 code runs.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: fae718ae59ba4491e94b6063a1d127ab, type: 3}
   condition:
     type: 0
     gameEvent: 7

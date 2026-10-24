@@ -27,6 +27,8 @@
             <ui:VisualElement class="screen-card summary-card">
                 <ui:Label name="summary-title" class="screen-title" text="Run complete"/>
                 <ui:Label name="summary-stats" class="screen-text" text=""/>
+                <ui:Label class="screen-section" text="Run statistics"/>
+                <ui:VisualElement name="summary-run-stats" class="stat-list"/>
                 <ui:Label class="screen-section" text="Carried to the camp"/>
                 <ui:ScrollView name="summary-loot" class="item-list"/>
                 <ui:Label name="summary-loot-empty" class="screen-empty" text="Nothing"/>

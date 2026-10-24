@@ -91,6 +91,31 @@
     background-color: rgb(80, 80, 80);
 }
 
+/* ── Clipboard (Paste + статус) ──────────────────────────── */
+.library-actions {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.library-paste {
+    margin: 0;
+}
+
+.library-status {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0 0 0 6px;
+    padding: 0;
+    font-size: 11px;
+    white-space: normal;
+    color: rgb(170, 230, 170);
+}
+
+.library-status--warning {
+    color: rgb(230, 170, 110);
+}
+
 .library-drop-hint {
     font-size: 11px;
     color: rgb(150, 150, 150);
