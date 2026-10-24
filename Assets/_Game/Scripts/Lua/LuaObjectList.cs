@@ -341,6 +341,7 @@ public class LuaObjectList
     {
         list[name] = new LuaFunction((context, ct) =>
         {
+            meter?.Track(context.State);
             meter?.Charge(MethodCost, $"{name}()");
 
             var args = new List<LuaValue>();

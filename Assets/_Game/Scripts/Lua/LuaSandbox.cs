@@ -23,6 +23,13 @@ public class LuaSandbox : MonoBehaviour
     /// </summary>
     public event Action OnUnlocksApplied;
 
+    /// <summary>
+    /// Выполнение перешло на другую строку: окно (заголовок; главное — <see cref="MainChunkName"/>) и номер строки
+    /// в нём; (null, 0) — запуск закончился. Приходит на каждом вызове команды / проверке / итерации —
+    /// UI должен сам ограничивать частоту перерисовки.
+    /// </summary>
+    public event Action<string, int> OnExecutingLineChanged;
+
     /// <summary>Имя главного окна в сообщениях об ошибках и в чанке Lua.</summary>
     public const string MainChunkName = "Main";
 
@@ -55,6 +62,7 @@ public class LuaSandbox : MonoBehaviour
     private EnergyCounter _energyCounter;
     private EnergyInstrumenter _instrumenter;
     private EnergyMeter _meter;
+    private LuaLineTracker _lineTracker;
     private CancellationTokenSource _cts;
 
     // Watchdog: метка последнего кадра главного потока (Stopwatch ticks)
@@ -132,6 +140,9 @@ public class LuaSandbox : MonoBehaviour
         _instrumenter = new EnergyInstrumenter(_energyConfig);
         _meter = new EnergyMeter(_playerEnergy);
         _meter.OnExhausted += HandleEnergyExhausted;
+        _lineTracker = new LuaLineTracker(MainChunkName);
+        _lineTracker.OnLineChanged += HandleExecutingLineChanged;
+        _meter.LineTracker = _lineTracker;
 
         CreateLuaState();
 
@@ -240,6 +251,7 @@ public class LuaSandbox : MonoBehaviour
         _state.Environment[EnergyInstrumenter.ChargeFunction] = new LuaFunction((context, ct) =>
         {
             double amount = context.ArgumentCount > 0 && context.GetArgument(0).TryRead(out double n) ? n : 0d;
+            _meter.Track(context.State);
             _meter.Charge((float)amount, "code");
             context.Return(true);
             return new System.Threading.Tasks.ValueTask<int>(1);
@@ -353,6 +365,8 @@ public class LuaSandbox : MonoBehaviour
     {
         if (_unlocks != null)
             _unlocks.OnUnlocked -= HandleUnlocked;
+        if (_lineTracker != null)
+            _lineTracker.OnLineChanged -= HandleExecutingLineChanged;
 
         StopWatchdog();
         _cts?.Cancel();
@@ -360,6 +374,11 @@ public class LuaSandbox : MonoBehaviour
         // finally старого запуска сравнивает _cts со своим: после уничтожения он ничего не публикует
         // (RunFinished ушёл бы в шину уже новой сцены)
         _cts = null;
+    }
+
+    private void HandleExecutingLineChanged(string chunk, int line)
+    {
+        OnExecutingLineChanged?.Invoke(chunk, line);
     }
 
     // ─── Public API ───────────────────────────────────────────
@@ -406,6 +425,7 @@ public class LuaSandbox : MonoBehaviour
         SetRunning(true);
         StartWatchdog(cts);
         _meter.Reset();
+        _lineTracker.Clear();
         GameEventBus.PublishRunStarted();
 
         try
@@ -468,6 +488,7 @@ public class LuaSandbox : MonoBehaviour
                 // До SetRunning(false): конец дня (DayCycle) — уже после итога запуска
                 GameEventBus.PublishRunFinished(new CodeRunReport(
                     succeeded, started, _playerEnergy.TotalSpent - spentAtStart, usedConstructs, outcome));
+                _lineTracker.Clear();
                 SetRunning(false);
                 if (_unlocksPending) ApplyUnlocks();
             }

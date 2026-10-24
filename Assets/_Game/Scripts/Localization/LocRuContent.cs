@@ -111,5 +111,11 @@ public static class LocRuContent
         ("{0} inventory slot(s)", "{0} сл. инвентаря"),
         ("{0} max health", "{0} к максимуму здоровья"),
         ("{0} code run(s) per day", "{0} запуск. кода в день"),
+
+        // ─── Головоломки: поле text из puzzle() (описание для игрока, в коде его не сравнивают) ───
+        ("Return the sum of all numbers in input.", "Верните сумму всех чисел из input."),
+        ("Return the largest number in input.", "Верните наибольшее число из input."),
+        ("Return how many numbers in input are greater than limit.", "Верните, сколько чисел из input больше limit."),
+        ("Reach the center of the maze.", "Дойдите до центра лабиринта."),
     };
 }

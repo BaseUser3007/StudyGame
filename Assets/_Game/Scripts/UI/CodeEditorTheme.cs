@@ -18,4 +18,10 @@ public class CodeEditorTheme : ScriptableObject
     public Color logColorWarning = new Color(0.95f, 0.80f, 0.20f);
     public Color logColorError = new Color(0.90f, 0.30f, 0.30f);
     public Color logColorInfo = new Color(0.75f, 0.75f, 0.75f);
+
+    [Header("Execution")]
+    [Tooltip("Полоса за строкой, которая выполняется сейчас (полупрозрачная)")]
+    public Color activeLineColor = new Color(0.95f, 0.80f, 0.20f, 0.16f);
+    [Tooltip("Номер выполняемой строки в колонке слева")]
+    public Color activeLineNumberColor = new Color(0.95f, 0.80f, 0.20f);
 }

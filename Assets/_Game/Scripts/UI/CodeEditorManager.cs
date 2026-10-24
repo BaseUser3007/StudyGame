@@ -52,6 +52,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     // Итог последнего запуска (GameEventBus.OnRunFinished приходит до возврата ExecuteAsync)
     private bool _hasRunReport;
     private float _lastRunSpent;
+    // Подсветка выполняемой строки: последнее место из песочницы и то, что уже нарисовано.
+    // Событие приходит на каждой итерации цикла — перерисовка не чаще ActiveLineRefreshMs
+    private const long ActiveLineRefreshMs = 50;
+    private string _executingWindow;
+    private int _executingLine;
+    // Нарисованное окно — ссылкой: заголовок могут переименовать во время запуска
+    private CodeEditorWindowBase _shownWindow;
+    private int _shownLine;
+    private bool _activeLineScheduled;
 
     public TopBar TopBar => _topBar;
     public InventoryBar InventoryBar => _inventoryBar;
@@ -125,6 +134,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _luaSandbox.OnRunningChanged += HandleRunningChanged;
         _luaSandbox.OnUnlocksApplied += HandleUnlocksApplied;
         _luaSandbox.OnLogMessage += HandleSandboxLogMessage;
+        _luaSandbox.OnExecutingLineChanged += HandleExecutingLineChanged;
         GameEventBus.OnRunFinished += HandleRunFinished;
     }
 
@@ -221,6 +231,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             _luaSandbox.OnRunningChanged -= HandleRunningChanged;
             _luaSandbox.OnUnlocksApplied -= HandleUnlocksApplied;
             _luaSandbox.OnLogMessage -= HandleSandboxLogMessage;
+            _luaSandbox.OnExecutingLineChanged -= HandleExecutingLineChanged;
         }
         GameEventBus.OnRunFinished -= HandleRunFinished;
 
@@ -856,9 +867,48 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         return lines;
     }
 
+    private void HandleExecutingLineChanged(string window, int line)
+    {
+        _executingWindow = window;
+        _executingLine = line;
+        // Конец запуска снимаем сразу; остальное — не чаще раза в ActiveLineRefreshMs
+        if (line <= 0)
+        {
+            ApplyExecutingLine();
+            return;
+        }
+        if (_activeLineScheduled || _container == null) return;
+        _activeLineScheduled = true;
+        _container.schedule.Execute(ApplyExecutingLine).StartingIn(ActiveLineRefreshMs);
+    }
+
+    private void ApplyExecutingLine()
+    {
+        _activeLineScheduled = false;
+        CodeEditorWindowBase window = _executingLine > 0 ? FindWindowByTitle(_executingWindow) : null;
+        if (window == _shownWindow && _executingLine == _shownLine) return;
+
+        _shownWindow?.SetActiveLine(0);
+        window?.SetActiveLine(_executingLine);
+        _shownWindow = window;
+        _shownLine = window != null ? _executingLine : 0;
+    }
+
+    /// <summary>Снять подсветку выполняемой строки во всех окнах (конец запуска).</summary>
+    private void ClearExecutingLine()
+    {
+        _executingWindow = null;
+        _executingLine = 0;
+        _shownWindow = null;
+        _shownLine = 0;
+        foreach (CodeEditorWindowBase window in _windows)
+            window.SetActiveLine(0);
+    }
+
     private void HandleRunningChanged(bool running)
     {
         _topBar?.SetRunning(running);
+        if (!running) ClearExecutingLine();
         // Новый запуск: лог и выделенная строка ошибки прошлого запуска уже не нужны
         if (running)
         {

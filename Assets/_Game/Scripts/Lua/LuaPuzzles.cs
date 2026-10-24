@@ -198,7 +198,7 @@ public static class LuaPuzzles
         {
             CodeTask task = obelisk.GetTask();
             table["kind"] = task.KindId;
-            table["text"] = task.Text;
+            table["text"] = Loc.T(task.Text);
             for (int i = 0; i < task.Input.Count; i++)
                 input[i + 1] = (double)task.Input[i];
             table["limit"] = (double)task.Limit;
@@ -206,7 +206,7 @@ public static class LuaPuzzles
         else
         {
             table["kind"] = MazeTypeName;
-            table["text"] = MazeText;
+            table["text"] = Loc.T(MazeText);
             table["limit"] = 0d;
         }
 

@@ -124,6 +124,12 @@ public abstract class CodeEditorWindowBase : VisualElement
         _codeEditor?.SetErrorLine(line);
     }
 
+    /// <summary>Выделить строку, которая выполняется сейчас (0 — снять).</summary>
+    public void SetActiveLine(int line)
+    {
+        _codeEditor?.SetActiveLine(line);
+    }
+
     public void SetPosition(float left, float top)
     {
         _window.style.left = left;

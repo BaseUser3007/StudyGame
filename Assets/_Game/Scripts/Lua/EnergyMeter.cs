@@ -32,6 +32,18 @@ public class EnergyMeter
         ExhaustedMessage = null;
     }
 
+    /// <summary>Подсветка выполняемой строки (может не быть — например, в тестах).</summary>
+    public LuaLineTracker LineTracker { get; set; }
+
+    /// <summary>
+    /// Отметить место выполнения: вызывают обёртки команд и <c>__energy</c> — все точки,
+    /// где код игрока платит энергию, — до списания (строка видна, даже если энергия кончилась).
+    /// </summary>
+    public void Track(Lua.LuaState state)
+    {
+        LineTracker?.Probe(state);
+    }
+
     public void Charge(float amount, string source)
     {
         if (amount <= 0f) return;

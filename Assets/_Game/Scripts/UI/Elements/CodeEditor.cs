@@ -38,6 +38,10 @@ public class CodeEditor
     // Строка последней ошибки запуска (номер в колонке слева выделен цветом); 0 — нет
     private int _errorLine;
 
+    // Строка, которая выполняется сейчас (полоса за текстом + цвет номера); 0 — нет
+    private int _activeLine;
+    private readonly VisualElement _activeLineBar;
+
     private int CursorIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.cursorIndex;
     private int SelectIndex => _pendingCursor >= 0 ? _pendingCursor : _codeField.selectIndex;
 
@@ -62,6 +66,10 @@ public class CodeEditor
 
         _highlight = CreateHighlightLayer();
         _scrollView.contentContainer.Insert(0, _highlight);
+
+        // Полоса выполняемой строки — самый нижний слой, под подсветкой и текстом
+        _activeLineBar = CreateActiveLineBar();
+        _scrollView.contentContainer.Insert(0, _activeLineBar);
 
         _popup = new CompletionPopup();
         _popup.OnItemChosen += item =>
@@ -89,6 +97,19 @@ public class CodeEditor
         label.AddToClassList("code-highlight");
         label.style.position = Position.Absolute;
         return label;
+    }
+
+    private VisualElement CreateActiveLineBar()
+    {
+        VisualElement bar = new VisualElement { pickingMode = PickingMode.Ignore };
+        bar.style.position = Position.Absolute;
+        bar.style.left = 0;
+        bar.style.right = 0;
+        bar.style.backgroundColor = _context.Theme != null
+            ? _context.Theme.activeLineColor
+            : new Color(0.95f, 0.80f, 0.20f, 0.16f);
+        bar.style.display = DisplayStyle.None;
+        return bar;
     }
 
     private void ConfigureTextField()
@@ -489,11 +510,15 @@ public class CodeEditor
             var sb = new StringBuilder();
             string errorColor = ColorUtility.ToHtmlStringRGB(
                 _context.Theme != null ? _context.Theme.logColorError : Color.red);
+            string activeColor = ColorUtility.ToHtmlStringRGB(
+                _context.Theme != null ? _context.Theme.activeLineNumberColor : Color.yellow);
             for (int i = 1; i <= lineCount; i++)
             {
-                // В колонке только цифры и теги цвета — номер строки с ошибкой выделен
+                // В колонке только цифры и теги цвета — номер строки с ошибкой (или выполняемой) выделен
                 if (i == _errorLine)
                     sb.Append("<color=#").Append(errorColor).Append('>').Append(i).Append("</color>");
+                else if (i == _activeLine)
+                    sb.Append("<color=#").Append(activeColor).Append('>').Append(i).Append("</color>");
                 else
                     sb.Append(i);
                 if (i < lineCount) sb.Append('\n');
@@ -548,6 +573,38 @@ public class CodeEditor
         _highlight.style.whiteSpace = s.whiteSpace;
 
         SyncGutters();
+        PositionActiveLineBar();
+    }
+
+    /// <summary>
+    /// Полоса выполняемой строки: высота строки — разница высот текста из двух строк и из одной
+    /// (тем же шрифтом, что и поле), сверху — отступ текстового элемента.
+    /// </summary>
+    private void PositionActiveLineBar()
+    {
+        if (_activeLineBar == null) return;
+        if (_activeLine <= 0)
+        {
+            _activeLineBar.style.display = DisplayStyle.None;
+            return;
+        }
+
+        float oneLine = _textElement.MeasureTextSize("X", 0, VisualElement.MeasureMode.Undefined, 0,
+            VisualElement.MeasureMode.Undefined).y;
+        float twoLines = _textElement.MeasureTextSize("X\nX", 0, VisualElement.MeasureMode.Undefined, 0,
+            VisualElement.MeasureMode.Undefined).y;
+        float lineHeight = twoLines - oneLine;
+        if (float.IsNaN(lineHeight) || lineHeight <= 0f)
+        {
+            _activeLineBar.style.display = DisplayStyle.None;
+            return;
+        }
+
+        IResolvedStyle s = _textElement.resolvedStyle;
+        float top = _textElement.layout.y + s.borderTopWidth + s.paddingTop + (_activeLine - 1) * lineHeight;
+        _activeLineBar.style.top = top;
+        _activeLineBar.style.height = lineHeight;
+        _activeLineBar.style.display = DisplayStyle.Flex;
     }
 
     /// <summary>
@@ -596,5 +653,18 @@ public class CodeEditor
         if (_codeField == null) return;
         _errorLine = Mathf.Max(0, line);
         UpdateGutters(Code);
+    }
+
+    /// <summary>
+    /// Выделяет строку, которая выполняется сейчас (0 — снять): полоса за текстом и цвет номера.
+    /// </summary>
+    public void SetActiveLine(int line)
+    {
+        if (_codeField == null) return;
+        line = Mathf.Max(0, line);
+        if (line == _activeLine) return;
+        _activeLine = line;
+        UpdateGutters(Code);
+        PositionActiveLineBar();
     }
 }
