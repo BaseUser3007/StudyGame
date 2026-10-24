@@ -1,0 +1,22 @@
+# Зона основной разработки (см. Docs/Tasks/README.md): PR с этими файлами автоматически ждут ревью владельца.
+/Assets/_Game/Scripts/Lua/LuaSandbox.cs            @BaseUser3007
+/Assets/_Game/Scripts/Lua/EnergyInstrumenter.cs    @BaseUser3007
+/Assets/_Game/Scripts/Lua/EnergyMeter.cs           @BaseUser3007
+/Assets/_Game/Scripts/Lua/EnergyCounter.cs         @BaseUser3007
+/Assets/_Game/Scripts/Lua/LuaConstructGuard.cs     @BaseUser3007
+/Assets/_Game/Scripts/Lua/UnlockRegistry.cs        @BaseUser3007
+/Assets/_Game/Scripts/Lua/LuaTokenizer.cs          @BaseUser3007
+/Assets/_Game/ScriptableObjects/Achievements/      @BaseUser3007
+/Assets/_Game/ScriptableObjects/Recipes/           @BaseUser3007
+/Assets/_Game/ScriptableObjects/Enemies/EnemyConfig.asset @BaseUser3007
+/Assets/_Game/ScriptableObjects/Default*Config.asset      @BaseUser3007
+
+# Горячие общие файлы
+/Assets/_Game/Scripts/Core/Level.cs                @BaseUser3007
+/Assets/_Game/Scripts/Core/MetaProgress.cs         @BaseUser3007
+/Assets/_Game/Scripts/Core/GameEventBus.cs         @BaseUser3007
+/Assets/_Game/Scenes/                              @BaseUser3007
+
+/Docs/GameDesign.md                                @BaseUser3007
+/Docs/Roadmap.md                                   @BaseUser3007
+/CLAUDE.md                                         @BaseUser3007
