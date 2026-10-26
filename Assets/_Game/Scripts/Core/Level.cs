@@ -47,6 +47,10 @@ public class Level : MonoBehaviour
              "бонусов построек в забеге нет (предупреждение)")]
     [SerializeField] private HubBuildingCatalog hubBuildingCatalog;
 
+    [Header("Audio")]
+    [Tooltip("Звуки на действия (AudioConfig). Пусто — игра молчит (предупреждение)")]
+    [SerializeField] private AudioConfig audioConfig;
+
     [Header("UI")]
     [SerializeField] private CodeEditorManager codeEditorManager;
     [SerializeField] private UIManager uiManager;
@@ -59,6 +63,7 @@ public class Level : MonoBehaviour
     private PuzzleManager _puzzleManager;
     private RunStats _runStats;
     private SheepWanderSystem _sheepWander;
+    private AudioFeedback _audioFeedback;
 
     /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
     public AchievementTracker AchievementTracker => _achievementTracker;
@@ -134,6 +139,10 @@ public class Level : MonoBehaviour
         // Без конфига головоломок забег идёт без обелисков и лабиринта
         if (puzzleConfig == null)
             Debug.LogWarning("Level: puzzleConfig is not assigned — no puzzles in the run");
+
+        // Без конфига звука игра работает молча
+        if (audioConfig == null)
+            Debug.LogWarning("Level: audioConfig is not assigned — no sound feedback");
     }
 
     private void InitializeLevel()
@@ -223,6 +232,7 @@ public class Level : MonoBehaviour
                 unlocks.IsMapEventUnlocked, _puzzleManager, salt: new System.Random().Next());
         // Патрули обходят области головоломок; патрули первого дня — только когда места головоломок известны
         _enemyManager.SetPuzzles(_puzzleManager);
+        structures.SetPuzzles(_puzzleManager);
         _enemyManager.SpawnInitialPatrols();
 
         // 10. Lua песочница
@@ -274,6 +284,11 @@ public class Level : MonoBehaviour
             mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
             dayCycle, progress, _achievementTracker, _runStats);
         runController.Start();
+
+        // 13. Звуки на действия: после врагов, достижений и UI (переключатель звука в лагере);
+        // подписан на статическую GameEventBus — Dispose в OnDestroy
+        _audioFeedback = new AudioFeedback(
+            audioConfig, progress, _enemyManager, _achievementTracker, codeEditorManager.RunScreens);
     }
 
     private void OnDestroy()
@@ -301,6 +316,10 @@ public class Level : MonoBehaviour
         // Отписка статистики забега от статической GameEventBus
         _runStats?.Dispose();
         _runStats = null;
+
+        // Отписка звуков от статической GameEventBus, врагов, достижений и кнопки лагеря
+        _audioFeedback?.Dispose();
+        _audioFeedback = null;
     }
 
     /// <summary>

@@ -264,6 +264,35 @@ public class LuaErrorExplainerTests
     }
 
     [Test]
+    public void CommandError_WithLocationFromSandbox_HasLineAndExplanation()
+    {
+        // LuaSandbox дописывает место к ошибкам команд (у исключений C# его нет)
+        var main = Explain("Runtime error: [string \"Main\"]:3: moveTo: usage moveTo(x, y) or moveTo(obj)");
+        var aux = Explain("Runtime error: [string \"Helper\"]:3: command `obtain` is not unlocked yet", "Helper");
+        var level0 = Explain("Runtime error: Lua-CSharp: [string \"Main\"]:2: boom");
+
+        Assert.AreEqual("Main", main.Window);
+        Assert.AreEqual(3, main.Line);
+        StringAssert.Contains("`moveTo`", main.Explanation);
+        StringAssert.Contains("moveTo(x, y) or moveTo(obj)", main.Suggestion);
+        Assert.AreEqual("Helper", aux.Window);
+        Assert.AreEqual(2, aux.Line, "aux chunk line minus the wrapper line");
+        StringAssert.Contains("`obtain`", aux.Explanation);
+        Assert.AreEqual(2, level0.Line);
+    }
+
+    [Test]
+    public void AttachErrorLocation_FormatsLikeLua()
+    {
+        Assert.AreEqual("[string \"Main\"]:3: moveTo: usage",
+            LuaSandbox.AttachErrorLocation("moveTo: usage", "Main", 3));
+        Assert.AreEqual("Lua-CSharp: [string \"Helper\"]:12: boom",
+            LuaSandbox.AttachErrorLocation("Lua-CSharp: boom", "Helper", 12));
+        Assert.AreEqual("boom", LuaSandbox.AttachErrorLocation("boom", null, 3));
+        Assert.AreEqual("boom", LuaSandbox.AttachErrorLocation("boom", "Main", 0));
+    }
+
+    [Test]
     public void OutOfEnergy_InfiniteLoop_StackOverflow_LockedCommand()
     {
         var energy = Explain("Runtime error: out of energy at moveTo(): need 2, have 1.5");

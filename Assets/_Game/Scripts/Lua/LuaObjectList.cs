@@ -180,7 +180,7 @@ public class LuaObjectList
         table["id"] = (double)(PuzzleIdOffset + puzzle.Id);
         table["kind"] = KindPuzzle;
         table["type"] = LuaPuzzles.GetTypeName(puzzle);
-        // Обелиск — основание, лабиринт — центральный тайл (цель)
+        // Обелиск — основание, лабиринт и плиты — центральный тайл
         table["x"] = (double)puzzle.Position.x;
         table["y"] = (double)puzzle.Position.y;
         // Не добывается — энергии на «добычу» 0, как у врагов
@@ -190,6 +190,11 @@ public class LuaObjectList
             // Тайл снаружи перед входом: moveTo(maze.entranceX, maze.entranceY)
             table["entranceX"] = (double)maze.ApproachTile.x;
             table["entranceY"] = (double)maze.ApproachTile.y;
+        }
+        else if (puzzle is PlatesPuzzle plates && plates.Layout != null)
+        {
+            // Площадка с плитами: for x = p.minX, p.maxX do … check(x, y).plate … end
+            LuaPuzzles.AddArea(table, plates);
         }
         RefreshPuzzle(table, puzzle);
         return table;

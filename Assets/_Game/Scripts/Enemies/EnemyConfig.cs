@@ -15,6 +15,8 @@ public struct EnemyCampSpec
     public bool valuableInCenter;
     [Tooltip("Необязательный вожак: ставится первым вместо одного из обычных врагов (например, goblin_guard)")]
     public EnemyDefinition leader;
+    [Tooltip("Стрелков (EnemyConfig.campArcher) в лагере — сверх enemyCount. 0 — без стрелков")]
+    [Min(0)] public int archerCount;
 }
 
 /// <summary>
@@ -44,6 +46,8 @@ public class EnemyConfig : ScriptableObject
     [Min(0f)] public float campRadius = 2f;
     [Tooltip("Ценный объект в центре лагеря (gold_ore, ExtractableResource). Пусто — без него")]
     public ResourceObject campValuablePrefab;
+    [Tooltip("Стрелок лагерей (archer): ставится EnemyCampSpec.archerCount раз в каждый лагерь. Пусто — без стрелков")]
+    public EnemyDefinition campArcher;
 
     [Header("Placement")]
     [Tooltip("Не ближе этого к ресурсам на карте (в тайлах)")]

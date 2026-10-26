@@ -23,7 +23,7 @@ public class EnemyDefinition : ScriptableObject
     [Header("Behaviour (0 — значение из EnemyConfig)")]
     [Tooltip("Игрок ближе этого (в тайлах) — враг начинает погоню")]
     [Min(0f)] public float aggroRadius;
-    [Tooltip("Игрок ближе этого (центр–центр) — враг бьёт")]
+    [Tooltip("Игрок ближе этого (центр–центр) — враг бьёт (у стрелка — дальность выстрела)")]
     [Min(0f)] public float attackRadius;
     [Tooltip("Замах перед первым ударом, когда игрок вошёл в радиус атаки (секунды)")]
     [Min(0f)] public float attackWindup;
@@ -37,6 +37,17 @@ public class EnemyDefinition : ScriptableObject
     [Min(0f)] public float loseChaseDistance;
     [Tooltip("Враг не отходит от поста (дом лагеря / точка появления патруля) дальше этого (в тайлах)")]
     [Min(0f)] public float leashRadius;
+
+    [Header("Ranged (лучник; выключено — ближний бой как раньше)")]
+    [Tooltip("Дальний бой: стреляет снарядом с дистанции attackRadius, отходит от игрока ближе keepDistance " +
+             "(RangedEnemyBehaviour)")]
+    public bool ranged;
+    [Tooltip("Игрок ближе этого (в тайлах) — стрелок отходит (не дальше leashRadius от дома). 0 — 2.5")]
+    [Min(0f)] public float keepDistance;
+    [Tooltip("Видимый снаряд (префаб с компонентом Arrow). Пусто — снаряд без картинки, урон так же при прилёте")]
+    public Arrow projectilePrefab;
+    [Tooltip("Время полёта снаряда (секунды игрового времени). 0 — 0.3")]
+    [Min(0f)] public float projectileFlightTime;
 
     [Header("Loot")]
     [Tooltip("Что выпадает на землю при смерти (через World Prefab предмета; без него — сразу в инвентарь)")]
@@ -77,6 +88,15 @@ public readonly struct EnemyStats
     public readonly float LeashRadius;
     public readonly float PatrolPointRadius;
     public readonly float PatrolWait;
+    /// <summary>Дальний бой (EnemyDefinition.ranged): AttackRadius — дальность выстрела.</summary>
+    public readonly bool IsRanged;
+    /// <summary>Стрелок отходит, если игрок ближе этого (в тайлах).</summary>
+    public readonly float KeepDistance;
+    /// <summary>Время полёта снаряда (секунды игрового времени).</summary>
+    public readonly float ProjectileFlightTime;
+
+    public const float DefaultKeepDistance = 2.5f;
+    public const float DefaultProjectileFlightTime = 0.3f;
 
     private EnemyStats(EnemyDefinition definition, EnemyConfig config)
     {
@@ -93,6 +113,13 @@ public readonly struct EnemyStats
         LeashRadius = Pick(definition.leashRadius, c ? config.defaultLeashRadius : 8f);
         PatrolPointRadius = c ? Mathf.Max(1f, config.patrolPointRadius) : 8f;
         PatrolWait = c ? Mathf.Max(0f, config.patrolWaitSeconds) : 1f;
+        IsRanged = definition.ranged;
+        // Дистанция отхода меньше дальности выстрела — иначе стрелок отходит за дальность, подходит и снова отходит
+        KeepDistance = Pick(definition.keepDistance, DefaultKeepDistance);
+        if (IsRanged) KeepDistance = Mathf.Min(KeepDistance, AttackRadius * 0.8f);
+        ProjectileFlightTime = definition.projectileFlightTime > 0f
+            ? definition.projectileFlightTime
+            : DefaultProjectileFlightTime;
     }
 
     public static EnemyStats Resolve(EnemyDefinition definition, EnemyConfig config) => new EnemyStats(definition, config);

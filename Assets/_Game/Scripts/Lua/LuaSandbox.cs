@@ -319,6 +319,8 @@ public class LuaSandbox : MonoBehaviour
         {
             // Запоминаем: если ошибка дойдёт до верха (не поймана pcall), итог запуска — "locked"
             _lockedCommandError = message;
+            // Строка вызова — для места ошибки, если у исключения не окажется стека Lua
+            _lineTracker.Probe(context.State);
             throw new InvalidOperationException(message);
         });
     }
@@ -493,7 +495,7 @@ public class LuaSandbox : MonoBehaviour
             outcome = ClassifyFailure(ex, ct);
             return OutOfEnergyOr(ct.IsCancellationRequested
                 ? CancelledResult()
-                : ExecutionResult.RuntimeError(ex.Message));
+                : ExecutionResult.RuntimeError(WithErrorLocation(ex)));
         }
         finally
         {
@@ -548,6 +550,77 @@ public class LuaSandbox : MonoBehaviour
         if (_lockedCommandError != null && ex.Message != null && ex.Message.Contains(_lockedCommandError))
             return GameEventBus.RunTagLocked;
         return GameEventBus.RunTagError;
+    }
+
+    // Место ошибки от Lua: `[string "Main"]:3: …` (возможно, после "Lua-CSharp: ")
+    private static readonly System.Text.RegularExpressions.Regex ErrorLocationRegex =
+        new System.Text.RegularExpressions.Regex(@"^(?:Lua-CSharp:\s*)?\[string\s+""[^""]*""\]:\d+:",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private const string LuaErrorPrefix = "Lua-CSharp: ";
+
+    /// <summary>
+    /// Текст ошибки с местом: исключения команд (ArgumentException и т. п.) и error(x, 0) приходят без
+    /// `[string "окно"]:N:` — тогда место берётся из стека Lua в момент ошибки (LuaTraceback), а если его нет —
+    /// из последней выполнявшейся строки (LuaLineTracker). Формат — как у ошибок Lua, его разбирает LuaErrorExplainer.
+    /// </summary>
+    private string WithErrorLocation(Exception ex)
+    {
+        string message = ex.Message ?? string.Empty;
+        if (ErrorLocationRegex.IsMatch(message)) return message;
+
+        if (TryGetTracebackLocation(ex as LuaRuntimeException, out string chunk, out int chunkLine))
+            return AttachErrorLocation(message, chunk, chunkLine);
+
+        // Строка трекера — строка окна; в чанке доп. окна выше неё стоит строка обёртки function Title(...)
+        if (!string.IsNullOrEmpty(_lineTracker.Chunk) && _lineTracker.Line > 0)
+        {
+            int line = _lineTracker.Line + (_lineTracker.Chunk == MainChunkName ? 0 : 1);
+            return AttachErrorLocation(message, _lineTracker.Chunk, line);
+        }
+        return message;
+    }
+
+    /// <summary>
+    /// Окно и строка чанка, где выполнялся код игрока в момент ошибки: ближайший к вершине Lua-кадр стека.
+    /// </summary>
+    private static bool TryGetTracebackLocation(LuaRuntimeException ex, out string chunk, out int chunkLine)
+    {
+        chunk = null;
+        chunkLine = 0;
+        Lua.Runtime.Traceback traceback = ex?.LuaTraceback;
+        if (traceback == null) return false;
+
+        ReadOnlySpan<Lua.Runtime.CallStackFrame> frames = traceback.StackFrames;
+        for (int i = frames.Length - 1; i >= 0; i--)
+        {
+            if (!(frames[i].Function is Lua.Runtime.LuaClosure closure)) continue;
+            chunk = closure.Proto.ChunkName;
+
+            // Окно и строка — из одного кадра, как в LuaLineTracker.Probe: номер инструкции вызова хранит
+            // кадр над Lua-кадром (C#-функция команды). Lua-кадр на вершине (ошибка в самом Lua) — LastLine
+            ReadOnlySpan<int> lineInfo = closure.Proto.LineInfo;
+            int pc = i + 1 < frames.Length ? frames[i + 1].CallerInstructionIndex : -1;
+            chunkLine = pc >= 0 && pc < lineInfo.Length ? lineInfo[pc] : traceback.LastLine;
+            break;
+        }
+        return !string.IsNullOrEmpty(chunk) && chunkLine > 0;
+    }
+
+    /// <summary>
+    /// Добавляет к тексту ошибки место в формате Lua: `[string "Main"]:3: moveTo: usage …`
+    /// (после префикса "Lua-CSharp: ", если он есть). Строка — номер строки чанка: у доп. окон на 1 больше
+    /// строки окна (обёртка), как в ошибках самого Lua.
+    /// </summary>
+    public static string AttachErrorLocation(string message, string chunk, int chunkLine)
+    {
+        message ??= string.Empty;
+        if (string.IsNullOrEmpty(chunk) || chunkLine < 1) return message;
+
+        string location = System.FormattableString.Invariant($"[string \"{chunk}\"]:{chunkLine}: ");
+        return message.StartsWith(LuaErrorPrefix, StringComparison.Ordinal)
+            ? LuaErrorPrefix + location + message.Substring(LuaErrorPrefix.Length)
+            : location + message;
     }
 
     private ExecutionResult CancelledResult()

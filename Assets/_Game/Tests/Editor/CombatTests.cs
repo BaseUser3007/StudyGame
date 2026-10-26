@@ -436,6 +436,7 @@ public class CombatTests
         public bool IsPlayerAlive => true;
         public bool CanAttack => false;
         public void DamagePlayer(Enemy attacker, float damage) { }
+        public void ShootProjectile(Enemy attacker, Vector2 target) { }
         public bool IsWalkable(Vector2 mapPosition) => true;
         public Vector3 MapToWorld(Vector2 mapPosition) => new Vector3(mapPosition.x, mapPosition.y, 0f);
         public float WorldScale => 1f;

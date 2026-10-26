@@ -7,7 +7,7 @@ using UnityEngine;
 /// UnlockRegistry.IsMapEventUnlocked), детерминированно от IMapDataProvider.Seed: на суше (с полем в 1 тайл),
 /// в тумане, не ближе minDistanceFromCamps к лагерям врагов, со своими расстояниями от спавна и между собой.
 /// Вызывается из Level после врагов. Объекты карты на месте головоломки убираются.
-/// Сначала лабиринт (ему нужно больше места), затем обелиски.
+/// Сначала лабиринт (ему нужно больше места), затем площадки с плитами (5×5), затем обелиски.
 /// </summary>
 public static class PuzzleGenerator
 {
@@ -43,6 +43,19 @@ public static class PuzzleGenerator
                     manager.Register(maze);
                     nextId++;
                 }
+        }
+
+        // Плиты (T16): площадка 5×5, префаб необязателен. При platesCount = 0 random не трогаем —
+        // расстановка остальных головоломок не меняется
+        if (config.platesCount > 0 && isUnlocked(PuzzleTypes.Plates))
+        {
+            for (int i = 0; i < config.platesCount; i++)
+            {
+                PlatesPuzzle plates = PlacePlates(context, random, container, nextId);
+                if (plates == null) break;
+                manager.Register(plates);
+                nextId++;
+            }
         }
 
         if (config.codeTaskCount > 0 && isUnlocked(PuzzleTypes.CodeTask))
@@ -115,6 +128,44 @@ public static class PuzzleGenerator
         }
 
         Debug.LogWarning($"PuzzleGenerator: no place for a maze (spawn ≥ {config.mazeMinDistanceFromSpawn}, " +
+                         $"camps ≥ {config.minDistanceFromCamps})");
+        return null;
+    }
+
+    // ─── Plates ───────────────────────────────────────────────
+
+    private static PlatesPuzzle PlacePlates(Context context, System.Random random, Transform container, int id)
+    {
+        PuzzleConfig config = context.Config;
+        List<Vector2Int> origins = context.ShuffledLand(random);
+        int size = PlatesLayout.Size;
+
+        foreach (Vector2Int origin in origins)
+        {
+            var tiles = new RectInt(origin.x, origin.y, size, size);
+            Vector2Int centerTile = origin + PlatesLayout.Center;
+            Vector2 center = new Vector2(centerTile.x, centerTile.y);
+            if (Vector2.Distance(center, context.Spawn) < config.platesMinDistanceFromSpawn) continue;
+            if (!context.IsFree(tiles)) continue;
+
+            PlatesLayout layout = PlatesLayout.Generate(new System.Random(random.Next()));
+
+            // По площадке ходят — объекты с неё и с поля вокруг убираем
+            if (context.Objects != null)
+                context.Objects.RemoveObjectsInArea(Expand(tiles, LandMargin));
+
+            var root = new GameObject($"Plates_{id}");
+            root.transform.SetParent(container, false);
+            root.transform.position = context.Map.MapToWorld(center);
+            PlatesPuzzle plates = root.AddComponent<PlatesPuzzle>();
+            plates.Setup(id, center);
+            plates.Build(layout, origin, context.Map, config.platePrefab);
+
+            context.Occupy(plates.Bounds, center);
+            return plates;
+        }
+
+        Debug.LogWarning($"PuzzleGenerator: no place for pressure plates (spawn ≥ {config.platesMinDistanceFromSpawn}, " +
                          $"camps ≥ {config.minDistanceFromCamps})");
         return null;
     }

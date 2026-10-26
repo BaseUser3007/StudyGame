@@ -16,6 +16,7 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
     private readonly Transform _container;
     private readonly List<Structure> _structures = new List<Structure>();
     private readonly List<Collider2D> _overlaps = new List<Collider2D>();
+    private PuzzleManager _puzzles;
 
     public IReadOnlyList<Structure> Structures => _structures;
 
@@ -51,7 +52,12 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
     }
 
     /// <summary>
-    /// Можно ли поставить постройку: под её коллайдером суша и нет чужих коллайдеров (в том числе персонажа).
+    /// Головоломки создаются позже построек (Level) — области головоломок передаются отдельно; null — без проверки.
+    /// </summary>
+    public void SetPuzzles(PuzzleManager puzzles) => _puzzles = puzzles;
+
+    /// <summary>
+    /// Можно ли поставить постройку: под её коллайдером суша, не головоломка и нет чужих коллайдеров (в том числе персонажа).
     /// </summary>
     public string CheckPlace(StructureItem item, Vector2 position)
     {
@@ -67,6 +73,13 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
             for (int y = min.y; y <= max.y; y++)
                 if (!_mapData.IsWalkable(x, y))
                     return "can't build on water";
+
+        // Постройку не снести — на головоломке (плиты, лабиринт) она сделала бы её нерешаемой
+        if (_puzzles != null)
+            for (int x = min.x; x <= max.x; x++)
+                for (int y = min.y; y <= max.y; y++)
+                    if (_puzzles.GetPuzzleAt(new Vector2Int(x, y)) != null)
+                        return "can't build on a puzzle";
 
         if (IsOccupied(area))
             return "place is occupied";

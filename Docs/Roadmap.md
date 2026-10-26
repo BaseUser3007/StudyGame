@@ -96,7 +96,7 @@
 - [x] ★ Добыча с врагов (лут через `ResourceVariant.loot`) и достижения за победу над врагом.
       *(C#: лут `EnemyDefinition.loot` на землю с `SpawnRunId`, `EnemyKilled`/`EnemyFound` — готово;
       ассеты достижений есть; проверить в Play Mode.)*
-- [ ] Разные враги (лучник на расстоянии, сильный страж у головоломки). (Сделан `goblin_guard` — вожак лагеря на 3: `EnemyCampSpec.leader`, Black Warrior, 80 HP. Лучника нет.)
+- [x] Разные враги (лучник на расстоянии, сильный страж у головоломки). (Сделан `goblin_guard` — вожак лагеря на 3: `EnemyCampSpec.leader`, Black Warrior, 80 HP. Лучник — T13: код готов (`RangedEnemyBehaviour`, стрелы `EnemyProjectiles`/`Arrow`, `EnemyCampSpec.archerCount`), префабы `Archer`/`Arrow`, ассет `Archer.asset`, 1 лучник в лагере `camps[1]` (предложение), проверено в Play Mode 2026-10-26.)
 
 ## Этап 4. Хаб (как лагерь в Loop Hero)
 
@@ -121,7 +121,11 @@
 - [x] ★ Достижение «построить здание в хабе» работает (ассет `hub_builder` есть; проверить в Play Mode).
       `HubService.TryBuild` публикует `GameEventBus` `HubBuildingBuilt` (Id = id постройки); осталось условие
       `hub_builder` в ассете (Counter `HubBuildingBuilt`, пустой фильтр, 1 — §6.1) и проверка в Play Mode.
-- [ ] Бонусы за соседство сооружений (как в Loop Hero), уровни сооружений.
+- [x] Бонусы за соседство сооружений (как в Loop Hero), уровни сооружений. (2026-10-26, T14/T15)
+      Уровни: `HubBuildingDefinition.levels` (прибавки ур. 2–3), `PlacedHubBuilding.level`, `HubService.CheckUpgrade`/`TryUpgrade`,
+      `HubBuildingUpgraded`, кнопка Upgrade в `HubBuildPanel`, эффекты уровня в `RunModifiers`. Соседство: `adjacencyBonuses`,
+      `HubService.GetAdjacencyBonuses` (касание стороной, каждая запись один раз), подсказка у призрака. Числа — GameDesign.md §10.3
+      «Уровни и соседство»; проверить в Play Mode улучшение и подсказку призрака.
 
 ## Этап 5. Туториал и подсказки
 
@@ -162,6 +166,12 @@
 стены и сундука, `crystal`); ждёт проверки в Play Mode.
 - [ ] Перемещение предметов (сокобан): нужны команды толкать/поднять-положить.
 - [ ] Ещё типы: плиты в правильном порядке, расшифровка последовательности, оптимизационные (лимит энергии).
+  **Плиты — код готов (T16, 2026-10-26):** тип `plates` (событие карты), `PlatesPuzzle` (площадка 5×5, 4–5 плит
+  с уникальными номерами 1–30, не касаются углами, по одной на строку/столбец), номер — только `check(x, y).plate`,
+  наступать по возрастанию (`PlatesSequence`, неверная — сброс всех), награда-предложение `crystal` ×1;
+  `PuzzleConfig.platesCount` = 0 по умолчанию; префаб плиты не обязателен (квадрат из кода). Тесты
+  `PuzzleTests`/`PuzzleCommandTests`. Ждёт: префаб плиты, `platesCount` в `DefaultPuzzleConfig`, достижение-открытие
+  (автор) и проверку в Play Mode.
 - [ ] Уникальные ресурсы и что из них делается (рецепты/постройки хаба).
 
 ## Этап 7. Еда
@@ -191,7 +201,8 @@
 - [ ] ★ Баланс: цены готовых vs базовых команд, день угрозы, стоимость построек хаба.
       Проверка по ассетам и список правок «к внедрению» (сделано: `autoExplore` 25 → 10 и `IsReadyMade`,
       `functionCost` 0 → 0,5, мёртвые `apiCallCost`/`variableCost` удалены из `EnergyConfig`; остальное —
-      GameDesign.md §9, §10.6).
+      GameDesign.md §9, §10.6). Числа уровней и соседства построек хаба (T14/T15) сведены в §10.3 «Уровни и соседство»
+      (2026-10-26); ждут правки ассетов: `watchtower` без ур. 3, `shrine` ур. 3 +15 → +10.
 - [x] ★ Сброс прогресса (для тестов и новых игроков): `MetaProgress.ResetAll` (копия `.reset.bak`, библиотека кода не стирается), кнопка Reset progress в лагере, меню `CodeRogue/Reset Meta Progress`, тесты в `MetaProgressTests`.
 - [x] Обновить CLAUDE.md под новые системы (2026-10-24: добавлена локализация).
 

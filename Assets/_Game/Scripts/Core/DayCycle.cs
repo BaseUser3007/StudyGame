@@ -178,7 +178,7 @@ public class DayCycle
 
         Publish();
         UIEventBus.PublishNotification(
-            Loc.F("Day {0}: max energy {1}. {2}", Day, max.ToString("0.#"), _summary), LogEntryType.Success);
+            Loc.F("Day {0}: max energy {1}. {2}", Day, max.ToString("0.#"), _summary).TrimEnd(), LogEntryType.Success);
         NotifyThreat();
         PlayerEventBus.PublishDayStarted();
         OnDayStarted?.Invoke(Day);

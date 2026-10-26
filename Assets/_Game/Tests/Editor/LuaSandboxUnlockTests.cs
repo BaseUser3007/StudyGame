@@ -123,6 +123,57 @@ public class LuaSandboxUnlockTests
         Assert.AreEqual(StartEnergy, _energy.Current, 0.001f);
     }
 
+    // ─── Место ошибок без `[string "окно"]:N:` ────────────────
+
+    [UnityTest]
+    public IEnumerator ExecuteAsync_CommandError_GetsLineOfTheCall()
+    {
+        var results = new List<ExecutionResult>();
+        // Исключение C# (заглушка закрытой команды) приходит из Lua без места — песочница дописывает строку вызова
+        yield return Run("x = 1\n\nmove(\"right\")", null, results);
+
+        StringAssert.StartsWith("Runtime error: [string \"Main\"]:3: command `move` is not unlocked yet",
+            results[0].ErrorMessage);
+        LuaErrorExplanation error = LuaErrorExplainer.Explain(results[0].ErrorMessage, _sandbox.Registry.GetAllCommands());
+        Assert.AreEqual("Main", error.Window);
+        Assert.AreEqual(3, error.Line);
+    }
+
+    [UnityTest]
+    public IEnumerator ExecuteAsync_CommandErrorInAuxWindow_PointsAtWindowLine()
+    {
+        _unlocks.UnlockConstruct(LuaConstructs.Classes);
+        var results = new List<ExecutionResult>();
+        var aux = new Dictionary<string, string> { { "Helper", "local a = 1\nmove(\"right\")" } };
+        yield return Run("local b = 2\nHelper()", aux, results);
+
+        LuaErrorExplanation error = LuaErrorExplainer.Explain(
+            results[0].ErrorMessage, _sandbox.Registry.GetAllCommands(), new[] { "Helper" });
+        Assert.AreEqual("Helper", error.Window, results[0].ErrorMessage);
+        Assert.AreEqual(2, error.Line, results[0].ErrorMessage);
+    }
+
+    [UnityTest]
+    public IEnumerator ExecuteAsync_ErrorLevelZero_GetsLocation()
+    {
+        var results = new List<ExecutionResult>();
+        yield return Run("local a = 1\nerror(\"boom\", 0)", null, results);
+
+        StringAssert.Contains("[string \"Main\"]:2: boom", results[0].ErrorMessage);
+    }
+
+    [UnityTest]
+    public IEnumerator ExecuteAsync_LuaErrorWithLocation_NotDuplicated()
+    {
+        var results = new List<ExecutionResult>();
+        yield return Run("local a = nil\nlocal b = a.x", null, results);
+
+        string message = results[0].ErrorMessage;
+        Assert.AreEqual(message.IndexOf("[string", System.StringComparison.Ordinal),
+            message.LastIndexOf("[string", System.StringComparison.Ordinal), message);
+        StringAssert.Contains("[string \"Main\"]:2:", message);
+    }
+
     [UnityTest]
     public IEnumerator ExecuteAsync_LockedConstruct_RefusedBeforeExecution()
     {

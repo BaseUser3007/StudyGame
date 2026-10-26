@@ -15,6 +15,8 @@ public static class DepthSorting
     public const int OverlayOrder = 2000;
     /// <summary>Всплывающие надписи (цифры урона): выше любых объектов, ниже тумана.</summary>
     public const int FloatingTextOrder = 1500;
+    /// <summary>Снаряды в полёте (стрелы): над объектами мира, под всплывающими надписями и туманом.</summary>
+    public const int ProjectileOrder = 1400;
 
     private static float _minWorldY;
     private static float _maxWorldY;

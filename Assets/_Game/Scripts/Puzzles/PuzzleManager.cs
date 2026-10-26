@@ -162,6 +162,12 @@ public class PuzzleManager : IDisposable
     {
         foreach (PuzzleStructure puzzle in _puzzles)
         {
+            if (puzzle is PlatesPuzzle plates)
+            {
+                if (StepOnPlates(plates, tile)) break;
+                continue;
+            }
+
             if (!(puzzle is MazePuzzle maze) || maze.IsSolved || maze.Layout == null) continue;
             if (maze.CenterTile != tile) continue;
 
@@ -169,6 +175,32 @@ public class PuzzleManager : IDisposable
             Solve(maze, null, () => _rewards?.ApplyMaze(new Vector2(center.x, center.y)));
             break;
         }
+    }
+
+    // ─── plates ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Шаг игрока по площадке с плитами (вызывается и из тестов). true — тайл был плитой этой площадки.
+    /// Неверная плита — уведомление о сбросе; последняя верная — решение и награда.
+    /// </summary>
+    public bool StepOnPlates(PlatesPuzzle plates, Vector2Int tile)
+    {
+        if (plates == null || plates.IsSolved) return false;
+
+        PlateStepResult result = plates.Step(tile);
+        switch (result)
+        {
+            case PlateStepResult.NotAPlate:
+                return false;
+            case PlateStepResult.Reset:
+                UIEventBus.PublishNotification(Loc.T("Wrong plate — all plates are released."), LogEntryType.Warning);
+                break;
+            case PlateStepResult.Completed:
+                Vector2Int center = plates.CenterTile;
+                Solve(plates, null, () => _rewards?.ApplyPlates(new Vector2(center.x, center.y)));
+                break;
+        }
+        return true;
     }
 
     // ─── Helpers ──────────────────────────────────────────────

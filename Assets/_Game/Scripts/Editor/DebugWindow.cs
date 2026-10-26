@@ -73,9 +73,12 @@ public class DebugWindow : EditorWindow
         }
 
         Level level = FindAnyObjectByType<Level>();
-        if (level == null || level.Executor == null)
+        // После перезагрузки домена в Play Mode несериализуемые ссылки Level пусты — до перезапуска сцены
+        if (level == null || level.Executor == null || level.Energy == null || level.Health == null
+            || level.DayCycle == null || level.Inventory == null)
         {
-            EditorGUILayout.HelpBox("Level is not found or not initialized yet", MessageType.Warning);
+            EditorGUILayout.HelpBox("Level is not found or not initialized (restart Play Mode after a script reload)",
+                MessageType.Warning);
             return;
         }
 

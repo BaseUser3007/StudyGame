@@ -634,6 +634,7 @@ MonoBehaviour:
   achievementCatalog: {fileID: 11400000, guid: 50d1cfd6d8156eb4ab5e0c4e75ca23d5, type: 2}
   puzzleConfig: {fileID: 11400000, guid: e15f8b4d0548ddb4fa9f9abe1b700286, type: 2}
   hubBuildingCatalog: {fileID: 11400000, guid: e2abd2ba9a3312247a3edc26ca766a7c, type: 2}
+  audioConfig: {fileID: 11400000, guid: 27b4ea7e35caccb44b4f4342620872b3, type: 2}
   codeEditorManager: {fileID: 655539405}
   uiManager: {fileID: 701634680}
 --- !u!4 &731203615

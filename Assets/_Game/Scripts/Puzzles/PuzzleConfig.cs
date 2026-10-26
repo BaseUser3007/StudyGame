@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Головоломки на карте (этап 6, GameDesign.md §10.4): префабы, сколько и где ставить, награды.
-/// Генерируются только открытые типы (UnlockRegistry, события на карте code_task / maze).
+/// Генерируются только открытые типы (UnlockRegistry, события на карте code_task / maze / plates).
 /// </summary>
 [CreateAssetMenu(fileName = "PuzzleConfig", menuName = "CodeRogue/Puzzles/Puzzle Config")]
 public class PuzzleConfig : ScriptableObject
@@ -47,4 +47,16 @@ public class PuzzleConfig : ScriptableObject
     [Tooltip("Предмет crystal (MaterialResource)")]
     public ResourceItem crystalItem;
     [Min(0)] public int crystalAmount = 2;
+
+    [Header("plates (плиты по порядку, площадка 5×5)")]
+    [Tooltip("Плита: плоский спрайт с опорой в центре тайла, без сплошного коллайдера (по плите ходят) и без " +
+             "DepthSortedSprite — рисуется как пол (PlatesPuzzle.SortingOrder). Пусто — серый квадрат из кода")]
+    public GameObject platePrefab;
+    [Tooltip("Сколько площадок с плитами на карте (0 — ни одной, даже если тип открыт)")]
+    [Min(0)] public int platesCount = 0;
+    [Min(0f)] public float platesMinDistanceFromSpawn = 15f;
+
+    [Header("plates: награда")]
+    [Tooltip("crystalItem за решённые плиты (в инвентарь, не влезло — на землю в центре площадки)")]
+    [Min(0)] public int platesCrystalAmount = 1;
 }

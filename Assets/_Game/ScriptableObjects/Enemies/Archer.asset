@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55ea20b5aba3863478d23a89771a8aa1, type: 3}
+  m_Name: Archer
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyDefinition
+  enemyId: archer
+  displayName: Goblin Archer
+  prefab: {fileID: 707194926521126801, guid: 04640ea631bc76841bbf7b576b75c6eb, type: 3}
+  maxHealth: 25
+  damage: 6
+  aggroRadius: 5
+  attackRadius: 4
+  attackWindup: 0
+  attackCooldown: 2
+  chaseSpeed: 0
+  patrolSpeed: 0
+  loseChaseDistance: 7
+  leashRadius: 0
+  ranged: 1
+  keepDistance: 2.5
+  projectilePrefab: {fileID: 8596009963720758449, guid: 98ea52635022b0448a2dad94fa3a4fb3, type: 3}
+  projectileFlightTime: 0.3
+  loot:
+  - item: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
+    amount: 2

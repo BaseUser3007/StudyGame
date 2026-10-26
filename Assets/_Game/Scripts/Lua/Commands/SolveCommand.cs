@@ -32,7 +32,12 @@ public class SolveCommand : LuaCommandBase
     {
         PuzzleStructure puzzle = LuaPuzzles.Resolve(context, _puzzles, UsageMessage, out string error);
 
-        if (puzzle != null)
+        if (puzzle is PlatesPuzzle)
+        {
+            // Плиты решают ногами — ответа у них нет
+            error = LuaPuzzles.PlatesSolveError;
+        }
+        else if (puzzle != null)
         {
             if (context.ArgumentCount < 2 || !context.GetArgument(1).TryRead(out double answer))
                 error = "answer must be a number";

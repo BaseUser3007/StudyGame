@@ -19,6 +19,8 @@
             <!-- Подсказки вкл/выкл, сброс туториала и всего прогресса (второй клик — подтверждение) -->
             <ui:VisualElement class="hub-settings">
                 <ui:Button name="btn-hub-hints" class="screen-btn screen-btn--small" text="Hints: On"/>
+                <!-- Звук вкл/выкл (T09): сохраняет AudioFeedback в MetaProgress.SoundMuted -->
+                <ui:Button name="btn-hub-sound" class="screen-btn screen-btn--small" text="Sound: On"/>
                 <ui:Button name="btn-hub-reset-tutorial" class="screen-btn screen-btn--small" text="Reset tutorial"/>
                 <!-- Сброс всего мета-прогресса (библиотека кода остаётся), второй клик — подтверждение -->
                 <ui:Button name="btn-hub-reset-progress" class="screen-btn screen-btn--small" text="Reset progress"/>

@@ -5,7 +5,8 @@
 ///   • sum — BaseEnergyLimit +energyLimitBonus и столько же энергии сейчас (максимум сегодня тоже растёт);
 ///   • max — MaxHealth +maxHealthBonus, здоровье до нового максимума;
 ///   • count — угроза на threatDelayDays позже, если ещё не началась, иначе как sum;
-///   • maze — crystal × crystalAmount в инвентарь (не влезло — на землю в центре лабиринта).
+///   • maze — crystal × crystalAmount в инвентарь (не влезло — на землю в центре лабиринта);
+///   • plates — crystal × platesCrystalAmount так же (на землю — в центре площадки).
 /// Без конфига — значения по умолчанию из PuzzleConfig.
 /// </summary>
 public class PuzzleRewards
@@ -73,6 +74,31 @@ public class PuzzleRewards
             return Loc.T("The chest is empty.");
         }
 
+        return GiveCrystals(crystal, amount, dropPosition, Loc.F("Found {0} {1} in the chest.", amount, Loc.T(crystal.DisplayName)));
+    }
+
+    /// <summary>
+    /// Награда плит (T16, предложение): crystal × platesCrystalAmount в инвентарь, остаток — на землю
+    /// в dropPosition (центр площадки). Возвращает текст для уведомления или null, если награды нет.
+    /// </summary>
+    public string ApplyPlates(Vector2 dropPosition)
+    {
+        ResourceItem crystal = _config.crystalItem;
+        int amount = _config.platesCrystalAmount;
+        if (crystal == null || amount <= 0)
+        {
+            if (crystal == null)
+                Debug.LogWarning("PuzzleRewards: PuzzleConfig.crystalItem is not assigned — the plates give nothing");
+            return null;
+        }
+
+        return GiveCrystals(crystal, amount, dropPosition, Loc.F("You get {0} {1}.", amount, Loc.T(crystal.DisplayName)));
+    }
+
+    // Кристаллы в инвентарь, остаток — на землю (если у предмета есть worldPrefab). allTakenText — текст,
+    // когда всё влезло
+    private string GiveCrystals(ResourceItem crystal, int amount, Vector2 dropPosition, string allTakenText)
+    {
         int added = _inventory != null ? _inventory.Add(crystal, amount) : 0;
         int left = amount - added;
         int dropped = 0;
@@ -90,7 +116,7 @@ public class PuzzleRewards
         }
 
         string name = Loc.T(crystal.DisplayName);
-        if (left <= 0) return Loc.F("Found {0} {1} in the chest.", amount, name);
+        if (left <= 0) return allTakenText;
         if (dropped > 0)
             return Loc.F("Found {0} {1}: {2} taken, {3} on the ground (inventory is full).", amount, name, added, dropped);
         return Loc.F("Found {0} {1}, but the inventory is full — {2} lost.", amount, name, left);

@@ -9,8 +9,8 @@ using UnityEngine;
 /// check(x, y) / check(obj) / check("direction", [distance]) — что находится в тайле.
 /// Тайл должен быть виден: под туманом (в том числе полупрозрачным, уже исследованным) не проверить.
 /// Головоломки: стена лабиринта — type/structure "wall" и walkable = false (сам тайл проходим, стоит
-/// препятствие с коллайдером), обелиск — "obelisk", центр лабиринта — "chest"; поле puzzle — таблица
-/// головоломки, если тайл в её области.
+/// препятствие с коллайдером), обелиск — "obelisk", центр лабиринта — "chest", плита — "plate" (+ поля plate — номер,
+/// pressed — нажата); поле puzzle — таблица головоломки, если тайл в её области.
 /// </summary>
 public class CheckCommand : PlayerCommandBase
 {
@@ -21,10 +21,11 @@ public class CheckCommand : PlayerCommandBase
         "What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
         "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
         "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-        "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\"), " +
+        "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\"), " +
         "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
         "walkable = false on a maze wall; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
-        "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil";
+        "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; " +
+        "on a pressure plate also plate — its number, and pressed — whether it is pressed";
 
     private const string UsageMessage = "usage: check(x, y), check(obj) or check(direction, [distance])";
 
@@ -140,6 +141,13 @@ public class CheckCommand : PlayerCommandBase
         if (puzzle != null)
             table["puzzle"] = _objectList.BuildPuzzleTable(puzzle);
 
+        // Номер плиты виден только здесь: check(x, y).plate
+        if (puzzle is PlatesPuzzle plates && plates.TryGetPlate(tile, out int plateNumber, out bool platePressed))
+        {
+            table["plate"] = (double)plateNumber;
+            table["pressed"] = platePressed;
+        }
+
         string structureName = GetPuzzleStructureName(puzzle, tile, mazeWall)
             ?? (structure != null ? GetStructureName(structure) : null);
         if (structureName != null)
@@ -156,7 +164,7 @@ public class CheckCommand : PlayerCommandBase
     }
 
     /// <summary>
-    /// Часть головоломки на тайле: "wall" (стена лабиринта), "chest" (центр лабиринта), "obelisk"; иначе null
+    /// Часть головоломки на тайле: "wall" (стена лабиринта), "chest" (центр лабиринта), "obelisk", "plate"; иначе null
     /// (проходы лабиринта — обычные тайлы).
     /// </summary>
     private static string GetPuzzleStructureName(PuzzleStructure puzzle, Vector2Int tile, bool mazeWall)
@@ -164,6 +172,7 @@ public class CheckCommand : PlayerCommandBase
         if (mazeWall) return LuaPuzzles.WallName;
         if (puzzle is MazePuzzle maze && maze.Layout != null && maze.CenterTile == tile) return LuaPuzzles.ChestName;
         if (puzzle is CodeTaskPuzzle) return LuaPuzzles.ObeliskTypeName;
+        if (puzzle is PlatesPuzzle plates && plates.IsPlate(tile)) return LuaPuzzles.PlateName;
         return null;
     }
 

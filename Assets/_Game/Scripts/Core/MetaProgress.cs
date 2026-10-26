@@ -72,6 +72,8 @@ public class MetaProgress
         public bool hintsEnabled = true;
         // Язык интерфейса (Loc): "en" / "ru"; пусто — по языку системы при первом запуске
         public string language = "";
+        // Звук выключен (T09). Флаг «выключен», а не громкость: в старых сохранениях поля нет — false, звук есть
+        public bool soundMuted;
         public int runsFinished;
         public int defeats;
     }
@@ -99,6 +101,13 @@ public class MetaProgress
     {
         get => _data.language ?? "";
         set => _data.language = value ?? "";
+    }
+
+    /// <summary>Звуки обратной связи выключены (переключатель в лагере). Это настройка: ResetAll её сохраняет.</summary>
+    public bool SoundMuted
+    {
+        get => _data.soundMuted;
+        set => _data.soundMuted = value;
     }
 
     public MetaProgress() : this(DefaultFilePath)
@@ -290,9 +299,10 @@ public class MetaProgress
     public bool ResetAll()
     {
         BackupForReset(_filePath, move: false);
-        // Язык — настройка, а не прогресс: переживает сброс
+        // Язык и звук — настройки, а не прогресс: переживают сброс
         string language = Language;
-        _data = new ProgressData { language = language };
+        bool soundMuted = SoundMuted;
+        _data = new ProgressData { language = language, soundMuted = soundMuted };
         return Save();
     }
 

@@ -13,6 +13,12 @@ public interface IEnemyWorld
 
     void DamagePlayer(Enemy attacker, float damage);
 
+    /// <summary>
+    /// Стрелок выпустил снаряд в точку target (позиция игрока в момент выстрела). Урон attacker.Damage —
+    /// при прилёте, если игрок ещё рядом с точкой (RangedEnemyPlanner.IsProjectileHit).
+    /// </summary>
+    void ShootProjectile(Enemy attacker, Vector2 target);
+
     /// <summary>Тайл, содержащий точку, — суша.</summary>
     bool IsWalkable(Vector2 mapPosition);
 

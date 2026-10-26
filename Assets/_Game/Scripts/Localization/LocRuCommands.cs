@@ -46,17 +46,19 @@ public static class LocRuCommands
         ("What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
          "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
          "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\"), " +
+         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\"), " +
          "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
          "walkable = false on a maze wall; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
-         "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil",
+         "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; " +
+         "on a pressure plate also plate — its number, and pressed — whether it is pressed",
          "Что находится в клетке: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
          "(направления как у move, расстояние в клетках, по умолчанию 1, по диагонали — шаги по обеим осям). " +
          "Только клетки без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\"), " +
+         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\", нажимная плита — \"plate\"), " +
          "иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
          "на стене лабиринта walkable = false; objects — массив ресурсов клетки, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
-         "puzzle — головоломка, в область которой входит клетка (как элемент findObjects), или nil"),
+         "puzzle — головоломка, в область которой входит клетка (как элемент findObjects), или nil; " +
+         "на нажимной плите ещё plate — её номер и pressed — нажата ли она"),
 
         ("Craft an item by name (recipes are in the crafting panel). " +
          "Spends the ingredients and the recipe energy. Returns true or false and a reason",
@@ -82,17 +84,17 @@ public static class LocRuCommands
          "или nil и причину (\"already full\" — еда не тратится)"),
 
         ("Array of visible objects of a type: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (dropped); " +
-         "enemies — enemy (all) or goblin; puzzles — obelisk, maze or puzzle (all). " +
+         "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all). " +
          "Without an argument — everything visible, enemies and puzzles included. " +
          $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\" or \"puzzle\"; " +
-         "a maze also has entranceX, entranceY — the tile in front of the entrance). " +
+         "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
          "The array has count and methods for searching, filtering and sorting " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section",
          "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
-         "враги — enemy (все) или goblin; головоломки — obelisk, maze или puzzle (все). " +
+         "враги — enemy (все) или goblin; головоломки — obelisk, maze, plates или puzzle (все). " +
          "Без аргумента — всё, что видно, вместе с врагами и головоломками. " +
          $"У объекта есть поля {FieldsRu} (kind — \"object\", \"enemy\" или \"puzzle\"; " +
-         "у лабиринта ещё entranceX, entranceY — клетка перед входом). " +
+         "у лабиринта ещё entranceX, entranceY — клетка перед входом, у плит — minX, minY, maxX, maxY их площадки). " +
          "У массива есть count и методы для поиска, фильтрации и сортировки " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке"),
 
@@ -169,13 +171,13 @@ public static class LocRuCommands
          $"{PrintCommand.ListPreviewItems} элемента. Строка не длиннее {PrintCommand.MaxLength} символов. " +
          "Внутри цикла оплачивается на каждом проходе"),
 
-        ("Conditions of a nearby puzzle: puzzle(obj) — an obelisk or maze from findObjects/check, puzzle(x, y) — at a point, " +
+        ("Conditions of a nearby puzzle: puzzle(obj) — an obelisk, maze or plates from findObjects/check, puzzle(x, y) — at a point, " +
          "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved } " +
-         "(kind — \"sum\", \"max\", \"count\" or \"maze\"; input — an array of numbers, new on every code run) " +
+         "(kind — \"sum\", \"max\", \"count\", \"maze\" or \"plates\"; input — an array of numbers, new on every code run) " +
          "or nil and a reason. The answer is given with solve(obj, answer)",
-         "Условие головоломки рядом: puzzle(obj) — обелиска или лабиринта из findObjects/check, puzzle(x, y) — в точке, " +
+         "Условие головоломки рядом: puzzle(obj) — обелиска, лабиринта или плит из findObjects/check, puzzle(x, y) — в точке, " +
          "puzzle() — ближайшей в досягаемости (1.5 клетки). Возвращает таблицу { kind, text, input, limit, solved } " +
-         "(kind — \"sum\", \"max\", \"count\" или \"maze\"; input — массив чисел, новый в каждом запуске кода) " +
+         "(kind — \"sum\", \"max\", \"count\", \"maze\" или \"plates\"; input — массив чисел, новый в каждом запуске кода) " +
          "или nil и причину. Ответ отдаётся через solve(obj, answer)"),
 
         ("Answer to an obelisk task from findObjects/check: solve(obj, answer), the player within 1.5 tiles of the obelisk. " +

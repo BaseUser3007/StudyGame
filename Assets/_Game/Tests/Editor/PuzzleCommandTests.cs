@@ -15,6 +15,8 @@ public class PuzzleCommandTests
     private const int ObeliskId = 1;
     private const int MazeId = 2;
     private static readonly Vector2Int MazeOrigin = new Vector2Int(20, 20);
+    private const int PlatesId = 3;
+    private static readonly Vector2Int PlatesOrigin = new Vector2Int(40, 10);
 
     private readonly List<Object> _created = new List<Object>();
     private TestHelpers.LuaHost _lua;
@@ -247,6 +249,75 @@ public class PuzzleCommandTests
         Assert.AreEqual(LuaValueType.Nil, Global("outside").Read<LuaTable>()["puzzle"].Type);
     }
 
+    // ─── Плиты (T16) ──────────────────────────────────────────
+
+    [Test]
+    public void Plates_CheckShowsNumber_FindObjectsHasArea_PuzzleDescribes_SolveRefuses()
+    {
+        PlatesPuzzle plates = CreatePlates();
+        PlayerCommandExecutor executor = CreateExecutor(plates.Origin + new Vector2Int(-1, 2));
+        _player = new Vector2(plates.Origin.x - 1, plates.Origin.y + 2);
+        var fog = new StubFog { Visible = true };
+        new CheckCommand(executor, StubMap.Instance, fog, null, null, null, _manager).Register(_lua.State, _lua.Meter);
+        new FindObjectsCommand(executor, StubMap.Instance, null, null, fog, _manager).Register(_lua.State, _lua.Meter);
+
+        Vector2Int plateTile = plates.Origin + plates.Layout.Tiles[0];
+        Vector2Int emptyTile = FindEmptyPlatesTile(plates);
+        string platesTable = $"{{ kind = \"puzzle\", id = {LuaObjectList.PuzzleIdOffset + PlatesId} }}";
+        _lua.Run($"p = check({plateTile.x}, {plateTile.y}) e = check({emptyTile.x}, {emptyTile.y}) " +
+                 $"list = findObjects(\"plates\") f = list[1] all = findObjects(\"puzzle\").count " +
+                 $"t = puzzle({platesTable}) a, b = solve({platesTable}, 1)");
+
+        LuaTable p = Global("p").Read<LuaTable>();
+        Assert.AreEqual((double)plates.Layout.Numbers[0], p["plate"].Read<double>());
+        Assert.IsFalse(p["pressed"].Read<bool>());
+        Assert.AreEqual(LuaPuzzles.PlateName, p["type"].Read<string>());
+        Assert.IsTrue(p["walkable"].Read<bool>());
+        Assert.AreEqual("plates", p["puzzle"].Read<LuaTable>()["type"].Read<string>());
+
+        LuaTable e = Global("e").Read<LuaTable>();
+        Assert.AreEqual(LuaValueType.Nil, e["plate"].Type, "only plate tiles have a number");
+        Assert.AreEqual("empty", e["type"].Read<string>());
+
+        Assert.AreEqual(1d, Global("list").Read<LuaTable>()["count"].Read<double>());
+        LuaTable f = Global("f").Read<LuaTable>();
+        Assert.AreEqual(LuaObjectList.KindPuzzle, f["kind"].Read<string>());
+        Assert.AreEqual((double)(LuaObjectList.PuzzleIdOffset + PlatesId), f["id"].Read<double>());
+        Assert.AreEqual((double)plates.Origin.x, f["minX"].Read<double>());
+        Assert.AreEqual((double)(plates.Origin.y + PlatesLayout.Size - 1), f["maxY"].Read<double>());
+        Assert.AreEqual(LuaValueType.Nil, f["plate"].Type, "numbers are not in findObjects");
+        Assert.AreEqual(2d, Global("all").Read<double>(), "obelisk + plates");
+
+        LuaTable t = Global("t").Read<LuaTable>();
+        Assert.AreEqual("plates", t["kind"].Read<string>());
+        Assert.AreEqual(LuaPuzzles.PlatesText, t["text"].Read<string>());
+        Assert.AreEqual((double)plates.PlateCount, t["plates"].Read<double>());
+        Assert.AreEqual(0d, t["pressedCount"].Read<double>());
+        Assert.IsFalse(t["solved"].Read<bool>());
+
+        Assert.AreEqual(LuaValueType.Nil, Global("a").Type);
+        Assert.AreEqual(LuaPuzzles.PlatesSolveError, Global("b").Read<string>());
+    }
+
+    [Test]
+    public void Plates_PressedPlate_ShownByCheck()
+    {
+        PlatesPuzzle plates = CreatePlates();
+        PlayerCommandExecutor executor = CreateExecutor(plates.Origin + new Vector2Int(-1, 0));
+        new CheckCommand(executor, StubMap.Instance, new StubFog { Visible = true }, null, null, null, _manager)
+            .Register(_lua.State, _lua.Meter);
+
+        // Наименьший номер — первая плита по порядку
+        int first = 0;
+        for (int i = 1; i < plates.Layout.Count; i++)
+            if (plates.Layout.Numbers[i] < plates.Layout.Numbers[first]) first = i;
+        Vector2Int tile = plates.Origin + plates.Layout.Tiles[first];
+        Assert.IsTrue(_manager.StepOnPlates(plates, tile));
+
+        _lua.Run($"p = check({tile.x}, {tile.y})");
+        Assert.IsTrue(Global("p").Read<LuaTable>()["pressed"].Read<bool>());
+    }
+
     // ─── EnergyCounter ────────────────────────────────────────
 
     [Test]
@@ -282,6 +353,26 @@ public class PuzzleCommandTests
         maze.Setup(MazeId, MazeOrigin + layout.Center);
         _manager.Register(maze);
         return maze;
+    }
+
+    private PlatesPuzzle CreatePlates()
+    {
+        var go = new GameObject("Plates");
+        _created.Add(go);
+        PlatesPuzzle plates = go.AddComponent<PlatesPuzzle>();
+        plates.Setup(PlatesId, PlatesOrigin + PlatesLayout.Center);
+        plates.Build(PlatesLayout.Generate(new System.Random(5)), PlatesOrigin, StubMap.Instance, null);
+        _manager.Register(plates);
+        return plates;
+    }
+
+    private static Vector2Int FindEmptyPlatesTile(PlatesPuzzle plates)
+    {
+        RectInt area = plates.TileArea;
+        for (int x = area.xMin; x < area.xMax; x++)
+            for (int y = area.yMin; y < area.yMax; y++)
+                if (!plates.IsPlate(new Vector2Int(x, y))) return new Vector2Int(x, y);
+        throw new InvalidOperationException("no empty plates tile");
     }
 
     private PlayerCommandExecutor CreateExecutor(Vector2Int tile)

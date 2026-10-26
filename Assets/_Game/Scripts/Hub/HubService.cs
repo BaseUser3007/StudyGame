@@ -166,8 +166,15 @@ public class HubService
     public int GetLevel(HubBuildingDefinition definition)
     {
         PlacedHubBuilding placed = definition != null ? _progress.FindHubBuilding(definition.Id) : null;
-        return placed != null ? placed.Level : 0;
+        return placed != null ? ClampLevel(definition, placed.Level) : 0;
     }
+
+    /// <summary>
+    /// Уровень из сохранения не выше MaxLevel: у постройки могли убрать уровни в ассете
+    /// (иначе карточка показала бы «Уровень 3/2»).
+    /// </summary>
+    private static int ClampLevel(HubBuildingDefinition definition, int level) =>
+        definition != null ? Mathf.Min(level, definition.MaxLevel) : level;
 
     /// <summary>
     /// Можно ли сейчас выбрать постройку для размещения (без учёта клетки): известна, открыта,
@@ -200,9 +207,10 @@ public class HubService
         foreach (PlacedHubBuilding placed in progress.HubBuildings)
         {
             if (placed == null || placed.buildingId == null || !ids.Add(placed.buildingId)) continue;
+            HubBuildingDefinition definition = catalog != null ? catalog.Find(placed.buildingId) : null;
             result.Add(new HubPlacement(
-                placed.buildingId, catalog != null ? catalog.Find(placed.buildingId) : null,
-                new Vector2Int(placed.x, placed.y), placed.Level));
+                placed.buildingId, definition,
+                new Vector2Int(placed.x, placed.y), ClampLevel(definition, placed.Level)));
         }
         return result;
     }

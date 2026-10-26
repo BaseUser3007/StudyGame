@@ -12,7 +12,7 @@ using UnityEngine;
 ///   • Патрули — в начале каждого дня после наступления угрозы (DayCycle.OnDayStarted), под туманом
 ///     у его края (кольцо patrolSpawnMinDistance…MaxDistance от игрока), иначе — подальше от игрока.
 ///   • Время в мире идёт только пока выполняется код игрока (LuaSandbox.OnRunningChanged):
-///     тогда каждый кадр враги делают Tick, между запусками всё стоит.
+///     тогда каждый кадр враги делают Tick, между запусками всё стоит (стрелы лучников — EnemyProjectiles — тоже).
 /// Id врагов — целые с 1 в порядке появления, не повторяются за забег.
 /// Врагов немного (десятки), поэтому запросы — перебором, без индекса по тайлам.
 /// </summary>
@@ -52,6 +52,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
     private readonly List<Collider2D> _overlaps = new List<Collider2D>();
     private readonly List<Vector2> _campCenters = new List<Vector2>();
     private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
+    // Стрелы лучников в полёте: тикают вместе с врагами
+    private readonly EnemyProjectiles _projectiles;
 
     private LuaSandbox _sandbox;
     // Головоломки создаются после врагов — ссылка приходит позже (SetPuzzles); до того проверки нет
@@ -86,6 +88,8 @@ public class EnemyManager : IEnemyWorld, IDisposable
         _dayCycle = dayCycle;
         _spawnEnabled = spawnEnabled;
         _container = new GameObject("Enemies").transform;
+        _projectiles = new EnemyProjectiles(mapData, _container, IsTileVisible, () => PlayerPosition,
+            () => IsPlayerAlive, DamagePlayer, () => WorldScale);
 
         if (_config == null && spawnEnabled)
             Debug.LogWarning("EnemyManager: EnemyConfig не назначен на Level — врагов в забеге не будет");
@@ -224,7 +228,40 @@ public class EnemyManager : IEnemyWorld, IDisposable
 
             if (placed < spec.enemyCount)
                 Debug.LogWarning($"EnemyManager: в лагере поставлено врагов {placed} из {spec.enemyCount}");
+
+            SpawnCampArchers(random, spec.archerCount, center, spawn);
         }
+    }
+
+    /// <summary>
+    /// Стрелки лагеря — сверх enemyCount, после остальных врагов. При archerCount = 0 random не трогается,
+    /// так что старые лагеря с тем же seed не меняются.
+    /// </summary>
+    private void SpawnCampArchers(System.Random random, int count, Vector2 center, Vector2 spawn)
+    {
+        if (count <= 0) return;
+
+        EnemyDefinition archer = _config.campArcher;
+        if (archer == null || archer.prefab == null)
+        {
+            Debug.LogWarning("EnemyManager: в лагере заданы стрелки, но EnemyConfig.campArcher не назначен (или без префаба)");
+            return;
+        }
+
+        int placed = 0;
+        for (int i = 0; i < count; i++)
+            for (int attempt = 0; attempt < PlaceAttempts; attempt++)
+            {
+                Vector2 position = center + RandomInCircle(random, _config.campRadius);
+                if (!IsValidPlacement(archer.prefab, position, spawn, 0f)) continue;
+
+                Spawn(archer, position, patrol: false);
+                placed++;
+                break;
+            }
+
+        if (placed < count)
+            Debug.LogWarning($"EnemyManager: в лагере поставлено стрелков {placed} из {count}");
     }
 
     /// <summary>
@@ -481,7 +518,11 @@ public class EnemyManager : IEnemyWorld, IDisposable
         _clock.Dispose();
         _clock = null;
 
-        if (!_disposed) RefreshVisibility();
+        if (!_disposed)
+        {
+            _projectiles.Clear();
+            RefreshVisibility();
+        }
     }
 
     private async UniTaskVoid RunClockAsync(CancellationToken ct)
@@ -515,6 +556,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
             if (enemy != null && enemy.IsAlive)
                 enemy.Tick(deltaTime);
 
+        _projectiles.Tick(deltaTime);
         RefreshVisibility();
     }
 
@@ -523,6 +565,7 @@ public class EnemyManager : IEnemyWorld, IDisposable
     /// </summary>
     public void RefreshVisibility()
     {
+        _projectiles.RefreshVisibility();
         _visibilityBuffer.Clear();
         _visibilityBuffer.AddRange(_enemies);
 
@@ -610,6 +653,12 @@ public class EnemyManager : IEnemyWorld, IDisposable
 
         _playerHealth.TakeDamage(damage);
         OnPlayerAttacked?.Invoke(attacker, damage);
+    }
+
+    public void ShootProjectile(Enemy attacker, Vector2 target)
+    {
+        if (_disposed) return;
+        _projectiles.Launch(attacker, target);
     }
 
     public bool IsWalkable(Vector2 mapPosition)

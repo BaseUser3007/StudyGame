@@ -13,15 +13,28 @@ public static class LuaPuzzles
     public const string ObeliskTypeName = "obelisk";
     /// <summary>Тип в Lua для лабиринта (PuzzleTypes.Maze).</summary>
     public const string MazeTypeName = "maze";
+    /// <summary>Тип в Lua для площадки с плитами (PuzzleTypes.Plates).</summary>
+    public const string PlatesTypeName = "plates";
     /// <summary>findObjects("puzzle") — все головоломки.</summary>
     public const string AnyTypeName = "puzzle";
 
     /// <summary>Имена в check: стена лабиринта и сундук в его центре.</summary>
     public const string WallName = "wall";
     public const string ChestName = "chest";
+    /// <summary>Имя в check для тайла с плитой (номер — поле plate).</summary>
+    public const string PlateName = "plate";
 
     /// <summary>Условие лабиринта для puzzle(maze).</summary>
     public const string MazeText = "Reach the center of the maze.";
+
+    /// <summary>Условие плит для puzzle(plates).</summary>
+    public const string PlatesText =
+        "Step on the plates in ascending order of their numbers. The plates are in the area minX..maxX, minY..maxY; " +
+        "a plate's number is check(x, y).plate. A wrong plate releases all of them. " +
+        "Each row and each column has at most one plate.";
+
+    /// <summary>solve() на плитах: их решают ногами.</summary>
+    public const string PlatesSolveError = "plates are solved by stepping on them in ascending order of their numbers";
 
     // Насколько далеко от точки может быть край головоломки, если точка не попала в её область
     private const float PickTolerance = 0.5f;
@@ -34,11 +47,12 @@ public static class LuaPuzzles
         if (puzzle == null) return AnyTypeName;
         if (puzzle.TypeId == PuzzleTypes.CodeTask) return ObeliskTypeName;
         if (puzzle.TypeId == PuzzleTypes.Maze) return MazeTypeName;
+        if (puzzle.TypeId == PuzzleTypes.Plates) return PlatesTypeName;
         return puzzle.TypeId;
     }
 
     /// <summary>
-    /// Имя — тип головоломки для findObjects: "obelisk"/"code_task", "maze" или "puzzle" (typeId = null — все).
+    /// Имя — тип головоломки для findObjects: "obelisk"/"code_task", "maze", "plates" или "puzzle" (typeId = null — все).
     /// </summary>
     public static bool TryParseType(string typeName, out string typeId)
     {
@@ -51,12 +65,13 @@ public static class LuaPuzzles
             case ObeliskTypeName:
             case PuzzleTypes.CodeTask: typeId = PuzzleTypes.CodeTask; return true;
             case MazeTypeName: typeId = PuzzleTypes.Maze; return true;
+            case PlatesTypeName: typeId = PuzzleTypes.Plates; return true;
             default: return false;
         }
     }
 
     /// <summary>Имена для подсказки в ошибке findObjects.</summary>
-    public static string KnownTypeNames => $"{ObeliskTypeName}, {PuzzleTypes.CodeTask}, {MazeTypeName}, {AnyTypeName}";
+    public static string KnownTypeNames => $"{ObeliskTypeName}, {PuzzleTypes.CodeTask}, {MazeTypeName}, {PlatesTypeName}, {AnyTypeName}";
 
     // ─── Видимость ────────────────────────────────────────────
 
@@ -167,14 +182,17 @@ public static class LuaPuzzles
             return $"maze wall can't be {action} — find a way around it";
 
         PuzzleStructure puzzle = puzzles.GetPuzzleAt(tile);
+        if (puzzle is PlatesPuzzle plates)
+            return plates.IsPlate(tile) ? Explain(PlateName, puzzle, action) : null;
         return puzzle is CodeTaskPuzzle ? Explain(ObeliskTypeName, puzzle, action) : null;
     }
 
     private static string Explain(string typeName, PuzzleStructure puzzle, string action)
     {
-        string hint = puzzle is MazePuzzle || typeName == MazeTypeName
-            ? "walk to its center"
-            : "use puzzle() and solve()";
+        string hint = puzzle is MazePuzzle || typeName == MazeTypeName ? "walk to its center"
+            : puzzle is PlatesPuzzle || typeName == PlatesTypeName || typeName == PlateName
+                ? "step on the plates in ascending order of their numbers"
+                : "use puzzle() and solve()";
         return $"{typeName} can't be {action} — {hint}";
     }
 
@@ -182,7 +200,8 @@ public static class LuaPuzzles
 
     /// <summary>
     /// Результат puzzle(): { kind, text, input = {..}, limit, solved, id, type }.
-    /// У обелиска kind — "sum"/"max"/"count" (вход — текущего запуска кода), у лабиринта — "maze".
+    /// У обелиска kind — "sum"/"max"/"count" (вход — текущего запуска кода), у лабиринта — "maze",
+    /// у плит — "plates" (+ plates — сколько плит, pressedCount — сколько нажато, minX/minY/maxX/maxY — площадка).
     /// </summary>
     public static LuaTable BuildTaskTable(PuzzleStructure puzzle)
     {
@@ -203,6 +222,15 @@ public static class LuaPuzzles
                 input[i + 1] = (double)task.Input[i];
             table["limit"] = (double)task.Limit;
         }
+        else if (puzzle is PlatesPuzzle plates)
+        {
+            table["kind"] = PlatesTypeName;
+            table["text"] = Loc.T(PlatesText);
+            table["limit"] = 0d;
+            table["plates"] = (double)plates.PlateCount;
+            table["pressedCount"] = (double)(plates.IsSolved ? plates.PlateCount : plates.PressedCount);
+            AddArea(table, plates);
+        }
         else
         {
             table["kind"] = MazeTypeName;
@@ -212,5 +240,15 @@ public static class LuaPuzzles
 
         table["input"] = input;
         return table;
+    }
+
+    /// <summary>Тайлы площадки с плитами: minX, minY, maxX, maxY (включительно) — для обхода check в цикле.</summary>
+    public static void AddArea(LuaTable table, PlatesPuzzle plates)
+    {
+        RectInt area = plates.TileArea;
+        table["minX"] = (double)area.xMin;
+        table["minY"] = (double)area.yMin;
+        table["maxX"] = (double)(area.xMax - 1);
+        table["maxY"] = (double)(area.yMax - 1);
     }
 }

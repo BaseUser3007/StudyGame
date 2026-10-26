@@ -39,16 +39,6 @@ MonoBehaviour:
     effects:
     - type: 1
       amount: 1
-  - cost:
-    - item: {fileID: 11400000, guid: ad1aaa5f4f90415e85b04ff35862c16c, type: 2}
-      amount: 12
-    - item: {fileID: 11400000, guid: a7c5864a5dba5f744b1dc85986538286, type: 2}
-      amount: 5
-    - item: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
-      amount: 6
-    effects:
-    - type: 1
-      amount: 1
   adjacencyBonuses:
   - neighbourId: shrine
     effect: 0

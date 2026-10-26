@@ -21,17 +21,21 @@ MonoBehaviour:
     minDistanceFromSpawn: 15
     valuableInCenter: 0
     leader: {fileID: 0}
+    archerCount: 0
   - enemyCount: 2
     minDistanceFromSpawn: 20
     valuableInCenter: 1
     leader: {fileID: 0}
+    archerCount: 1
   - enemyCount: 3
     minDistanceFromSpawn: 25
     valuableInCenter: 1
     leader: {fileID: 11400000, guid: 9b9642a61ff2a214f8d5aedca0b4d549, type: 2}
+    archerCount: 0
   minCampSpacing: 20
   campRadius: 2
   campValuablePrefab: {fileID: 8439069623718328763, guid: 7833a5862a7a9e7489e08da6d68a400a, type: 3}
+  campArcher: {fileID: 11400000, guid: ed3003160aad049409d3e5039dd99224, type: 2}
   objectSpacing: 0.75
   enemySpacing: 0.8
   patrolsOnThreatDay: 1

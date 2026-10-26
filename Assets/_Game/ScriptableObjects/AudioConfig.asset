@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cc9c49c16d11434d99c61ffd4a8b9c3, type: 3}
+  m_Name: AudioConfig
+  m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
+  masterVolume: 0.7
+  defaultMinInterval: 0.12
+  pitchVariation: 0.06
+  pickup:
+    clip: {fileID: 0}
+    volume: 0.55
+    minInterval: 0
+  mine:
+    clip: {fileID: 0}
+    volume: 0.8
+    minInterval: 0
+  craft:
+    clip: {fileID: 0}
+    volume: 0.7
+    minInterval: 0
+  build:
+    clip: {fileID: 0}
+    volume: 0.8
+    minInterval: 0
+  enemyKilled:
+    clip: {fileID: 0}
+    volume: 0.8
+    minInterval: 0
+  playerHurt:
+    clip: {fileID: 0}
+    volume: 0.8
+    minInterval: 0.2
+  eat:
+    clip: {fileID: 0}
+    volume: 0.7
+    minInterval: 0
+  runSuccess:
+    clip: {fileID: 0}
+    volume: 0.6
+    minInterval: 0.3
+  runError:
+    clip: {fileID: 0}
+    volume: 0.6
+    minInterval: 0.3
+  runOutOfEnergy:
+    clip: {fileID: 0}
+    volume: 0.7
+    minInterval: 0.3
+  achievement:
+    clip: {fileID: 0}
+    volume: 0.8
+    minInterval: 0.5

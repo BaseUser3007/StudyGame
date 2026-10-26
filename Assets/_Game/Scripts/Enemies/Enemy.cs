@@ -14,7 +14,9 @@ public enum EnemyState
     /// <summary>Преследует игрока или атакует его.</summary>
     Chase,
     /// <summary>Возвращается на пост (бросил погоню).</summary>
-    Return
+    Return,
+    /// <summary>Стрелок отходит от игрока, подошедшего слишком близко (RangedEnemyBehaviour).</summary>
+    Retreat
 }
 
 /// <summary>
@@ -26,6 +28,8 @@ public enum EnemyState
 /// точками суши не дальше patrolPointRadius от места появления (стоит patrolWait в каждой) и так же преследует. Движение — по прямой без поиска пути: вода не пускает,
 /// о коллайдеры враг останавливается и скользит вдоль них (Collider2D.Cast, как у игрока).
 /// Под туманом рендереры выключены, но враг действует.
+/// Дальний бой (EnemyDefinition.ranged, лучник) — отдельная стратегия RangedEnemyBehaviour: в бою Enemy отдаёт
+/// ей тик, а она пользуется тем же движением, состоянием и перезарядкой (internal-члены «Strategy API»).
 /// </summary>
 [DisallowMultipleComponent]
 public class Enemy : MonoBehaviour
@@ -62,13 +66,17 @@ public class Enemy : MonoBehaviour
     public float AttackRadius => Stats.AttackRadius;
     public float AttackCooldown => Stats.AttackCooldown;
     public bool IsAlive { get; private set; }
+    /// <summary>Стреляет издалека (EnemyDefinition.ranged) — поведение RangedEnemyBehaviour.</summary>
+    public bool IsRanged => _ranged != null;
     public EnemyState State { get; private set; }
     /// <summary>
-    /// Состояние для Lua: "idle", "patrol" или "chase". Возвращение на пост — "patrol" (идёт спокойно, не гонится).
+    /// Состояние для Lua: "idle", "patrol", "chase" или "retreat" (стрелок отходит). Возвращение на пост — "patrol"
+    /// (идёт спокойно, не гонится).
     /// </summary>
     public string StateName => State switch
     {
         EnemyState.Chase => "chase",
+        EnemyState.Retreat => "retreat",
         EnemyState.Patrol => "patrol",
         EnemyState.Return => "patrol",
         _ => "idle"
@@ -110,6 +118,8 @@ public class Enemy : MonoBehaviour
     private Vector2 _patrolTarget;
     private float _waitTimer;
     private float _stuckTime;
+    // Дальний бой: создаётся в Setup, если вид врага стреляет (пул может выдать префаб другому виду)
+    private RangedEnemyBehaviour _ranged;
 
     // ─── Lifecycle ────────────────────────────────────────────
 
@@ -159,6 +169,13 @@ public class Enemy : MonoBehaviour
         _waitTimer = 0f;
         _stuckTime = 0f;
         WasSeen = false;
+
+        if (stats.IsRanged)
+        {
+            _ranged ??= new RangedEnemyBehaviour(this);
+            _ranged.Reset();
+        }
+        else _ranged = null;
 
         SetPosition(position);
         SetVisible(true);
@@ -232,6 +249,12 @@ public class Enemy : MonoBehaviour
 
         if (ShouldChase(player, toPlayer))
         {
+            if (_ranged != null)
+            {
+                _ranged.Tick(player, deltaTime);
+                return;
+            }
+
             State = EnemyState.Chase;
             ChaseAndAttack(player, toPlayer, deltaTime);
             return;
@@ -239,10 +262,29 @@ public class Enemy : MonoBehaviour
 
         _provoked = false;
         _inAttackRange = false;
+        _ranged?.Reset();
 
         if (IsPatrol) Patrol(deltaTime);
         else ReturnHome(deltaTime);
     }
+
+    // ─── Strategy API (RangedEnemyBehaviour) ──────────────────
+
+    internal IEnemyWorld World => _world;
+
+    /// <summary>Перезарядка/замах до следующего удара или выстрела (секунды игрового времени).</summary>
+    internal float AttackTimer
+    {
+        get => _attackTimer;
+        set => _attackTimer = Mathf.Max(0f, value);
+    }
+
+    /// <summary>Сколько секунд MoveTowards не продвигается.</summary>
+    internal float StuckTime => _stuckTime;
+
+    internal void ResetStuckTime() => _stuckTime = 0f;
+
+    internal void SetState(EnemyState state) => State = state;
 
     // ─── Behaviour ────────────────────────────────────────────
 
@@ -250,8 +292,8 @@ public class Enemy : MonoBehaviour
     {
         if (!_world.IsPlayerAlive) return false;
 
-        // Погоня начинается в радиусе агрессии (или от удара игрока)
-        bool engaged = State == EnemyState.Chase || _provoked;
+        // Погоня начинается в радиусе агрессии (или от удара игрока); отход стрелка — тоже бой
+        bool engaged = State == EnemyState.Chase || State == EnemyState.Retreat || _provoked;
         if (!engaged) return toPlayer <= Stats.AggroRadius;
 
         // Сброс погони: игрок убежал или враг слишком далеко от поста
@@ -351,7 +393,7 @@ public class Enemy : MonoBehaviour
     /// Шаг к цели с постоянной скоростью; возвращает true, если цель достигнута (ближе stopDistance).
     /// Без продвижения копится _stuckTime.
     /// </summary>
-    private bool MoveTowards(Vector2 target, float stopDistance, float speed, float deltaTime)
+    internal bool MoveTowards(Vector2 target, float stopDistance, float speed, float deltaTime)
     {
         Vector2 toTarget = target - Position;
         float distance = toTarget.magnitude;
@@ -465,7 +507,7 @@ public class Enemy : MonoBehaviour
     }
 
     /// <summary>Спрайты Tiny Swords смотрят вправо — поворачиваем по направлению движения.</summary>
-    private void Face(Vector2 direction)
+    internal void Face(Vector2 direction)
     {
         if (Mathf.Abs(direction.x) < 0.01f) return;
         bool flip = direction.x < 0f;
@@ -494,7 +536,7 @@ public class Enemy : MonoBehaviour
         _animator.speed = 0f;
     }
 
-    private void PlayAttackAnimation()
+    internal void PlayAttackAnimation()
     {
         if (_animator == null || !_animator.isActiveAndEnabled) return;
         ResolveAnimatorParameters();

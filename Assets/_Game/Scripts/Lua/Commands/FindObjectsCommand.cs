@@ -8,7 +8,7 @@ using Lua;
 /// findObjects([type]) — ресурсы и враги в поле зрения в виде LuaObjectList.
 /// Враги (тип "enemy" — все, или по EnemyDefinition.enemyId, например "goblin") попадают в список, только
 /// если стоят на видимом тайле (Enemy.IsVisible); погибшие пропускаются. Головоломки ("obelisk"/"code_task",
-/// "maze", "puzzle" — все) — если хоть один тайл их области без тумана; решённые остаются (solved = true).
+/// "maze", "plates", "puzzle" — все) — если хоть один тайл их области без тумана; решённые остаются (solved = true).
 /// Без аргумента — всё сразу.
 /// </summary>
 public class FindObjectsCommand : PlayerCommandBase
@@ -21,10 +21,10 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Signature => "findObjects([type])";
     public override string Description =>
         "Array of visible objects of a type: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (dropped); " +
-        "enemies — enemy (all) or goblin; puzzles — obelisk, maze or puzzle (all). " +
+        "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all). " +
         "Without an argument — everything visible, enemies and puzzles included. " +
         $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\" or \"puzzle\"; " +
-        "a maze also has entranceX, entranceY — the tile in front of the entrance). " +
+        "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
         "The array has count and methods for searching, filtering and sorting " +
         "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section";
 
@@ -62,7 +62,7 @@ public class FindObjectsCommand : PlayerCommandBase
     };
 
     // Типы врагов, известные заранее (для подсказки в ошибке); остальные определяются по EnemyDefinition.enemyId
-    private static readonly string[] KnownEnemyTypes = { "goblin", "goblin_guard" };
+    private static readonly string[] KnownEnemyTypes = { "goblin", "goblin_guard", "archer" };
 
     public FindObjectsCommand(
         PlayerCommandExecutor executor,

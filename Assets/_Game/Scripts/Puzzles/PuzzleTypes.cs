@@ -8,7 +8,9 @@ public static class PuzzleTypes
     public const string CodeTask = "code_task";
     /// <summary>Лабиринт 7×7 с сундуком в центре.</summary>
     public const string Maze = "maze";
+    /// <summary>Площадка 5×5 с плитами: наступить по возрастанию номеров (номера — через check).</summary>
+    public const string Plates = "plates";
 
     /// <summary>Все типы, которые есть в игре (для UnlockRegistry.SetKnownMapEvents).</summary>
-    public static readonly string[] All = { CodeTask, Maze };
+    public static readonly string[] All = { CodeTask, Maze, Plates };
 }

@@ -24,5 +24,35 @@
 
 ## Готово, когда
 - [ ] Включив тип (`unlockedEvents` с `plates`), на карте есть площадка; решается Lua-кодом из примера в PR.
-- [ ] Неверная плита сбрасывает прогресс; решённая головоломка не решается повторно.
-- [ ] Тесты генерации (детерминированность по seed, номера уникальны) и Lua-полей.
+- [x] Неверная плита сбрасывает прогресс; решённая головоломка не решается повторно.
+- [x] Тесты генерации (детерминированность по seed, номера уникальны) и Lua-полей.
+
+## Реализация (Claude, 2026-10-26)
+- `PlatesLayout` (5×5, 4–5 плит, номера 1–30 без повторов, плиты не касаются даже углами, в каждой строке и
+  столбце — не больше одной), `PlatesSequence` (порядок, сброс), `PlatesPuzzle`, `PuzzleConfig.platePrefab` /
+  `platesCount` (0) / `platesMinDistanceFromSpawn` (15) / `platesCrystalAmount` (1).
+- Lua: `check(x, y)` на плите — `type`/`structure` = `"plate"`, `plate` (номер), `pressed`; элемент `findObjects`
+  (`"plates"`, `"puzzle"`) — `minX`/`minY`/`maxX`/`maxY` площадки; `puzzle(obj)` → `kind = "plates"`, `text`,
+  `plates` (сколько), `pressedCount` (сколько нажато), `solved`; `solve()` на плитах — `nil, "plates are solved by stepping…"`.
+- Награда (предложение, ждёт утверждения): `crystal` ×1 в инвентарь, не влезло — на землю в центре площадки.
+
+Пример решения (стоимость ≈ 25 `check` + движение):
+```lua
+local p = findObjects("plates")[1]
+moveTo(p.minX - 1, p.minY)  -- подойти к левому нижнему углу (путь не должен идти через площадку)
+local plates = {}
+for x = p.minX, p.maxX do
+  for y = p.minY, p.maxY do
+    local t = check(x, y)
+    if t and t.plate then plates[#plates + 1] = { x = x, y = y, n = t.plate } end
+  end
+end
+table.sort(plates, function(a, b) return a.n < b.n end)
+local y = p.minY
+for _, pl in ipairs(plates) do
+  moveTo(p.minX - 1, y)     -- по строке прошлой плиты назад к краю
+  moveTo(p.minX - 1, pl.y)  -- вдоль края площадки (снаружи)
+  moveTo(pl.x, pl.y)        -- по строке плиты: других плит в ней нет
+  y = pl.y
+end
+```

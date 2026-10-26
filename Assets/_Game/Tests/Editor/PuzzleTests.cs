@@ -328,7 +328,226 @@ public class PuzzleTests
         }
     }
 
+    // ─── Плиты (T16) ──────────────────────────────────────────
+
+    [Test]
+    public void PlatesLayout_SameSeed_SameLayout()
+    {
+        PlatesLayout a = PlatesLayout.Generate(new System.Random(11));
+        PlatesLayout b = PlatesLayout.Generate(new System.Random(11));
+
+        Assert.AreEqual(a.Count, b.Count);
+        Assert.IsTrue(Equal(a.Numbers, b.Numbers));
+        for (int i = 0; i < a.Count; i++)
+            Assert.AreEqual(a.Tiles[i], b.Tiles[i]);
+    }
+
+    [Test]
+    public void PlatesLayout_UniqueNumbers_ValidTiles_Reachable()
+    {
+        for (int seed = 0; seed < 300; seed++)
+        {
+            PlatesLayout layout = PlatesLayout.Generate(new System.Random(seed));
+
+            Assert.That(layout.Count, Is.InRange(PlatesLayout.MinPlates, PlatesLayout.MaxPlates), $"seed {seed}");
+            CollectionAssert.AllItemsAreUnique(layout.Numbers, $"seed {seed}");
+            foreach (int n in layout.Numbers)
+                Assert.That(n, Is.InRange(1, PlatesLayout.MaxNumber));
+
+            for (int i = 0; i < layout.Count; i++)
+            {
+                Assert.IsTrue(PlatesLayout.InBounds(layout.Tiles[i]));
+                // Плиты не касаются друг друга даже углами
+                for (int j = i + 1; j < layout.Count; j++)
+                {
+                    Vector2Int d = layout.Tiles[i] - layout.Tiles[j];
+                    Assert.IsTrue(Mathf.Abs(d.x) > 1 || Mathf.Abs(d.y) > 1, $"seed {seed}: plates {i} and {j} touch");
+                    // По строке плиты можно пройти от края, не задев другие
+                    Assert.IsTrue(d.x != 0 && d.y != 0, $"seed {seed}: plates {i} and {j} share a row or column");
+                }
+            }
+            Assert.IsTrue(PlatesLayout.AllReachable(layout.Tiles), $"seed {seed}");
+        }
+    }
+
+    [Test]
+    public void PlatesLayout_DifferentSeeds_GiveDifferentLayouts()
+    {
+        PlatesLayout first = PlatesLayout.Generate(new System.Random(1));
+        bool anyDifferent = false;
+        for (int seed = 2; seed < 20 && !anyDifferent; seed++)
+            anyDifferent = !Equal(first.Numbers, PlatesLayout.Generate(new System.Random(seed)).Numbers);
+        Assert.IsTrue(anyDifferent);
+    }
+
+    [Test]
+    public void PlatesSequence_AscendingOrder_WrongPlateResets()
+    {
+        // Индексы: 0 → 17, 1 → 3, 2 → 25, 3 → 9; порядок нажатия: 1, 3, 0, 2
+        var sequence = new PlatesSequence(new[] { 17, 3, 25, 9 });
+        Assert.AreEqual(3, sequence.NextNumber);
+
+        Assert.AreEqual(PlateStepResult.Pressed, sequence.Step(1));
+        Assert.AreEqual(PlateStepResult.AlreadyPressed, sequence.Step(1), "walking over a pressed plate is fine");
+        Assert.AreEqual(PlateStepResult.Pressed, sequence.Step(3));
+        Assert.AreEqual(2, sequence.PressedCount);
+
+        // 25 раньше 17 — сброс всех
+        Assert.AreEqual(PlateStepResult.Reset, sequence.Step(2));
+        Assert.AreEqual(0, sequence.PressedCount);
+        Assert.IsFalse(sequence.IsPressed(1));
+        Assert.AreEqual(3, sequence.NextNumber);
+
+        Assert.AreEqual(PlateStepResult.NotAPlate, sequence.Step(-1));
+        Assert.AreEqual(PlateStepResult.Pressed, sequence.Step(1));
+        Assert.AreEqual(PlateStepResult.Pressed, sequence.Step(3));
+        Assert.AreEqual(PlateStepResult.Pressed, sequence.Step(0));
+        Assert.AreEqual(PlateStepResult.Completed, sequence.Step(2));
+        Assert.IsTrue(sequence.IsCompleted);
+        Assert.AreEqual(-1, sequence.NextNumber);
+        Assert.AreEqual(PlateStepResult.AlreadySolved, sequence.Step(0));
+    }
+
+    [Test]
+    public void PlatesSequence_DuplicateNumbers_Rejected()
+    {
+        Assert.Throws<System.ArgumentException>(() => new PlatesSequence(new[] { 1, 5, 1 }));
+    }
+
+    [Test]
+    public void Manager_Plates_WrongStepResets_OrderSolvesOnce_GivesCrystal()
+    {
+        RewardSetup s = CreateRewards();
+        MaterialResource crystal = TestHelpers.Material("crystal");
+        _created.Add(crystal);
+        s.PuzzleConfig.crystalItem = crystal;
+        var manager = new PuzzleManager(() => Vector2.zero, 1.5f, s.Rewards);
+
+        PlatesPuzzle plates = CreatePlates(manager, new Vector2Int(10, 10), seed: 3);
+        List<Vector2Int> order = PlateTilesInOrder(plates);
+
+        var solved = new List<GameEvent>();
+        void OnEvent(GameEvent e) { if (e.Type == GameEventType.PuzzleSolved) solved.Add(e); }
+        GameEventBus.OnGameEvent += OnEvent;
+        try
+        {
+            // Не на плиту — ничего; вторая по порядку первой — сброс
+            Assert.IsFalse(manager.StepOnPlates(plates, plates.Origin + new Vector2Int(-3, -3)));
+            Assert.IsTrue(manager.StepOnPlates(plates, order[0]));
+            Assert.AreEqual(1, plates.PressedCount);
+            Assert.IsTrue(manager.StepOnPlates(plates, order[2]));
+            Assert.AreEqual(0, plates.PressedCount, "wrong plate releases all");
+
+            // Шаги через шину, как при движении игрока
+            foreach (Vector2Int tile in order)
+                PlayerEventBus.PublishPlayerMoved(tile);
+
+            Assert.IsTrue(plates.IsSolved);
+            Assert.AreEqual(1, solved.Count);
+            Assert.AreEqual(PuzzleTypes.Plates, solved[0].Id);
+            Assert.AreEqual(1, s.Inventory.GetCount(crystal), "reward: crystal ×1 by default");
+
+            // Решена один раз за забег
+            foreach (Vector2Int tile in order)
+                PlayerEventBus.PublishPlayerMoved(tile);
+            Assert.AreEqual(1, solved.Count);
+            Assert.AreEqual(1, s.Inventory.GetCount(crystal));
+            Assert.IsTrue(plates.TryGetPlate(order[0], out _, out bool pressed) && pressed);
+        }
+        finally
+        {
+            GameEventBus.OnGameEvent -= OnEvent;
+            manager.Dispose();
+        }
+    }
+
+    [Test]
+    public void Generator_Plates_DeterministicBySeed_OnlyWhenUnlocked()
+    {
+        PlatesPuzzle a = GeneratePlates(seed: 42, unlocked: true);
+        PlatesPuzzle b = GeneratePlates(seed: 42, unlocked: true);
+
+        Assert.IsNotNull(a);
+        Assert.AreEqual(a.Origin, b.Origin);
+        Assert.IsTrue(Equal(a.Layout.Numbers, b.Layout.Numbers));
+        Assert.AreEqual(PuzzleTypes.Plates, a.TypeId);
+        Assert.GreaterOrEqual(Vector2.Distance(a.Position, Vector2.zero), 15f, "far from spawn");
+        // Без префаба — плиты-квадраты из кода
+        Assert.AreEqual(a.PlateCount, a.GetComponentsInChildren<SpriteRenderer>().Length);
+
+        Assert.IsNull(GeneratePlates(seed: 42, unlocked: false));
+    }
+
     // ─── Helpers ──────────────────────────────────────────────
+
+    private PlatesPuzzle CreatePlates(PuzzleManager manager, Vector2Int origin, int seed)
+    {
+        var go = new GameObject("Plates");
+        _created.Add(go);
+        PlatesPuzzle plates = go.AddComponent<PlatesPuzzle>();
+        plates.Setup(7, origin + PlatesLayout.Center);
+        plates.Build(PlatesLayout.Generate(new System.Random(seed)), origin, GrassMap.Instance, null);
+        manager.Register(plates);
+        return plates;
+    }
+
+    /// <summary>Тайлы плит на карте по возрастанию номеров.</summary>
+    private static List<Vector2Int> PlateTilesInOrder(PlatesPuzzle plates)
+    {
+        var indices = new List<int>();
+        for (int i = 0; i < plates.Layout.Count; i++) indices.Add(i);
+        indices.Sort((x, y) => plates.Layout.Numbers[x].CompareTo(plates.Layout.Numbers[y]));
+
+        var tiles = new List<Vector2Int>();
+        foreach (int i in indices) tiles.Add(plates.Origin + plates.Layout.Tiles[i]);
+        return tiles;
+    }
+
+    private PlatesPuzzle GeneratePlates(int seed, bool unlocked)
+    {
+        var config = ScriptableObject.CreateInstance<PuzzleConfig>();
+        config.mazeCount = 0;
+        config.codeTaskCount = 0;
+        config.platesCount = 1;
+        _created.Add(config);
+
+        var manager = new PuzzleManager(() => Vector2.zero, 1.5f, null);
+        try
+        {
+            PuzzleGenerator.Generate(config, new GrassMap(seed), null, null, null, Vector2Int.zero,
+                id => unlocked && id == PuzzleTypes.Plates, manager, 0);
+
+            // Контейнер "Puzzles" создаётся всегда — убираем после теста
+            foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+                if (root.name == "Puzzles" && !_created.Contains(root))
+                    _created.Add(root);
+            return manager.Puzzles.Count > 0 ? manager.Puzzles[0] as PlatesPuzzle : null;
+        }
+        finally
+        {
+            manager.Dispose();
+        }
+    }
+
+    /// <summary>Карта 64×64 из травы; тайл (x, y) — мировая точка (x, y).</summary>
+    private sealed class GrassMap : IMapDataProvider
+    {
+        public static readonly GrassMap Instance = new GrassMap(1);
+
+        private readonly int _seed;
+        public GrassMap(int seed) { _seed = seed; }
+
+        public int MapWidth => 64;
+        public int MapHeight => 64;
+        public int Seed => _seed;
+        public bool IsWalkable(int x, int y) => IsInBounds(x, y);
+        public bool IsInBounds(int x, int y) => x >= 0 && y >= 0 && x < MapWidth && y < MapHeight;
+        public TileType GetTileType(int x, int y) => TileType.Grass;
+        public Biome GetBiome(int x, int y) => null;
+        public Vector3 TileIndexToWorld(int x, int y) => new Vector3(x, y, 0f);
+        public Vector2Int WorldToTileIndex(Vector3 worldPos) => MapPosition.ToTile(worldPos);
+        public Vector3 MapToWorld(Vector2 mapPos) => new Vector3(mapPos.x, mapPos.y, 0f);
+    }
 
     private static bool Equal(IReadOnlyList<int> a, IReadOnlyList<int> b)
     {

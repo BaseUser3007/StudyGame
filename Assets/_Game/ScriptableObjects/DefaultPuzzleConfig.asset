@@ -30,3 +30,7 @@ MonoBehaviour:
   mazeVisionRadius: 1
   crystalItem: {fileID: 11400000, guid: a7c5864a5dba5f744b1dc85986538286, type: 2}
   crystalAmount: 2
+  platePrefab: {fileID: 3583847470921886768, guid: 61e90fbc67e73e240bc0e9ce5611b893, type: 3}
+  platesCount: 1
+  platesMinDistanceFromSpawn: 15
+  platesCrystalAmount: 1

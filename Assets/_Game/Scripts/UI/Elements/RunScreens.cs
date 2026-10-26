@@ -45,6 +45,7 @@ public class RunScreens : VisualElement
     private Button _btnStartRun;
     private Button _btnHubAchievements;
     private Button _btnHubHints;
+    private Button _btnHubSound;
     private Button _btnHubResetTutorial;
     // Сброс туториала — вторым кликом в течение ResetConfirmMs
     private bool _resetArmed;
@@ -78,6 +79,8 @@ public class RunScreens : VisualElement
     public event Action OnAchievementsRequested;
     /// <summary>Кнопка Hints в лагере — переключить подсказки (сохраняет TutorialController).</summary>
     public event Action OnHintsToggleRequested;
+    /// <summary>Кнопка Sound в лагере — включить/выключить звук (сохраняет AudioFeedback).</summary>
+    public event Action OnSoundToggleRequested;
     /// <summary>Reset tutorial в лагере, подтверждён вторым кликом.</summary>
     public event Action OnResetTutorialRequested;
     /// <summary>Reset progress в лагере, подтверждён вторым кликом (сброс и перезагрузку делает RunController).</summary>
@@ -109,13 +112,14 @@ public class RunScreens : VisualElement
         // UI управляется только мышью — кнопки не должны забирать фокус
         foreach (Button button in new[]
                  {
-                     _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubResetTutorial,
+                     _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubSound, _btnHubResetTutorial,
                      _btnHubResetProgress, _btnHubLanguage,
                      _btnExitConfirm, _btnExitCancel, _btnToHub
                  })
             button.focusable = false;
 
         _btnHubHints.clicked += () => OnHintsToggleRequested?.Invoke();
+        _btnHubSound.clicked += () => OnSoundToggleRequested?.Invoke();
         _btnHubResetTutorial.clicked += HandleResetTutorialClicked;
         _btnHubResetProgress.clicked += HandleResetProgressClicked;
         _btnHubLanguage.clicked += () => OnLanguageToggleRequested?.Invoke();
@@ -140,6 +144,7 @@ public class RunScreens : VisualElement
         _btnStartRun = root.Q<Button>("btn-start-run");
         _btnHubAchievements = root.Q<Button>("btn-hub-achievements");
         _btnHubHints = root.Q<Button>("btn-hub-hints");
+        _btnHubSound = root.Q<Button>("btn-hub-sound");
         _btnHubResetTutorial = root.Q<Button>("btn-hub-reset-tutorial");
         _btnHubResetProgress = root.Q<Button>("btn-hub-reset-progress");
         _btnHubLanguage = root.Q<Button>("btn-hub-language");
@@ -165,7 +170,7 @@ public class RunScreens : VisualElement
         Debug.Assert(_hubScreen != null && _hubStats != null && _hubMaterials != null
                      && _hubMaterialsEmpty != null && _btnStartRun != null && _btnHubAchievements != null,
             "RunScreens: hub elements not found");
-        Debug.Assert(_btnHubHints != null && _btnHubResetTutorial != null && _btnHubResetProgress != null
+        Debug.Assert(_btnHubHints != null && _btnHubSound != null && _btnHubResetTutorial != null && _btnHubResetProgress != null
                      && _btnHubLanguage != null,
             "RunScreens: hub tutorial settings not found");
         Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
@@ -185,6 +190,9 @@ public class RunScreens : VisualElement
 
     /// <summary>Текст кнопки Hints в лагере.</summary>
     public void SetHintsEnabled(bool enabled) => _btnHubHints.text = Loc.T(enabled ? "Hints: On" : "Hints: Off");
+
+    /// <summary>Текст кнопки Sound в лагере.</summary>
+    public void SetSoundEnabled(bool enabled) => _btnHubSound.text = Loc.T(enabled ? "Sound: On" : "Sound: Off");
 
     /// <summary>Элемент экрана по имени (якорь подсказки туториала).</summary>
     public VisualElement FindElement(string name) => this.Q<VisualElement>(name);
