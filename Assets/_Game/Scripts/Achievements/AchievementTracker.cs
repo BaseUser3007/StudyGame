@@ -117,6 +117,19 @@ public class AchievementTracker : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Выполнить достижение сразу (отладочное окно CodeRogue/Debug) — тем же путём, что и по условию:
+    /// награды, сохранение, OnAchievementCompleted. False — id неизвестен или уже выполнено.
+    /// </summary>
+    public bool DebugComplete(string id)
+    {
+        AchievementDefinition definition = Find(id);
+        if (definition == null || IsCompleted(definition)) return false;
+
+        Complete(definition);
+        return true;
+    }
+
     /// <summary>Отписка от шины и запись несохранённого прогресса. Вызывает владелец (Level.OnDestroy).</summary>
     public void Dispose()
     {

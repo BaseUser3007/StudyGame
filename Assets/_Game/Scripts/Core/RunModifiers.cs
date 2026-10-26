@@ -24,7 +24,8 @@ public class RunModifiers
 
     /// <summary>
     /// Параметры забега: база из PlayerConfig + эффекты построек хаба из progress.HubBuildings (на их уровне),
-    /// найденных в catalog (без каталога — только база; постройки не из каталога пропускаются).
+    /// найденных в catalog, + бонусы за соседство построек (T15) (без каталога — только база;
+    /// постройки не из каталога пропускаются).
     /// </summary>
     public static RunModifiers Create(PlayerConfig config, MetaProgress progress, HubBuildingCatalog catalog = null)
     {
@@ -43,7 +44,10 @@ public class RunModifiers
                 modifiers._startingItems.Add(stack);
 
         if (progress != null && catalog != null)
+        {
             modifiers.ApplyHubBuildings(progress, catalog);
+            modifiers.ApplyAdjacencyBonuses(progress, catalog);
+        }
 
         return modifiers;
     }
@@ -87,6 +91,14 @@ public class RunModifiers
                 if (effect != null)
                     Apply(effect);
         }
+    }
+
+    /// <summary>Бонусы за соседство (T15): каждая сработавшая запись — один раз (правило — HubService.GetAdjacencyBonuses).</summary>
+    private void ApplyAdjacencyBonuses(MetaProgress progress, HubBuildingCatalog catalog)
+    {
+        List<HubPlacement> placements = HubService.CollectPlacements(progress, catalog);
+        foreach (HubAdjacencyMatch match in HubService.GetAdjacencyBonuses(placements))
+            Apply(match.ToEffect());
     }
 
     private void Apply(HubBuildingEffect effect)

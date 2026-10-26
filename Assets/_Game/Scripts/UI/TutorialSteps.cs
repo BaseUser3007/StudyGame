@@ -52,6 +52,8 @@ public static class TutorialFacts
     public const string EnemyFound = "enemy_found";
     /// <summary>В лагере поставлена постройка (GameEventBus HubBuildingBuilt).</summary>
     public const string HubBuilt = "hub_built";
+    /// <summary>Нажата End Day, и день закончился (не во время выполнения кода).</summary>
+    public const string DayEndedByButton = "end_day_pressed";
 
     /// <summary>Конструкция была в коде запуска (GameEventBus ConstructUsed), id — из LuaConstructs.</summary>
     public static string ConstructUsed(string constructId) => "construct:" + constructId;
@@ -187,6 +189,19 @@ public static class TutorialSteps
             Text = "Energy is your daily budget. Every command spends it, even failed ones.",
             Done = s => s.HasSince(TutorialFacts.RunFinished), CurrentOnly = true, ShowWhileRunning = true,
             Waiting = "Wait for the code to finish"
+        },
+        // Энергия кончается обычно посреди запуска — предупреждаем сразу, не дожидаясь конца кода. Высокий
+        // приоритет: шаги ниже могут долго ждать своих событий. Закрывается Next, End Day или когда энергии
+        // снова хватает (день закончился, еда) — тогда предупреждение уже не нужно
+        new TutorialStep
+        {
+            Id = "low_energy", Mode = TutorialMode.Run, Anchor = TutorialAnchor.Energy, After = "energy",
+            Requires = s => s.IsEnergyLow,
+            Text = "Energy is almost gone. If a day ends with less than 1 energy, tomorrow's limit is lower. " +
+                   "Press End Day to rest while you still have some.",
+            Done = s => s.HasSince(TutorialFacts.DayEndedByButton) || !s.IsEnergyLow,
+            CurrentOnly = true, AllowNext = true, ShowWhileRunning = true,
+            Waiting = "Press End Day or Next"
         },
         new TutorialStep
         {

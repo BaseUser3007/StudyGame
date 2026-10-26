@@ -46,9 +46,13 @@ public class MineCommand : PlayerCommandBase
         if (context.ArgumentCount == 0 || context.GetArgument(0).Type == LuaValueType.Nil)
             error = _harvester.TryMineNearest();
         else if (HarvestCommand.TryReadPoint(context, out Vector2 point))
-            // Враг — не ресурс: подсказываем attack() вместо «no object at»
-            error = AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined", _puzzles)
-                    ?? _harvester.TryMineAt(point);
+        {
+            // Подвижный объект ищется по id; иначе враг на точке — не ресурс: подсказываем attack() вместо «no object at»
+            int movingId = HarvestCommand.ReadMovingObjectId(context, _objectManager);
+            error = (movingId != 0 ? null
+                        : AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined", _puzzles))
+                    ?? _harvester.TryMineAt(point, movingId);
+        }
         else
             error = "usage: mine(), mine(x, y) or mine(obj)";
 

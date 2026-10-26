@@ -11,6 +11,8 @@ using UnityEngine.UIElements;
 /// Build → HubPlacementController.Begin; во время размещения внизу
 /// подсказка «Click a cell to build · Right click / Esc to cancel». Туда же выводятся уведомления
 /// (их передаёт UIManager через INotificationDisplay) — в лагере верхней панели нет.
+/// Бонусы за соседство (T15): в карточке — «Neighbour bonuses:» (возможные/действующие), при размещении под
+/// подсказкой — строки предпросмотра «+5 energy limit (next to Shrine)» по HubPlacementController.OnPreviewChanged.
 /// Элементы — из шаблона HubPanel.uxml (часть RunScreens.uxml), создаёт CodeEditorManager только в лагере.
 /// </summary>
 public class HubBuildPanel : INotificationDisplay
@@ -30,6 +32,8 @@ public class HubBuildPanel : INotificationDisplay
     private readonly Label _hintTitle;
     private readonly Label _hintText;
     private readonly Label _status;
+    // Бонусы за соседство под призраком (T15): строка подсказки, создаётся кодом (без правки UXML)
+    private readonly Label _adjacency;
     private IVisualElementScheduledItem _statusHide;
 
     /// <param name="root">Корень экрана лагеря (экземпляр HubPanel.uxml).</param>
@@ -50,11 +54,19 @@ public class HubBuildPanel : INotificationDisplay
         ValidateReferences();
         CollectUnlockSources(achievements);
 
+        // Стиль — как у строки уведомления (переносы, по центру), зелёный цвет «успеха»
+        _adjacency = new Label { name = "hub-adjacency", enableRichText = false, pickingMode = PickingMode.Ignore };
+        _adjacency.AddToClassList("hub-status");
+        _adjacency.AddToClassList("hub-status--success");
+        _adjacency.AddToClassList(HiddenClass);
+        _hint.Insert(_hint.IndexOf(_hintText) + 1, _adjacency);
+
         if (_placement != null)
         {
             _placement.OnPlaced += HandlePlaced;
             _placement.OnCancelled += HandleCancelled;
             _placement.OnFailed += HandleFailed;
+            _placement.OnPreviewChanged += HandlePreviewChanged;
         }
 
         if (_hub != null)
@@ -79,6 +91,7 @@ public class HubBuildPanel : INotificationDisplay
             _placement.OnPlaced -= HandlePlaced;
             _placement.OnCancelled -= HandleCancelled;
             _placement.OnFailed -= HandleFailed;
+            _placement.OnPreviewChanged -= HandlePreviewChanged;
         }
 
         if (_hub != null)
@@ -185,10 +198,40 @@ public class HubBuildPanel : INotificationDisplay
             card.Add(CreateCost(definition.GetCost(), showStock: !built));
         }
 
+        AddAdjacencyBonuses(card, definition, built);
+
         card.Add(built
             ? CreateUpgradeFooter(definition, level, upgrade)
             : CreateFooter(definition, availability, placingThis));
         return card;
+    }
+
+    /// <summary>
+    /// Бонусы за соседство (T15): заголовок и строки «+5 energy limit (next to Shrine)» — свои записи постройки
+    /// и записи других построек с её id. Действующие сейчас (обе стоят рядом) — зелёным с пометкой «active»,
+    /// возможные — жёлтым. Нет бонусов — ничего не добавляется.
+    /// </summary>
+    private void AddAdjacencyBonuses(VisualElement card, HubBuildingDefinition definition, bool built)
+    {
+        var possible = _hub.GetPossibleAdjacencyBonuses(definition);
+        if (possible.Count == 0) return;
+
+        List<HubAdjacencyMatch> active = built ? _hub.GetAdjacencyBonuses() : null;
+
+        var title = new Label(Loc.T("Neighbour bonuses:")) { enableRichText = false };
+        title.AddToClassList("hub-card-next");
+        card.Add(title);
+
+        foreach ((HubBuildingDefinition owner, string otherId, HubAdjacencyBonus bonus) in possible)
+        {
+            HubBuildingDefinition other = _hub.Find(otherId);
+            string otherTitle = other != null ? Loc.T(other.Title) : otherId;
+            string line = Loc.F("{0} (next to {1})", bonus.ToEffect().Describe(), otherTitle);
+
+            bool isActive = active != null && active.Exists(m => m.Bonus == bonus && m.Owner.Definition == owner);
+            if (isActive) line = Loc.F("{0} · active", line);
+            card.Add(CreateEffectLabel(line, next: !isActive));
+        }
     }
 
     private static Label CreateEffectLabel(string text, bool next)
@@ -399,6 +442,35 @@ public class HubBuildPanel : INotificationDisplay
 
     private void HandleCancelled() => Refresh();
 
+    /// <summary>Подпись бонусов за соседство под призраком: по строке на бонус или «нет бонуса», если он возможен.</summary>
+    private void HandlePreviewChanged(IReadOnlyList<HubAdjacencyMatch> preview)
+    {
+        _adjacency.text = DescribePreview(preview);
+        RefreshHint();
+    }
+
+    private string DescribePreview(IReadOnlyList<HubAdjacencyMatch> preview)
+    {
+        HubBuildingDefinition selected = _placement != null ? _placement.Selected : null;
+        if (selected == null) return string.Empty;
+
+        if (preview == null || preview.Count == 0)
+        {
+            // «Здесь бонуса нет» — только если у постройки вообще есть бонусы за соседство и призрак стоит
+            // на допустимом месте (на красном призраке подпись не нужна)
+            Vector2Int? cell = _placement.PreviewCell;
+            return cell.HasValue && _hub.CanPlaceAt(selected, cell.Value)
+                   && _hub.GetPossibleAdjacencyBonuses(selected).Count > 0
+                ? Loc.T("No neighbour bonus here")
+                : string.Empty;
+        }
+
+        var lines = new List<string>(preview.Count);
+        foreach (HubAdjacencyMatch match in preview)
+            lines.Add(match.Describe(selected.Id));
+        return string.Join("\n", lines);
+    }
+
     // Место занято / не хватает материалов: причину уже показало уведомление, карточки могли устареть
     private void HandleFailed(HubBuildResult result) => Refresh();
 
@@ -412,6 +484,7 @@ public class HubBuildPanel : INotificationDisplay
         _hintTitle.text = placing ? Loc.F("Placing: {0}", Loc.T(_placement.Selected.Title)) : string.Empty;
         _hintTitle.EnableInClassList(HiddenClass, !placing);
         _hintText.EnableInClassList(HiddenClass, !placing);
+        _adjacency.EnableInClassList(HiddenClass, !placing || string.IsNullOrEmpty(_adjacency.text));
         _hint.EnableInClassList(HiddenClass, !placing && !hasStatus);
     }
 

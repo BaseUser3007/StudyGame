@@ -67,6 +67,26 @@ public class TutorialState
     /// <summary>В лагере уже стоит хоть одна постройка (из сохранения).</summary>
     public bool HasHubBuilding => _progress != null && _progress.HubBuildings.Count > 0;
 
+    /// <summary>Доля энергии, ниже которой туториал предупреждает о её нехватке (шаг low_energy).</summary>
+    public const float LowEnergyFraction = 0.25f;
+
+    /// <summary>
+    /// Текущая энергия и максимум (задаёт CodeEditorManager: значения, которые UIManager передал в TopBar
+    /// из UIEventBus.OnPlayerEnergyChanged). null — энергия неизвестна.
+    /// </summary>
+    public Func<(float current, float max)> Energy { get; set; }
+
+    /// <summary>Энергии осталось меньше LowEnergyFraction от максимума.</summary>
+    public bool IsEnergyLow
+    {
+        get
+        {
+            if (Energy == null) return false;
+            (float current, float max) = Energy();
+            return max > 0f && current < max * LowEnergyFraction;
+        }
+    }
+
     public bool IsStepDone(string stepId) => _progress != null && _progress.HasTutorialFlag(TutorialController.StepFlag(stepId));
 
     // ─── Код ──────────────────────────────────────────────────

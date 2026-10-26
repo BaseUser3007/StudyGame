@@ -28,6 +28,12 @@ public class HubGrid : System.IDisposable
     private static readonly Color GhostInvalidColor = new Color(1f, 0.3f, 0.25f, 0.45f);
     private static readonly Color GhostSpriteTint = new Color(1f, 1f, 1f, 0.65f);
 
+    // Подсветка соседей, рядом с которыми появится бонус за соседство (T15): над постройками, под призраком
+    private const int BonusOrder = GhostAreaOrder - 3;
+    private const float BonusEdge = 0.08f; // толщина рамки, доля клетки
+    private static readonly Color BonusFillColor = new Color(1f, 0.85f, 0.3f, 0.18f);
+    private static readonly Color BonusEdgeColor = new Color(1f, 0.82f, 0.3f, 0.95f);
+
     // Значок уровня (T14): тёмная плашка с золотыми «пипсами» по числу уровней, у правого нижнего угла
     // постройки. Порядок — над спрайтом постройки (+1/+2 к её порядку по основанию)
     private const float BadgePip = 0.14f;      // доли клетки
@@ -54,6 +60,8 @@ public class HubGrid : System.IDisposable
     private GameObject _ghostRoot;
     private SpriteRenderer _ghostArea;
     private SpriteRenderer _ghostSprite;
+    // Пул подсветок соседей-бонусов (T15), дети _ghostRoot
+    private readonly List<GameObject> _bonusHighlights = new List<GameObject>();
 
     /// <summary>Тайл карты, в котором лежит клетка (0,0).</summary>
     public Vector2Int OriginTile => _originTile;
@@ -161,8 +169,19 @@ public class HubGrid : System.IDisposable
 
     // ─── Призрак ──────────────────────────────────────────────
 
-    /// <summary>Показывает призрак постройки с левым нижним углом в cell: зелёный — можно, красный — нельзя.</summary>
-    public void ShowGhost(HubBuildingDefinition definition, Vector2Int cell, bool valid)
+    /// <summary>
+    /// Показывает призрак постройки с левым нижним углом в cell: зелёный — можно, красный — нельзя.
+    /// bonusAreas (T15) — области соседей, рядом с которыми появится бонус за соседство: обводятся золотой
+    /// рамкой с лёгкой заливкой (null/пусто — подсветки нет).
+    /// </summary>
+    public void ShowGhost(HubBuildingDefinition definition, Vector2Int cell, bool valid,
+        IReadOnlyList<RectInt> bonusAreas = null)
+    {
+        ShowGhostArea(definition, cell, valid);
+        ShowBonusHighlights(definition != null ? bonusAreas : null);
+    }
+
+    private void ShowGhostArea(HubBuildingDefinition definition, Vector2Int cell, bool valid)
     {
         if (definition == null)
         {
@@ -192,6 +211,67 @@ public class HubGrid : System.IDisposable
     public void HideGhost()
     {
         if (_ghostRoot != null) _ghostRoot.SetActive(false);
+    }
+
+    /// <summary>
+    /// Подсветка соседей-бонусов: по рамке (4 полосы) и заливке на область; лишние из пула выключаются.
+    /// Живёт под корнем призрака — HideGhost прячет и её.
+    /// </summary>
+    private void ShowBonusHighlights(IReadOnlyList<RectInt> areas)
+    {
+        int count = areas?.Count ?? 0;
+        if (count > 0) EnsureGhost();
+
+        for (int i = 0; i < count; i++)
+        {
+            if (i == _bonusHighlights.Count)
+                _bonusHighlights.Add(CreateBonusHighlight(i));
+
+            GameObject highlight = _bonusHighlights[i];
+            highlight.SetActive(true);
+            LayoutBonusHighlight(highlight.transform, areas[i]);
+        }
+
+        for (int i = count; i < _bonusHighlights.Count; i++)
+            _bonusHighlights[i].SetActive(false);
+    }
+
+    private GameObject CreateBonusHighlight(int index)
+    {
+        var root = new GameObject($"Bonus_{index}");
+        root.transform.SetParent(_ghostRoot.transform, false);
+
+        CreateSquare("Fill", root.transform, BonusFillColor, BonusOrder);
+        for (int side = 0; side < 4; side++)
+            CreateSquare($"Edge_{side}", root.transform, BonusEdgeColor, BonusOrder + 1);
+        return root;
+    }
+
+    /// <summary>Заливка по области и 4 полосы рамки по её краям (порядок детей — как в CreateBonusHighlight).</summary>
+    private void LayoutBonusHighlight(Transform root, RectInt area)
+    {
+        Vector3 center = AreaCenter(area);
+        float width = area.size.x * Mathf.Abs(_cellStep.x);
+        float height = area.size.y * Mathf.Abs(_cellStep.y);
+        float edge = BonusEdge * Mathf.Abs(_cellStep.x);
+
+        root.position = center;
+
+        Transform fill = root.GetChild(0);
+        fill.localPosition = Vector3.zero;
+        fill.localScale = new Vector3(width, height, 1f);
+
+        // низ, верх, лево, право
+        SetBar(root.GetChild(1), new Vector3(0f, -(height - edge) * 0.5f, 0f), new Vector3(width, edge, 1f));
+        SetBar(root.GetChild(2), new Vector3(0f, (height - edge) * 0.5f, 0f), new Vector3(width, edge, 1f));
+        SetBar(root.GetChild(3), new Vector3(-(width - edge) * 0.5f, 0f, 0f), new Vector3(edge, height, 1f));
+        SetBar(root.GetChild(4), new Vector3((width - edge) * 0.5f, 0f, 0f), new Vector3(edge, height, 1f));
+    }
+
+    private static void SetBar(Transform bar, Vector3 localPosition, Vector3 scale)
+    {
+        bar.localPosition = localPosition;
+        bar.localScale = scale;
     }
 
     // ─── Handlers ─────────────────────────────────────────────

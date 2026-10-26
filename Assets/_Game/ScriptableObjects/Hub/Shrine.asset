@@ -47,3 +47,7 @@ MonoBehaviour:
     effects:
     - type: 0
       amount: 15
+  adjacencyBonuses:
+  - neighbourId: healer_hut
+    effect: 0
+    amount: 5

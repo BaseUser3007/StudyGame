@@ -49,3 +49,7 @@ MonoBehaviour:
     effects:
     - type: 3
       amount: 20
+  adjacencyBonuses:
+  - neighbourId: shrine
+    effect: 3
+    amount: 10

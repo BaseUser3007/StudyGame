@@ -39,6 +39,8 @@ public class TopBar : VisualElement
 
     // Цена прохода краснеет, если больше текущего запаса энергии
     private float _currentEnergy = float.MaxValue;
+    // Максимум энергии из последнего UpdateEnergy (0 — ещё не приходил)
+    private float _maxEnergy;
     private float _programCost;
 
     // Флэш полосы здоровья при уроне
@@ -157,6 +159,12 @@ public class TopBar : VisualElement
         _btnHints.EnableInClassList("btn-hints--off", !enabled);
     }
 
+    /// <summary>Текущая энергия из последнего UpdateEnergy (float.MaxValue — ещё не приходила).</summary>
+    public float CurrentEnergy => _currentEnergy;
+
+    /// <summary>Максимум энергии из последнего UpdateEnergy (0 — ещё не приходил).</summary>
+    public float MaxEnergy => _maxEnergy;
+
     /// <summary>Элемент панели по имени (якорь подсказки туториала).</summary>
     public VisualElement FindElement(string name) => this.Q<VisualElement>(name);
 
@@ -259,6 +267,7 @@ public class TopBar : VisualElement
     {
         if (_energyLabel == null) return;
         _currentEnergy = current;
+        _maxEnergy = max;
         _energyLabel.text = Loc.F("Energy: {0} / {1}", current.ToString("0.#"), Mathf.RoundToInt(max));
         RefreshCostWarning();
         TrackEnergyDelta(current, max);

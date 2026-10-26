@@ -365,6 +365,16 @@ public class ObjectGenerator : MonoBehaviour
         list.Add(position);
     }
 
+    /// <summary>
+    /// Объект сдвинулся (ObjectManager.Move): его точка в учёте расстояний переезжает вместе с ним,
+    /// иначе при сборе RemovePosition не найдёт её.
+    /// </summary>
+    public void MovePosition(Vector2 from, Vector2 to)
+    {
+        RemovePosition(from);
+        AddPosition(to);
+    }
+
     private void RemovePosition(Vector2 position)
     {
         if (_positionsByTile.TryGetValue(MapPosition.ToTile(position), out List<Vector2> list))

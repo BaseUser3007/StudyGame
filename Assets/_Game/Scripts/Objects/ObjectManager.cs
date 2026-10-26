@@ -7,10 +7,16 @@ public class ObjectManager : MonoBehaviour
     [SerializeField] private ObjectGenerator objectGenerator;
     [SerializeField] private Transform poolContainer;
 
+    /// <summary>Объект добавлен в индекс (генерация, выброс, добыча на землю).</summary>
+    public event Action<ResourceObject> OnObjectAdded;
+
     private ObjectPool _pool;
+    private IMapDataProvider _mapData;
     // Объекты лежат в свободных точках; индекс — по тайлу, в котором они находятся
     private readonly Dictionary<Vector2Int, List<ResourceObject>> _objectsByTile
         = new Dictionary<Vector2Int, List<ResourceObject>>();
+    // Доступные объекты по id, который видит Lua (GetInstanceID) — объект мог уйти от своей точки (овца)
+    private readonly Dictionary<int, ResourceObject> _objectsById = new Dictionary<int, ResourceObject>();
 
     // ─── Инициализация ────────────────────────────────────────
 
@@ -19,6 +25,7 @@ public class ObjectManager : MonoBehaviour
     {
         ValidateReferences();
 
+        _mapData = mapData;
         _pool = new ObjectPool(poolContainer);
 
         // Подписываемся до генерации, иначе объекты не попадут в индекс
@@ -51,7 +58,9 @@ public class ObjectManager : MonoBehaviour
         }
 
         list.Add(obj);
+        _objectsById[obj.GetInstanceID()] = obj;
         obj.OnConsumed += HandleObjectConsumed;
+        OnObjectAdded?.Invoke(obj);
     }
 
     private void HandleObjectConsumed(ResourceObject obj)
@@ -60,6 +69,7 @@ public class ObjectManager : MonoBehaviour
 
         if (_objectsByTile.TryGetValue(obj.Tile, out List<ResourceObject> list))
             list.Remove(obj);
+        _objectsById.Remove(obj.GetInstanceID());
     }
 
     /// <summary>
@@ -173,6 +183,52 @@ public class ObjectManager : MonoBehaviour
         foreach (ResourceObject obj in buffer)
             obj.Despawn();
         return buffer.Count;
+    }
+
+    /// <summary>
+    /// Доступный объект по id из Lua (GetInstanceID), или null — собран или такого нет.
+    /// </summary>
+    public ResourceObject GetById(int id)
+    {
+        return _objectsById.TryGetValue(id, out ResourceObject obj) && obj != null && obj.IsAvailable ? obj : null;
+    }
+
+    /// <summary>
+    /// Все доступные объекты типа T на карте (без учёта поля зрения).
+    /// </summary>
+    public List<T> GetAll<T>() where T : ResourceObject
+    {
+        var result = new List<T>();
+        foreach (ResourceObject obj in _objectsById.Values)
+            if (obj is T typed && obj.IsAvailable)
+                result.Add(typed);
+        return result;
+    }
+
+    /// <summary>
+    /// Переносит объект в новую точку карты (подвижные объекты — овцы): transform, порядок отрисовки,
+    /// индекс по тайлам и учёт позиций генератора. Проверки места — на вызывающем.
+    /// </summary>
+    public void Move(ResourceObject obj, Vector2 newPosition)
+    {
+        if (obj == null || !obj.IsAvailable || _mapData == null) return;
+
+        Vector2 oldPosition = obj.Position;
+        Vector2Int oldTile = obj.Tile;
+
+        Vector3 world = _mapData.MapToWorld(newPosition);
+        obj.transform.position = new Vector3(world.x, world.y, obj.transform.position.z);
+        obj.SetPosition(newPosition);
+        objectGenerator.MovePosition(oldPosition, newPosition);
+
+        Vector2Int newTile = obj.Tile;
+        if (newTile == oldTile) return;
+
+        if (_objectsByTile.TryGetValue(oldTile, out List<ResourceObject> oldList))
+            oldList.Remove(obj);
+        if (!_objectsByTile.TryGetValue(newTile, out List<ResourceObject> newList))
+            _objectsByTile[newTile] = newList = new List<ResourceObject>();
+        newList.Add(obj);
     }
 
     public List<ResourceObject> GetObjectsByType(Vector2Int center, int radius, Type type)

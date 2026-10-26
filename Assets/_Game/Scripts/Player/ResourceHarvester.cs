@@ -58,9 +58,11 @@ public class ResourceHarvester
     /// <summary>
     /// Подобрать объект, ближайший к точке (не дальше PickTolerance).
     /// </summary>
-    public string TryHarvestAt(Vector2 point)
+    /// <param name="objectId">id объекта из Lua-таблицы (0 — нет): если в точке пусто, а объект ушёл (овца),
+    /// берётся он — и тогда ошибка обычная «object is too far».</param>
+    public string TryHarvestAt(Vector2 point, int objectId = 0)
     {
-        ResourceObject obj = FindAt(point, out string error);
+        ResourceObject obj = FindAt(point, objectId, out string error);
         return obj != null ? TryHarvest(obj) : error;
     }
 
@@ -123,9 +125,10 @@ public class ResourceHarvester
     /// <summary>
     /// Добыть объект, ближайший к точке (не дальше PickTolerance).
     /// </summary>
-    public string TryMineAt(Vector2 point)
+    /// <param name="objectId">id объекта из Lua-таблицы (0 — нет), см. TryHarvestAt.</param>
+    public string TryMineAt(Vector2 point, int objectId = 0)
     {
-        ResourceObject obj = FindAt(point, out string error);
+        ResourceObject obj = FindAt(point, objectId, out string error);
         return obj != null ? TryMine(obj) : error;
     }
 
@@ -188,9 +191,13 @@ public class ResourceHarvester
 
     // ─── Helpers ──────────────────────────────────────────────
 
-    private ResourceObject FindAt(Vector2 point, out string error)
+    private ResourceObject FindAt(Vector2 point, int objectId, out string error)
     {
-        ResourceObject obj = _objectManager.GetNearestObjectAt(point, PickTolerance);
+        // Подвижный объект (овца) мог уйти с точки, где его нашёл findObjects, — сначала по id
+        // (иначе на старой точке мог бы найтись другой объект, например выпавшее мясо)
+        ResourceObject obj = objectId != 0 ? _objectManager.GetById(objectId) : null;
+        if (obj == null)
+            obj = _objectManager.GetNearestObjectAt(point, PickTolerance);
         error = obj == null || obj.Variant == null ? System.FormattableString.Invariant($"no object at ({point.x:0.##}, {point.y:0.##})") : null;
         return error == null ? obj : null;
     }

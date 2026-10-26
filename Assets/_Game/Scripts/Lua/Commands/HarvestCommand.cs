@@ -42,9 +42,13 @@ public class HarvestCommand : PlayerCommandBase
         if (context.ArgumentCount == 0 || context.GetArgument(0).Type == LuaValueType.Nil)
             error = _harvester.TryHarvestNearest();
         else if (TryReadPoint(context, out Vector2 point))
-            // Враг — не ресурс: подсказываем attack() вместо «no object at»
-            error = AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "harvested", _puzzles)
-                    ?? _harvester.TryHarvestAt(point);
+        {
+            // Подвижный объект ищется по id; иначе враг на точке — не ресурс: подсказываем attack() вместо «no object at»
+            int movingId = ReadMovingObjectId(context, _objectManager);
+            error = (movingId != 0 ? null
+                        : AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "harvested", _puzzles))
+                    ?? _harvester.TryHarvestAt(point, movingId);
+        }
         else
             error = "usage: harvest(), harvest(x, y) or harvest(obj)";
 
@@ -83,5 +87,19 @@ public class HarvestCommand : PlayerCommandBase
 
         point = new Vector2((float)x, (float)y);
         return true;
+    }
+
+    /// <summary>
+    /// id подвижного объекта карты (овцы) из таблицы findObjects (kind = "object"), иначе 0: такой объект
+    /// мог уйти со своей точки, поэтому ищется по id, а не по координатам. Только живые подвижные объекты —
+    /// экземпляры остальных переиспользует пул, и старая таблица могла бы попасть в новый объект.
+    /// </summary>
+    public static int ReadMovingObjectId(LuaFunctionExecutionContext context, ObjectManager objectManager)
+    {
+        if (objectManager == null || !context.GetArgument(0).TryRead(out LuaTable table)) return 0;
+        if (!table["kind"].TryRead(out string kind) || kind != LuaObjectList.KindObject) return 0;
+        if (!table["id"].TryRead(out double value)) return 0;
+        int id = (int)value;
+        return objectManager.GetById(id) is SheepObject ? id : 0;
     }
 }

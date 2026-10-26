@@ -115,6 +115,26 @@ public class PlayerCommandExecutor : MonoBehaviour
         OnActionPlayed?.Invoke(kind, world);
     }
 
+    /// <summary>
+    /// Мгновенно переставить персонажа в центр тайла (отладочное окно CodeRogue/Debug).
+    /// Отказ (false) — тайл непроходим или персонаж сейчас идёт; выполняющийся код проверяет вызывающий.
+    /// </summary>
+    public bool Teleport(Vector2Int tile)
+    {
+        if (_mapData == null || !_mapData.IsWalkable(tile.x, tile.y)) return false;
+        if (IsMoving) return false;
+
+        SetPosition(_mapData.TileIndexToWorld(tile.x, tile.y));
+        // Коллайдер персонажа должен сразу оказаться на новом месте (Cast, постройки)
+        Physics2D.SyncTransforms();
+        MoveTarget = transform.position;
+
+        _currentTile = tile;
+        // Туман войны и всё, что следит за тайлом игрока, реагируют на событие
+        PlayerEventBus.PublishPlayerMoved(_currentTile);
+        return true;
+    }
+
     // ─── Private Movement ─────────────────────────────────────
 
     /// <summary>

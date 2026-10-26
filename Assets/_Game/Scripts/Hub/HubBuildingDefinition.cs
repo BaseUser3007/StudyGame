@@ -55,6 +55,28 @@ public class HubBuildingEffect
 }
 
 /// <summary>
+/// Бонус за соседство (T15): если поставленная постройка с id <see cref="neighbourId"/> касается этой
+/// стороной (общий отрезок границы; касание только углом по диагонали не считается), в забеге действует
+/// эффект effect/amount. Каждая запись считается один раз — даже если подходящих соседей несколько
+/// (в срезе каждая постройка стоит в одном экземпляре). От уровня постройки не зависит.
+/// </summary>
+[Serializable]
+public class HubAdjacencyBonus
+{
+    [Tooltip("Id соседней постройки (storage, shrine…), рядом с которой действует бонус")]
+    public string neighbourId;
+    public HubEffectType effect = HubEffectType.EnergyLimit;
+    [Tooltip("Прибавка к параметру забега. Слоты, дни и запуски округляются до целого")]
+    public float amount = 1f;
+
+    /// <summary>Id соседа без пробелов по краям (пусто — запись не действует).</summary>
+    public string NeighbourId => string.IsNullOrWhiteSpace(neighbourId) ? string.Empty : neighbourId.Trim();
+
+    /// <summary>Эффект как у постройки — для RunModifiers и текста UI.</summary>
+    public HubBuildingEffect ToEffect() => new HubBuildingEffect { type = effect, amount = amount };
+}
+
+/// <summary>
 /// Дополнительный уровень постройки хаба (2, 3, …): стоимость улучшения с предыдущего уровня
 /// и эффекты-ПРИБАВКИ этого уровня (складываются с эффектами уровня 1 и всех предыдущих).
 /// </summary>
@@ -104,6 +126,11 @@ public class HubBuildingDefinition : ScriptableObject
              "Пусто — постройка одноуровневая")]
     [SerializeField] private List<HubBuildingLevel> levels = new List<HubBuildingLevel>();
 
+    [Header("Adjacency")]
+    [Tooltip("Бонусы за соседство (T15): действуют, пока рядом (касание стороной) стоит постройка neighbourId. " +
+             "Каждая запись — один раз. Старые ассеты без поля — без бонусов")]
+    [SerializeField] private List<HubAdjacencyBonus> adjacencyBonuses = new List<HubAdjacencyBonus>();
+
     public string Id => string.IsNullOrWhiteSpace(id) ? name : id.Trim();
     public string Title => string.IsNullOrWhiteSpace(title) ? Id : title;
     public string Description => description ?? string.Empty;
@@ -115,6 +142,10 @@ public class HubBuildingDefinition : ScriptableObject
 
     /// <summary>Максимальный уровень: 1 + число дополнительных уровней (старые ассеты без levels — 1).</summary>
     public int MaxLevel => 1 + (levels?.Count ?? 0);
+
+    /// <summary>Бонусы за соседство (сырой список, может содержать null). Логика — HubService.GetAdjacencyBonuses.</summary>
+    public IReadOnlyList<HubAdjacencyBonus> AdjacencyBonuses =>
+        adjacencyBonuses != null ? adjacencyBonuses : (IReadOnlyList<HubAdjacencyBonus>)Array.Empty<HubAdjacencyBonus>();
 
     /// <summary>
     /// Иконка для UI: спрайт определения, иначе первый спрайт префаба.
@@ -243,6 +274,16 @@ public class HubBuildingDefinition : ScriptableObject
                         problems.Add($"level {level}: cost #{c + 1}: '{extra.cost[c].item.name}' is not a material");
             }
 
+        if (adjacencyBonuses != null)
+            for (int i = 0; i < adjacencyBonuses.Count; i++)
+            {
+                HubAdjacencyBonus bonus = adjacencyBonuses[i];
+                if (bonus == null || bonus.NeighbourId.Length == 0)
+                    problems.Add($"adjacency bonus #{i + 1} has no neighbourId");
+                else if (bonus.NeighbourId == Id)
+                    problems.Add($"adjacency bonus #{i + 1} names the building itself — it never applies");
+            }
+
         return problems;
     }
 
@@ -252,6 +293,7 @@ public class HubBuildingDefinition : ScriptableObject
         cost ??= new List<ItemStack>();
         effects ??= new List<HubBuildingEffect>();
         levels ??= new List<HubBuildingLevel>();
+        adjacencyBonuses ??= new List<HubAdjacencyBonus>();
     }
 
     // ─── Helpers ──────────────────────────────────────────────

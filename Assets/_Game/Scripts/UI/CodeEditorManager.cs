@@ -405,6 +405,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _tutorialOverlay = new TutorialOverlay(_runScreens.GetOverlay("tutorial-overlay"), _context.Highlighter);
         var state = new TutorialState(progress, _unlocks, _dayCycle, IsKeywordLocked);
         if (_hubPanel != null) state.HubBuildAvailable = _hubPanel.IsAnyBuildAvailable;
+        // Энергия — то, что UIManager передал в TopBar из UIEventBus (шаг low_energy)
+        state.Energy = GetTopBarEnergy;
         _tutorial = new TutorialController(_tutorialOverlay, progress, state, ResolveTutorialAnchor, IsTutorialBlocked);
         _tutorial.OnHintsChanged += HandleHintsChanged;
         HandleHintsChanged(_tutorial.HintsEnabled);
@@ -419,6 +421,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         UpdateTutorialCode();
         _container.schedule.Execute(StartTutorial);
     }
+
+    private (float current, float max) GetTopBarEnergy() =>
+        _topBar != null ? (_topBar.CurrentEnergy, _topBar.MaxEnergy) : (0f, 0f);
 
     private void StartTutorial()
     {
@@ -1016,7 +1021,12 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private void HandleEndDayRequested()
     {
         if (_dayCycle != null && !_dayCycle.TryEndDay())
+        {
             UIEventBus.PublishNotification(Loc.T("Can't end the day while the code is running"), LogEntryType.Warning);
+            return;
+        }
+
+        _tutorial?.Notify(TutorialFacts.DayEndedByButton);
     }
 
     private void HandleSimulationRequested()

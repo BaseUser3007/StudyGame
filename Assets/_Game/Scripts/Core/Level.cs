@@ -58,6 +58,7 @@ public class Level : MonoBehaviour
     private HubPlacementController _hubPlacement;
     private PuzzleManager _puzzleManager;
     private RunStats _runStats;
+    private SheepWanderSystem _sheepWander;
 
     /// <summary>Достижения этой загрузки сцены (для UI — панель и уведомления).</summary>
     public AchievementTracker AchievementTracker => _achievementTracker;
@@ -76,6 +77,28 @@ public class Level : MonoBehaviour
 
     /// <summary>Головоломки забега (в лагере — пустой список, но не null).</summary>
     public PuzzleManager Puzzles => _puzzleManager;
+
+    // ─── Системы забега для отладочного окна (CodeRogue/Debug) ───
+    private PlayerCommandExecutor _executor;
+    private UnlockRegistry _unlocks;
+    private PlayerEnergy _playerEnergy;
+    private PlayerHealth _playerHealth;
+    private PlayerInventory _inventory;
+    private DayCycle _dayCycle;
+
+    /// <summary>Карта (тайлы, проходимость, перевод координат).</summary>
+    public IMapDataProvider MapData => tilemapGenerator;
+    /// <summary>Персонаж: тайл, позиция, телепорт.</summary>
+    public PlayerCommandExecutor Executor => _executor;
+    /// <summary>Открытия команд/конструкций/рецептов/построек/событий.</summary>
+    public UnlockRegistry Unlocks => _unlocks;
+    public PlayerEnergy Energy => _playerEnergy;
+    public PlayerHealth Health => _playerHealth;
+    /// <summary>Инвентарь забега (в лагере тоже создаётся, но не используется).</summary>
+    public PlayerInventory Inventory => _inventory;
+    public DayCycle DayCycle => _dayCycle;
+    public LuaSandbox Sandbox => luaSandbox;
+    public CodeEditorManager CodeEditorManager => codeEditorManager;
 
     private void Awake()
     {
@@ -129,6 +152,7 @@ public class Level : MonoBehaviour
 
         // 3. Компоненты игрока
         PlayerCommandExecutor executor = player.GetComponent<PlayerCommandExecutor>();
+        _executor = executor;
         executor.Initialize(tilemapGenerator, playerConfig, startTile);
         // Анимация и разворот спрайта (Animator на Visual необязателен)
         player.GetComponent<PlayerAnimator>().Initialize(executor);
@@ -148,6 +172,7 @@ public class Level : MonoBehaviour
         MetaProgress progress = GameSession.Progress;
         RunModifiers modifiers = RunModifiers.Create(playerConfig, progress, hubBuildingCatalog);
         UnlockRegistry unlocks = new UnlockRegistry(unlockConfig, progress);
+        _unlocks = unlocks;
         unlocks.SetKnownRecipes(GetRecipeKeys());
         // Постройки лагеря открываются достижениями и в забеге — каталог нужен в обоих режимах,
         // иначе открытия остаются отложенными (без всплывашки)
@@ -159,6 +184,9 @@ public class Level : MonoBehaviour
         PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);
         PlayerHealth playerHealth = new PlayerHealth(modifiers.MaxHealth);
         PlayerInventory inventory = new PlayerInventory(modifiers.InventorySlots);
+        _playerEnergy = playerEnergy;
+        _playerHealth = playerHealth;
+        _inventory = inventory;
         // Стартовые предметы — не добыча: достижения их не считают
         foreach (ItemStack stack in modifiers.StartingItems)
             inventory.Add(stack.item, stack.amount, recycled: true);
@@ -169,6 +197,7 @@ public class Level : MonoBehaviour
 
         // 9. День: запуски кода, восстановление энергии, штраф/бонус к максимуму
         DayCycle dayCycle = new DayCycle(playerConfig, modifiers, playerEnergy, structures, playerHealth);
+        _dayCycle = dayCycle;
 
         // 9a. Враги и бой: лагеря — только в забеге, после объектов (не ставятся на ресурсы);
         // патрули — по началу дня после угрозы; время врагов идёт, пока выполняется код
@@ -203,6 +232,11 @@ public class Level : MonoBehaviour
             _enemyManager, combat, _puzzleManager);
         dayCycle.Attach(luaSandbox);
         _enemyManager.Attach(luaSandbox);
+        // Овцы бродят около точки появления, пока выполняется код (не в воду, головоломки и лагеря)
+        _sheepWander = new SheepWanderSystem(
+            tilemapGenerator, objectManager, _puzzleManager, _enemyManager.CampCenters,
+            enemyConfig != null ? enemyConfig.campRadius : 0f);
+        _sheepWander.Attach(luaSandbox);
 
         // 10a. Достижения: после песочницы (известны все команды для проверки наград), до UI
         _achievementTracker = new AchievementTracker(achievementCatalog, progress, unlocks, playerEnergy);
@@ -251,6 +285,10 @@ public class Level : MonoBehaviour
         // Останавливает игровое время врагов и отписывается от песочницы и дня
         _enemyManager?.Dispose();
         _enemyManager = null;
+
+        // Останавливает время овец и отписывается от песочницы и ObjectManager
+        _sheepWander?.Dispose();
+        _sheepWander = null;
 
         // Отписка от HubService и runtime-текстура площадки
         _hubGrid?.Dispose();

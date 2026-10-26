@@ -66,6 +66,11 @@ public class HubBuildingCatalog : ScriptableObject
 
             foreach (string problem in definition.Validate())
                 problems.Add($"{definition.name}: {problem}");
+
+            // Бонус за соседство с постройкой не из каталога никогда не сработает (T15)
+            foreach (HubAdjacencyBonus bonus in definition.AdjacencyBonuses)
+                if (bonus != null && bonus.NeighbourId.Length > 0 && Find(bonus.NeighbourId) == null)
+                    problems.Add($"{definition.name}: adjacency neighbour '{bonus.NeighbourId}' is not in the catalog");
         }
 
         return problems;

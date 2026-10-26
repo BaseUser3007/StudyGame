@@ -59,6 +59,39 @@ public readonly struct HubPlacement
 }
 
 /// <summary>
+/// Сработавший бонус за соседство (T15): постройка-владелец записи (Owner), сосед, рядом с которым он
+/// действует, и сам бонус. Owner/Neighbour — из расстановки (или предпросмотра размещения).
+/// </summary>
+public readonly struct HubAdjacencyMatch
+{
+    public readonly HubPlacement Owner;
+    public readonly HubPlacement Neighbour;
+    public readonly HubAdjacencyBonus Bonus;
+
+    public HubAdjacencyMatch(HubPlacement owner, HubPlacement neighbour, HubAdjacencyBonus bonus)
+    {
+        Owner = owner;
+        Neighbour = neighbour;
+        Bonus = bonus;
+    }
+
+    public HubEffectType Effect => Bonus.effect;
+    public float Amount => Bonus.amount;
+    public HubBuildingEffect ToEffect() => Bonus.ToEffect();
+
+    /// <summary>Вторая постройка пары относительно id (для подсказки при размещении: «рядом с кем»).</summary>
+    public HubPlacement Other(string id) => Owner.Id == id ? Neighbour : Owner;
+
+    /// <summary>Строка UI: «+5 energy limit (next to Shrine)», где Shrine — вторая постройка пары относительно id.</summary>
+    public string Describe(string id)
+    {
+        HubPlacement other = Other(id);
+        string title = other.Definition != null ? Loc.T(other.Definition.Title) : other.Id;
+        return Loc.F("{0} (next to {1})", ToEffect().Describe(), title);
+    }
+}
+
+/// <summary>
 /// Логика хаба (этап 4, plain class из Level в режиме Hub): сетка, проверка места, оплата материалами
 /// со склада MetaProgress, запись расстановки и сохранение. Клетки — (0,0) левый нижний угол сетки,
 /// постройка ставится левым нижним углом в cell. Каждая постройка — один раз, без сноса.
@@ -152,12 +185,25 @@ public class HubService
     // ─── Сетка ────────────────────────────────────────────────
 
     /// <summary>Поставленные постройки (из сохранения) с определениями.</summary>
-    public List<HubPlacement> GetPlaced()
+    public List<HubPlacement> GetPlaced() => CollectPlacements(_progress, _catalog);
+
+    /// <summary>
+    /// Расстановка из сохранения с определениями из catalog (null — все без определений). Повторы id
+    /// пропускаются (действует первая запись). Нужна и вне хаба — RunModifiers считает соседство.
+    /// </summary>
+    public static List<HubPlacement> CollectPlacements(MetaProgress progress, HubBuildingCatalog catalog)
     {
         var result = new List<HubPlacement>();
-        foreach (PlacedHubBuilding placed in _progress.HubBuildings)
+        if (progress == null) return result;
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (PlacedHubBuilding placed in progress.HubBuildings)
+        {
+            if (placed == null || placed.buildingId == null || !ids.Add(placed.buildingId)) continue;
             result.Add(new HubPlacement(
-                placed.buildingId, Find(placed.buildingId), new Vector2Int(placed.x, placed.y), placed.Level));
+                placed.buildingId, catalog != null ? catalog.Find(placed.buildingId) : null,
+                new Vector2Int(placed.x, placed.y), placed.Level));
+        }
         return result;
     }
 
@@ -205,6 +251,112 @@ public class HubService
         if (!IsInBounds(definition, cell)) return HubBuildResult.OutOfBounds;
         if (!IsAreaFree(definition, cell)) return HubBuildResult.Occupied;
         return HubBuildResult.Ok;
+    }
+
+    // ─── Соседство (T15) ──────────────────────────────────────
+
+    /// <summary>Сработавшие сейчас бонусы за соседство (по сохранённой расстановке).</summary>
+    public List<HubAdjacencyMatch> GetAdjacencyBonuses() => GetAdjacencyBonuses(GetPlaced());
+
+    /// <summary>
+    /// Бонусы за соседство расстановки placements. Правило: запись adjacencyBonuses постройки P срабатывает,
+    /// если хоть одна другая постройка с id = neighbourId касается P стороной (<see cref="AreSideAdjacent"/>);
+    /// каждая запись считается ОДИН раз, сколько бы подходящих соседей ни было (соседом берётся первый).
+    /// Постройки без определения (нет в каталоге) не дают и не получают бонусов. Чистая логика — для тестов
+    /// и RunModifiers.
+    /// </summary>
+    public static List<HubAdjacencyMatch> GetAdjacencyBonuses(IReadOnlyList<HubPlacement> placements)
+    {
+        var result = new List<HubAdjacencyMatch>();
+        if (placements == null) return result;
+
+        for (int i = 0; i < placements.Count; i++)
+        {
+            HubPlacement owner = placements[i];
+            if (owner.Definition == null) continue;
+
+            foreach (HubAdjacencyBonus bonus in owner.Definition.AdjacencyBonuses)
+            {
+                if (bonus == null) continue;
+                string neighbourId = bonus.NeighbourId;
+                if (neighbourId.Length == 0 || neighbourId == owner.Id) continue;
+
+                for (int j = 0; j < placements.Count; j++)
+                {
+                    HubPlacement neighbour = placements[j];
+                    if (j == i || neighbour.Definition == null || neighbour.Id != neighbourId) continue;
+                    if (!AreSideAdjacent(owner.Area, neighbour.Area)) continue;
+
+                    result.Add(new HubAdjacencyMatch(owner, neighbour, bonus));
+                    break; // запись — один раз
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Предпросмотр для призрака: какие бонусы появятся, если поставить definition левым нижним углом в cell, —
+    /// и те, что получит она сама, и те, что дадут ей уже стоящие соседи (их записи с её id). Пусто, если сюда
+    /// поставить нельзя (вне сетки / занято). Уже стоящая постройка с тем же id в расчёте не участвует.
+    /// </summary>
+    public List<HubAdjacencyMatch> PreviewAdjacencyBonuses(HubBuildingDefinition definition, Vector2Int cell)
+    {
+        var result = new List<HubAdjacencyMatch>();
+        if (definition == null || !CanPlaceAt(definition, cell)) return result;
+
+        string id = definition.Id;
+        var placements = new List<HubPlacement>();
+        foreach (HubPlacement placed in GetPlaced())
+            if (placed.Id != id)
+                placements.Add(placed);
+        placements.Add(new HubPlacement(id, definition, cell));
+
+        foreach (HubAdjacencyMatch match in GetAdjacencyBonuses(placements))
+            if (match.Owner.Id == id || match.Neighbour.Id == id)
+                result.Add(match);
+        return result;
+    }
+
+    /// <summary>
+    /// Все бонусы за соседство, в которых участвует постройка (свои записи и записи других построек каталога
+    /// с её id) — для карточки: (владелец записи, id второй постройки пары, бонус).
+    /// </summary>
+    public List<(HubBuildingDefinition Owner, string OtherId, HubAdjacencyBonus Bonus)> GetPossibleAdjacencyBonuses(
+        HubBuildingDefinition definition)
+    {
+        var result = new List<(HubBuildingDefinition, string, HubAdjacencyBonus)>();
+        if (definition == null) return result;
+
+        string id = definition.Id;
+        foreach (HubAdjacencyBonus bonus in definition.AdjacencyBonuses)
+            if (bonus != null && bonus.NeighbourId.Length > 0 && bonus.NeighbourId != id)
+                result.Add((definition, bonus.NeighbourId, bonus));
+
+        foreach (HubBuildingDefinition other in Definitions)
+        {
+            if (other == null || other == definition || other.Id == id) continue;
+            foreach (HubAdjacencyBonus bonus in other.AdjacencyBonuses)
+                if (bonus != null && bonus.NeighbourId == id)
+                    result.Add((other, other.Id, bonus));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Прямоугольники касаются стороной: не пересекаются и имеют общий отрезок границы ненулевой длины.
+    /// Касание только углом (по диагонали) — нет.
+    /// </summary>
+    public static bool AreSideAdjacent(RectInt a, RectInt b)
+    {
+        bool touchX = a.xMax == b.xMin || b.xMax == a.xMin;
+        bool touchY = a.yMax == b.yMin || b.yMax == a.yMin;
+        int overlapX = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+        int overlapY = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+
+        return (touchX && overlapY > 0) || (touchY && overlapX > 0);
     }
 
     // ─── Постройка ────────────────────────────────────────────

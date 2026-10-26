@@ -596,4 +596,175 @@ public class HubServiceTests
         Assert.AreEqual(12, modifiers.InventorySlots, "level 1 effects only");
         Assert.AreEqual(110f, modifiers.BaseEnergyLimit);
     }
+
+    // ─── Соседство (T15) ──────────────────────────────────────
+
+    private static HubAdjacencyBonus Bonus(string neighbourId, HubEffectType effect, float amount) =>
+        new HubAdjacencyBonus { neighbourId = neighbourId, effect = effect, amount = amount };
+
+    private static void WithAdjacency(HubBuildingDefinition definition, params HubAdjacencyBonus[] bonuses) =>
+        SetPrivate(definition, "adjacencyBonuses", new List<HubAdjacencyBonus>(bonuses));
+
+    private static HubPlacement At(HubBuildingDefinition definition, int x, int y) =>
+        new HubPlacement(definition.Id, definition, new Vector2Int(x, y));
+
+    [Test]
+    public void AreSideAdjacent_SharedEdgeOnly()
+    {
+        var a = new RectInt(0, 0, 2, 2);
+        Assert.IsTrue(HubService.AreSideAdjacent(a, new RectInt(2, 0, 2, 2)), "right side, full edge");
+        Assert.IsTrue(HubService.AreSideAdjacent(a, new RectInt(-1, 0, 1, 2)), "left side");
+        Assert.IsTrue(HubService.AreSideAdjacent(a, new RectInt(0, 2, 2, 2)), "top side");
+        Assert.IsTrue(HubService.AreSideAdjacent(a, new RectInt(1, -2, 2, 2)), "bottom, partial edge (1 cell)");
+        Assert.IsTrue(HubService.AreSideAdjacent(a, new RectInt(2, 1, 1, 2)), "right, partial edge");
+
+        Assert.IsFalse(HubService.AreSideAdjacent(a, new RectInt(2, 2, 2, 2)), "diagonal corner only");
+        Assert.IsFalse(HubService.AreSideAdjacent(a, new RectInt(-1, -1, 1, 1)), "diagonal corner only (bottom-left)");
+        Assert.IsFalse(HubService.AreSideAdjacent(a, new RectInt(3, 0, 2, 2)), "one cell gap");
+        Assert.IsFalse(HubService.AreSideAdjacent(a, new RectInt(1, 1, 2, 2)), "overlapping is not adjacency");
+    }
+
+    [Test]
+    public void Adjacency_SideGivesBonus_DiagonalDoesNot()
+    {
+        WithAdjacency(_healerHut, Bonus("shrine", HubEffectType.MaxHealth, 10));
+
+        List<HubAdjacencyMatch> side = HubService.GetAdjacencyBonuses(
+            new[] { At(_shrine, 0, 0), At(_healerHut, 2, 1) });
+        Assert.AreEqual(1, side.Count);
+        Assert.AreEqual("healer_hut", side[0].Owner.Id, "the entry belongs to the healer's hut");
+        Assert.AreEqual("shrine", side[0].Neighbour.Id);
+        Assert.AreEqual(HubEffectType.MaxHealth, side[0].Effect);
+        Assert.AreEqual(10f, side[0].Amount);
+
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(new[] { At(_shrine, 0, 0), At(_healerHut, 2, 2) }),
+            "diagonal");
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(new[] { At(_shrine, 0, 0), At(_healerHut, 3, 0) }),
+            "gap");
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(new[] { At(_healerHut, 2, 0) }), "alone");
+    }
+
+    [Test]
+    public void Adjacency_MultipleNeighbours_EachEntryOnce()
+    {
+        // storage (2..3, 0..1) получает бонусы от shrine слева и watchtower справа; shrine — свой от storage
+        WithAdjacency(_storage,
+            Bonus("shrine", HubEffectType.EnergyLimit, 5),
+            Bonus("watchtower", HubEffectType.InventorySlots, 1));
+        WithAdjacency(_shrine, Bonus("storage", HubEffectType.MaxHealth, 7));
+
+        List<HubAdjacencyMatch> matches = HubService.GetAdjacencyBonuses(
+            new[] { At(_shrine, 0, 0), At(_storage, 2, 0), At(_watchtower, 4, 0) });
+        Assert.AreEqual(3, matches.Count);
+        Assert.IsTrue(matches.Exists(m => m.Owner.Id == "storage" && m.Neighbour.Id == "shrine"));
+        Assert.IsTrue(matches.Exists(m => m.Owner.Id == "storage" && m.Neighbour.Id == "watchtower"));
+        Assert.IsTrue(matches.Exists(m => m.Owner.Id == "shrine" && m.Neighbour.Id == "storage"));
+
+        // Правило «запись — один раз»: два соседа с одним id (в сохранении невозможно, в чистой логике — да)
+        List<HubAdjacencyMatch> twice = HubService.GetAdjacencyBonuses(
+            new[] { At(_storage, 2, 0), At(_shrine, 0, 0), new HubPlacement("shrine", _shrine, new Vector2Int(4, 0)) });
+        Assert.AreEqual(1, twice.FindAll(m => m.Owner.Id == "storage" && m.Neighbour.Id == "shrine").Count);
+    }
+
+    [Test]
+    public void Adjacency_UnknownBuildingsAndBadEntries_Ignored()
+    {
+        WithAdjacency(_storage, Bonus("old_building", HubEffectType.EnergyLimit, 5), null,
+            Bonus("", HubEffectType.EnergyLimit, 5), Bonus("storage", HubEffectType.EnergyLimit, 5));
+
+        var unknown = new HubPlacement("old_building", null, new Vector2Int(2, 0));
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(new[] { At(_storage, 0, 0), unknown }),
+            "a building missing from the catalog neither gives nor gets bonuses; self/empty ids never apply");
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(null));
+    }
+
+    [Test]
+    public void Adjacency_NoCatalog_NoBonuses()
+    {
+        WithAdjacency(_storage, Bonus("shrine", HubEffectType.EnergyLimit, 5));
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("shrine", new Vector2Int(0, 0));
+        progress.AddHubBuilding("storage", new Vector2Int(2, 0));
+
+        var hub = new HubService(null, progress, unlocks: null);
+        CollectionAssert.IsEmpty(hub.GetAdjacencyBonuses());
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(HubService.CollectPlacements(progress, null)));
+        Assert.AreEqual(100f, RunModifiers.Create(Config(), progress).BaseEnergyLimit, "no catalog — base only");
+    }
+
+    [Test]
+    public void PreviewAdjacency_ReceivedAndGivenBonuses()
+    {
+        // healer_hut получает от shrine; storage даёт бонус, когда рядом healer_hut
+        WithAdjacency(_healerHut, Bonus("shrine", HubEffectType.MaxHealth, 10));
+        WithAdjacency(_storage, Bonus("healer_hut", HubEffectType.InventorySlots, 1));
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("shrine", new Vector2Int(0, 0));
+        progress.AddHubBuilding("storage", new Vector2Int(4, 0));
+        HubService hub = Hub(progress);
+
+        // (2,0): слева shrine, справа storage — оба бонуса
+        List<HubAdjacencyMatch> both = hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(2, 0));
+        Assert.AreEqual(2, both.Count);
+        HubAdjacencyMatch received = both.Find(m => m.Owner.Id == "healer_hut");
+        HubAdjacencyMatch given = both.Find(m => m.Owner.Id == "storage");
+        Assert.AreEqual("shrine", received.Other("healer_hut").Id);
+        Assert.AreEqual("storage", given.Other("healer_hut").Id, "highlight the existing building");
+        Assert.AreEqual(HubEffectType.InventorySlots, given.Effect);
+
+        // (2,2): касается обоих только углом
+        CollectionAssert.IsEmpty(hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(2, 2)));
+        // Занято / вне сетки — пусто
+        CollectionAssert.IsEmpty(hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(1, 0)));
+        CollectionAssert.IsEmpty(hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(7, 0)));
+        CollectionAssert.IsEmpty(hub.PreviewAdjacencyBonuses(null, Vector2Int.zero));
+
+        // Предпросмотр ничего не меняет
+        Assert.AreEqual(2, hub.GetPlaced().Count);
+        CollectionAssert.IsEmpty(hub.GetAdjacencyBonuses());
+    }
+
+    [Test]
+    public void PossibleAdjacency_OwnAndOthersEntries()
+    {
+        WithAdjacency(_healerHut, Bonus("shrine", HubEffectType.MaxHealth, 10));
+        WithAdjacency(_shrine, Bonus("healer_hut", HubEffectType.EnergyLimit, 5));
+        WithAdjacency(_storage, Bonus("watchtower", HubEffectType.InventorySlots, 1));
+        HubService hub = Hub(_saves.Progress());
+
+        var forShrine = hub.GetPossibleAdjacencyBonuses(_shrine);
+        Assert.AreEqual(2, forShrine.Count, "own entry + the healer's hut entry naming the shrine");
+        Assert.IsTrue(forShrine.Exists(p => p.Owner == _shrine && p.OtherId == "healer_hut"));
+        Assert.IsTrue(forShrine.Exists(p => p.Owner == _healerHut && p.OtherId == "healer_hut"));
+        Assert.AreEqual(1, hub.GetPossibleAdjacencyBonuses(_watchtower).Count);
+    }
+
+    [Test]
+    public void RunModifiers_AdjacencyBonusesApplied()
+    {
+        WithAdjacency(_storage, Bonus("watchtower", HubEffectType.InventorySlots, 1));
+        WithAdjacency(_healerHut, Bonus("shrine", HubEffectType.MaxHealth, 10));
+        WithAdjacency(_shrine, Bonus("healer_hut", HubEffectType.EnergyLimit, 5));
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", new Vector2Int(0, 0));
+        progress.AddHubBuilding("watchtower", new Vector2Int(2, 0));
+        progress.AddHubBuilding("shrine", new Vector2Int(3, 0));
+        progress.AddHubBuilding("healer_hut", new Vector2Int(5, 2)); // к shrine только углом
+
+        RunModifiers modifiers = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(13, modifiers.InventorySlots, "10 + storage 2 + next to watchtower 1");
+        Assert.AreEqual(110f, modifiers.BaseEnergyLimit, "diagonal healer's hut — no shrine bonus");
+        Assert.AreEqual(125f, modifiers.MaxHealth, "diagonal — no healer bonus");
+        Assert.AreEqual(4, modifiers.ThreatDay);
+
+        // Хижина вплотную справа от святилища — оба взаимных бонуса
+        PlacedHubBuilding healer = progress.FindHubBuilding("healer_hut");
+        healer.x = 5;
+        healer.y = 1;
+        modifiers = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(115f, modifiers.BaseEnergyLimit);
+        Assert.AreEqual(135f, modifiers.MaxHealth);
+
+        Assert.AreEqual(10, RunModifiers.Create(Config(), progress).InventorySlots, "no catalog — base only");
+    }
 }
