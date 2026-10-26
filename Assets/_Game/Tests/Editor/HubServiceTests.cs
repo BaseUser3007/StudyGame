@@ -106,6 +106,20 @@ public class HubServiceTests
         return definition;
     }
 
+    private static HubBuildingLevel Level(ItemStack[] cost, params HubBuildingEffect[] effects) =>
+        new HubBuildingLevel { cost = new List<ItemStack>(cost), effects = new List<HubBuildingEffect>(effects) };
+
+    /// <summary>Добавляет постройке уровни 2, 3, … (T14).</summary>
+    private static void WithLevels(HubBuildingDefinition definition, params HubBuildingLevel[] levels) =>
+        SetPrivate(definition, "levels", new List<HubBuildingLevel>(levels));
+
+    /// <summary>Склад: уровень 2 — 10 log + 2 crystal, +1 слот и +5 энергии; уровень 3 — 3 gold, +2 слота.</summary>
+    private void StorageWithLevels() =>
+        WithLevels(_storage,
+            Level(new[] { Stack(_log, 10), Stack(_crystal, 2) },
+                Effect(HubEffectType.InventorySlots, 1), Effect(HubEffectType.EnergyLimit, 5)),
+            Level(new[] { Stack(_gold, 3) }, Effect(HubEffectType.InventorySlots, 2)));
+
     private HubBuildingCatalog Catalog(params HubBuildingDefinition[] buildings)
     {
         HubBuildingCatalog catalog = Track(ScriptableObject.CreateInstance<HubBuildingCatalog>());
@@ -426,5 +440,160 @@ public class HubServiceTests
         {
             tracker.Dispose();
         }
+    }
+
+    // ─── Уровни (T14) ─────────────────────────────────────────
+
+    [Test]
+    public void Levels_CostAndCumulativeEffects()
+    {
+        Assert.AreEqual(1, _shrine.MaxLevel, "no levels — single-level building");
+        CollectionAssert.IsEmpty(_shrine.GetCost(2));
+
+        StorageWithLevels();
+        Assert.AreEqual(3, _storage.MaxLevel);
+        Assert.AreEqual(2, _storage.GetCost(1).Count, "level 1 = the building cost");
+        List<HubBuildingCost> cost2 = _storage.GetCost(2);
+        Assert.AreEqual(2, cost2.Count);
+        Assert.AreEqual("log", cost2[0].Key);
+        Assert.AreEqual(10, cost2[0].Amount);
+        Assert.AreEqual("crystal", cost2[1].Key);
+        CollectionAssert.IsEmpty(_storage.GetCost(4));
+
+        // Эффекты уровней — прибавки, итог складывается по типам
+        List<HubBuildingEffect> level3 = _storage.GetEffects(3);
+        Assert.AreEqual(2, level3.Count);
+        Assert.AreEqual(HubEffectType.InventorySlots, level3[0].type);
+        Assert.AreEqual(5f, level3[0].amount, "2 + 1 + 2 slots");
+        Assert.AreEqual(HubEffectType.EnergyLimit, level3[1].type);
+        Assert.AreEqual(5f, level3[1].amount);
+        Assert.AreEqual(2f, _storage.GetEffects(1)[0].amount);
+        Assert.AreEqual(5f, _storage.GetEffects(99)[0].amount, "level is clamped to MaxLevel");
+        Assert.AreEqual(2f, ((List<HubBuildingEffect>)_storage.Effects)[0].amount, "totals don't touch the asset");
+    }
+
+    [Test]
+    public void CheckUpgrade_NotBuilt_MaxLevel_SingleLevel()
+    {
+        StorageWithLevels();
+        HubService hub = Hub(_saves.Progress(), (_log, 100), (_stick, 100), (_stone, 100), (_crystal, 10), (_gold, 10));
+
+        Assert.AreEqual(HubUpgradeResult.NotBuilt, hub.CheckUpgrade(_storage));
+        Assert.AreEqual(0, hub.GetLevel(_storage));
+        Assert.AreEqual(HubUpgradeResult.Unknown, hub.CheckUpgrade(null));
+
+        Assert.AreEqual(HubBuildResult.Ok, hub.TryBuild(_storage, Vector2Int.zero));
+        Assert.AreEqual(1, hub.GetLevel(_storage));
+        Assert.IsTrue(hub.CanUpgrade(_storage));
+        Assert.AreEqual(HubUpgradeResult.Ok, hub.TryUpgrade(_storage));
+        Assert.AreEqual(HubUpgradeResult.Ok, hub.TryUpgrade(_storage));
+        Assert.AreEqual(3, hub.GetLevel(_storage));
+        Assert.AreEqual(HubUpgradeResult.MaxLevel, hub.TryUpgrade(_storage));
+
+        Assert.AreEqual(HubBuildResult.Ok, hub.TryBuild(_shrine, new Vector2Int(2, 0)));
+        Assert.AreEqual(HubUpgradeResult.MaxLevel, hub.CheckUpgrade(_shrine), "single-level building");
+    }
+
+    [Test]
+    public void TryUpgrade_NotAffordable_ChangesNothing()
+    {
+        StorageWithLevels();
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", Vector2Int.zero);
+        HubService hub = Hub(progress, (_log, 10), (_crystal, 1));
+        _events.Clear();
+        int upgraded = 0;
+        hub.OnUpgraded += (definition, level) => upgraded++;
+
+        Assert.AreEqual(HubUpgradeResult.NotAffordable, hub.CheckUpgrade(_storage), "1 crystal of 2");
+        Assert.AreEqual(HubUpgradeResult.NotAffordable, hub.TryUpgrade(_storage));
+        Assert.AreEqual(10, hub.GetStored("log"));
+        Assert.AreEqual(1, hub.GetStored("crystal"));
+        Assert.AreEqual(1, hub.GetLevel(_storage));
+        Assert.AreEqual(0, upgraded);
+        CollectionAssert.IsEmpty(_events);
+    }
+
+    [Test]
+    public void TryUpgrade_TakesCost_SavesLevel_PublishesEvent()
+    {
+        StorageWithLevels();
+        HubService hub = Hub(_saves.Progress(), (_log, 20), (_stick, 4), (_crystal, 3));
+        Assert.AreEqual(HubBuildResult.Ok, hub.TryBuild(_storage, new Vector2Int(1, 1)));
+        _events.Clear();
+        var upgraded = new List<(HubBuildingDefinition, int)>();
+        hub.OnUpgraded += (definition, level) => upgraded.Add((definition, level));
+
+        Assert.AreEqual(HubUpgradeResult.Ok, hub.TryUpgrade(_storage));
+
+        Assert.AreEqual(4, hub.GetStored("log"), "20 − 6 (build) − 10 (level 2)");
+        Assert.AreEqual(1, hub.GetStored("crystal"));
+        Assert.AreEqual(1, _events.Count);
+        Assert.AreEqual(GameEventType.HubBuildingUpgraded, _events[0].Type);
+        Assert.AreEqual("storage", _events[0].Id);
+        Assert.AreEqual(2, _events[0].Amount, "Amount = new level");
+        Assert.AreEqual(1, upgraded.Count);
+        Assert.AreSame(_storage, upgraded[0].Item1);
+        Assert.AreEqual(2, upgraded[0].Item2);
+
+        // Перезапуск: новый MetaProgress читает файл — уровень, место и склад сохранены
+        MetaProgress reloaded = _saves.Progress();
+        PlacedHubBuilding placed = reloaded.FindHubBuilding("storage");
+        Assert.AreEqual(2, placed.Level);
+        Assert.AreEqual(1, placed.x);
+        Assert.AreEqual(1, placed.y);
+        Assert.AreEqual(4, reloaded.GetMaterialCount("log"));
+        Assert.AreEqual(1, reloaded.GetMaterialCount("crystal"));
+        Assert.AreEqual(2, new HubService(_catalog, reloaded, unlocks: null).GetPlaced()[0].Level);
+    }
+
+    [Test]
+    public void RunModifiers_UseEffectsOfCurrentLevel()
+    {
+        StorageWithLevels();
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", Vector2Int.zero);
+        progress.AddHubBuilding("shrine", new Vector2Int(2, 0));
+
+        RunModifiers level1 = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(12, level1.InventorySlots);
+        Assert.AreEqual(110f, level1.BaseEnergyLimit, "shrine only");
+
+        progress.FindHubBuilding("storage").level = 2;
+        RunModifiers level2 = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(13, level2.InventorySlots);
+        Assert.AreEqual(115f, level2.BaseEnergyLimit, "shrine +10, storage level 2 +5");
+
+        progress.FindHubBuilding("storage").level = 3;
+        RunModifiers level3 = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(15, level3.InventorySlots);
+        Assert.AreEqual(115f, level3.BaseEnergyLimit);
+
+        // Уровень выше максимума (ассет укоротили) — эффекты максимального
+        progress.FindHubBuilding("storage").level = 7;
+        Assert.AreEqual(15, RunModifiers.Create(Config(), progress, _catalog).InventorySlots);
+    }
+
+    [Test]
+    public void Load_OldSaveWithoutLevel_IsLevelOne()
+    {
+        StorageWithLevels();
+        File.WriteAllText(_saves.PathOf("meta_progress.json"), @"{
+    ""hubBuildings"": [
+        { ""buildingId"": ""storage"", ""x"": 1, ""y"": 2 },
+        { ""buildingId"": ""shrine"", ""x"": 4, ""y"": 0, ""level"": 0 }
+    ]
+}");
+        MetaProgress progress = _saves.Progress();
+        Assert.AreEqual(1, progress.FindHubBuilding("storage").Level, "missing field");
+        Assert.AreEqual(1, progress.FindHubBuilding("shrine").Level, "0 is treated as 1");
+
+        HubService hub = Hub(progress, (_log, 10), (_crystal, 2));
+        Assert.AreEqual(1, hub.GetLevel(_storage));
+        Assert.AreEqual(HubUpgradeResult.Ok, hub.CheckUpgrade(_storage), "old building can be upgraded to level 2");
+
+        RunModifiers modifiers = RunModifiers.Create(Config(), progress, _catalog);
+        Assert.AreEqual(12, modifiers.InventorySlots, "level 1 effects only");
+        Assert.AreEqual(110f, modifiers.BaseEnergyLimit);
     }
 }

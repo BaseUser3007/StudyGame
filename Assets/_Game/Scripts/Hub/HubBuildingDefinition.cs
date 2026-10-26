@@ -55,6 +55,19 @@ public class HubBuildingEffect
 }
 
 /// <summary>
+/// Дополнительный уровень постройки хаба (2, 3, …): стоимость улучшения с предыдущего уровня
+/// и эффекты-ПРИБАВКИ этого уровня (складываются с эффектами уровня 1 и всех предыдущих).
+/// </summary>
+[Serializable]
+public class HubBuildingLevel
+{
+    [Tooltip("Материалы склада хаба за улучшение до этого уровня (ключ — itemId, иначе имя ассета)")]
+    public List<ItemStack> cost = new List<ItemStack>();
+    [Tooltip("Прибавка этого уровня к эффектам предыдущих (не итог)")]
+    public List<HubBuildingEffect> effects = new List<HubBuildingEffect>();
+}
+
+/// <summary>
 /// Определение постройки хаба (этап 4): id (ключ в MetaProgress — не меняйте после выпуска), название,
 /// описание, вид, размер на сетке, стоимость в материалах склада хаба и эффекты на следующие забеги.
 /// Открывается наградой достижения (AchievementRewardKind.HubBuilding с этим id).
@@ -86,13 +99,22 @@ public class HubBuildingDefinition : ScriptableObject
     [SerializeField] private List<ItemStack> cost = new List<ItemStack>();
     [SerializeField] private List<HubBuildingEffect> effects = new List<HubBuildingEffect>();
 
+    [Header("Levels")]
+    [Tooltip("Уровни 2, 3, …: стоимость улучшения и ПРИБАВКА эффектов уровня. Уровень 1 — cost/effects выше. " +
+             "Пусто — постройка одноуровневая")]
+    [SerializeField] private List<HubBuildingLevel> levels = new List<HubBuildingLevel>();
+
     public string Id => string.IsNullOrWhiteSpace(id) ? name : id.Trim();
     public string Title => string.IsNullOrWhiteSpace(title) ? Id : title;
     public string Description => description ?? string.Empty;
     public Sprite Sprite => sprite;
     public GameObject Prefab => prefab;
     public Vector2Int Size => new Vector2Int(Mathf.Max(1, size.x), Mathf.Max(1, size.y));
+    /// <summary>Эффекты уровня 1 (сырой список). Итог для уровня — <see cref="GetEffects(int)"/>.</summary>
     public IReadOnlyList<HubBuildingEffect> Effects => effects;
+
+    /// <summary>Максимальный уровень: 1 + число дополнительных уровней (старые ассеты без levels — 1).</summary>
+    public int MaxLevel => 1 + (levels?.Count ?? 0);
 
     /// <summary>
     /// Иконка для UI: спрайт определения, иначе первый спрайт префаба.
@@ -112,35 +134,68 @@ public class HubBuildingDefinition : ScriptableObject
 
     // ─── Стоимость ────────────────────────────────────────────
 
+    /// <summary>Стоимость постройки (уровень 1) — то же, что <c>GetCost(1)</c>.</summary>
+    public List<HubBuildingCost> GetCost() => GetCost(1);
+
     /// <summary>
-    /// Стоимость без пустых строк, с объединёнными дублями — (ключ склада, предмет, количество).
-    /// Ключ — <see cref="MetaProgress.GetItemKey"/>, как у склада хаба. Используйте только это, а не сырой список.
+    /// Стоимость получения уровня level: 1 — постройка, 2+ — улучшение с level − 1. Без пустых строк,
+    /// с объединёнными дублями — (ключ склада, предмет, количество). Ключ — <see cref="MetaProgress.GetItemKey"/>,
+    /// как у склада хаба. Уровень вне 1..MaxLevel — пустой список. Используйте только это, а не сырые списки.
     /// </summary>
-    public List<HubBuildingCost> GetCost()
+    public List<HubBuildingCost> GetCost(int level) =>
+        MergeCost(level == 1 ? cost : GetExtraLevel(level)?.cost);
+
+    // ─── Эффекты ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Эффекты-прибавки одного уровня (1 — базовые effects, 2+ — из levels), для UI «что даст улучшение».
+    /// Уровень вне 1..MaxLevel — пусто.
+    /// </summary>
+    public IReadOnlyList<HubBuildingEffect> GetLevelEffects(int level)
     {
-        var result = new List<HubBuildingCost>();
-        if (cost == null) return result;
+        List<HubBuildingEffect> list = level == 1 ? effects : GetExtraLevel(level)?.effects;
+        return list != null ? list : (IReadOnlyList<HubBuildingEffect>)Array.Empty<HubBuildingEffect>();
+    }
 
-        foreach (ItemStack stack in cost)
-        {
-            if (stack.item == null || stack.amount <= 0) continue;
+    /// <summary>
+    /// Итоговые эффекты постройки уровня level: прибавки уровней 1..level сложены, по одному элементу
+    /// на тип (в порядке первого появления; целые параметры округляются уже от суммы). level зажимается
+    /// в 1..MaxLevel. Это читает RunModifiers. Возвращает новые объекты — менять их можно.
+    /// </summary>
+    public List<HubBuildingEffect> GetEffects(int level)
+    {
+        level = Mathf.Clamp(level, 1, MaxLevel);
+        var result = new List<HubBuildingEffect>();
 
-            string key = MetaProgress.GetItemKey(stack.item);
-            int index = result.FindIndex(c => c.Key == key);
-            if (index >= 0)
-                result[index] = new HubBuildingCost(key, result[index].Item, result[index].Amount + stack.amount);
-            else
-                result.Add(new HubBuildingCost(key, stack.item, stack.amount));
-        }
+        for (int l = 1; l <= level; l++)
+            foreach (HubBuildingEffect effect in GetLevelEffects(l))
+            {
+                if (effect == null) continue;
+
+                HubBuildingEffect total = result.Find(e => e.type == effect.type);
+                if (total != null)
+                    total.amount += effect.amount;
+                else
+                    result.Add(new HubBuildingEffect { type = effect.type, amount = effect.amount });
+            }
 
         return result;
     }
 
-    /// <summary>Строки эффектов для UI ("+2 inventory slot(s)").</summary>
-    public IEnumerable<string> DescribeEffects()
+    /// <summary>Строки эффектов уровня 1 для UI ("+2 inventory slot(s)").</summary>
+    public IEnumerable<string> DescribeEffects() => DescribeEffects(1);
+
+    /// <summary>Строки итоговых эффектов уровня level для UI.</summary>
+    public IEnumerable<string> DescribeEffects(int level)
     {
-        if (effects == null) yield break;
-        foreach (HubBuildingEffect effect in effects)
+        foreach (HubBuildingEffect effect in GetEffects(level))
+            yield return effect.Describe();
+    }
+
+    /// <summary>Строки прибавки одного уровня для UI ("+10 energy limit").</summary>
+    public IEnumerable<string> DescribeLevelEffects(int level)
+    {
+        foreach (HubBuildingEffect effect in GetLevelEffects(level))
             if (effect != null)
                 yield return effect.Describe();
     }
@@ -166,6 +221,28 @@ public class HubBuildingDefinition : ScriptableObject
                 else if (!cost[i].item.IsMaterial)
                     problems.Add($"cost #{i + 1}: '{cost[i].item.name}' is not a material — it never reaches the hub stock");
 
+        if (levels != null)
+            for (int i = 0; i < levels.Count; i++)
+            {
+                int level = i + 2;
+                HubBuildingLevel extra = levels[i];
+                if (extra == null)
+                {
+                    problems.Add($"level {level} is empty");
+                    continue;
+                }
+
+                if (GetCost(level).Count == 0) problems.Add($"level {level}: cost is empty — the upgrade is free");
+                if (extra.effects == null || extra.effects.Count == 0) problems.Add($"level {level}: no effects");
+                if (extra.cost == null) continue;
+
+                for (int c = 0; c < extra.cost.Count; c++)
+                    if (extra.cost[c].item == null)
+                        problems.Add($"level {level}: cost #{c + 1} has no item");
+                    else if (!extra.cost[c].item.IsMaterial)
+                        problems.Add($"level {level}: cost #{c + 1}: '{extra.cost[c].item.name}' is not a material");
+            }
+
         return problems;
     }
 
@@ -174,6 +251,37 @@ public class HubBuildingDefinition : ScriptableObject
         size = new Vector2Int(Mathf.Max(1, size.x), Mathf.Max(1, size.y));
         cost ??= new List<ItemStack>();
         effects ??= new List<HubBuildingEffect>();
+        levels ??= new List<HubBuildingLevel>();
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────
+
+    /// <summary>Дополнительный уровень (2, 3, …) или null.</summary>
+    private HubBuildingLevel GetExtraLevel(int level)
+    {
+        int index = level - 2;
+        return levels != null && index >= 0 && index < levels.Count ? levels[index] : null;
+    }
+
+    /// <summary>Строки стоимости без пустых, дубли одного предмета сложены.</summary>
+    private static List<HubBuildingCost> MergeCost(List<ItemStack> stacks)
+    {
+        var result = new List<HubBuildingCost>();
+        if (stacks == null) return result;
+
+        foreach (ItemStack stack in stacks)
+        {
+            if (stack.item == null || stack.amount <= 0) continue;
+
+            string key = MetaProgress.GetItemKey(stack.item);
+            int index = result.FindIndex(c => c.Key == key);
+            if (index >= 0)
+                result[index] = new HubBuildingCost(key, result[index].Item, result[index].Amount + stack.amount);
+            else
+                result.Add(new HubBuildingCost(key, stack.item, stack.amount));
+        }
+
+        return result;
     }
 }
 

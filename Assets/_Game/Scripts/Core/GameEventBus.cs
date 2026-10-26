@@ -50,7 +50,9 @@ public enum GameEventType
     /// <summary>Этап 3–5: съедена еда. Id — ключ предмета.</summary>
     FoodEaten,
     /// <summary>Этап 4: поставлена постройка хаба (HubService.TryBuild). Id — id постройки, Amount — 1.</summary>
-    HubBuildingBuilt
+    HubBuildingBuilt,
+    /// <summary>T14: постройка хаба улучшена (HubService.TryUpgrade). Id — id постройки, Amount — новый уровень.</summary>
+    HubBuildingUpgraded
 }
 
 /// <summary>

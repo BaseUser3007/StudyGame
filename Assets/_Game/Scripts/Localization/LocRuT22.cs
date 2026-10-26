@@ -10,7 +10,7 @@ public static class LocRuT22
         ("Copy to the clipboard to share", "Скопировать в буфер обмена, чтобы поделиться"),
         ("Copied", "Скопировано"),
         ("The clipboard is empty", "Буфер обмена пуст"),
-        ("The text is too long: {0} characters (at most {1})", "Текст слишком длинный: {0} символов (не больше {1})"),
+        ("The text is too long: {0} characters (at most {1})", "Текст слишком длинный: символов — {0} (максимум {1})"),
         ("Saved: {0}", "Сохранено: {0}"),
     };
 }

@@ -863,6 +863,40 @@ public class CodeEditor
         _breakpoints.RemoveWhere(line => !costs.TryGetValue(line, out float cost) || cost <= 0f);
     }
 
+    /// <summary>Индекс первого символа строки (1..); за последней строкой — длина кода.</summary>
+    private static int GetLineStart(string code, int line)
+    {
+        int index = 0;
+        for (int current = 1; current < line; current++)
+        {
+            int newline = code.IndexOf('\n', index);
+            if (newline < 0) return code.Length;
+            index = newline + 1;
+        }
+        return index;
+    }
+
+    /// <summary>
+    /// Прокрутка поля так, чтобы строка была видна (если уже видна — не трогаем);
+    /// координаты — как у полосы выполняемой строки.
+    /// </summary>
+    private void ScrollToLine(int line)
+    {
+        float lineHeight = GetLineHeight();
+        float viewport = _scrollView.contentViewport.layout.height;
+        if (lineHeight <= 0f || float.IsNaN(viewport) || viewport <= 0f) return;
+
+        IResolvedStyle s = _textElement.resolvedStyle;
+        float top = _textElement.layout.y + s.borderTopWidth + s.paddingTop + (line - 1) * lineHeight;
+        Vector2 offset = _scrollView.scrollOffset;
+        if (top >= offset.y && top + lineHeight <= offset.y + viewport) return;
+
+        // Строку — примерно в середину видимой области
+        offset.y = Mathf.Max(0f, top - (viewport - lineHeight) * 0.5f);
+        offset.x = 0f;
+        _scrollView.scrollOffset = offset;
+    }
+
     private static int CountLines(string code)
     {
         int lines = 1;
@@ -932,6 +966,41 @@ public class CodeEditor
         _activeLinePaused = paused && line > 0;
         UpdateGutters(Code);
         PositionActiveLineBar();
+    }
+
+    /// <summary>
+    /// Переход к строке (клик по месту ошибки в логе): курсор — на первый непробельный символ
+    /// строки, без выделения (одно нажатие клавиши не должно стереть строку), поле получает фокус,
+    /// строка прокручивается в видимую область. Номер за пределами кода прижимается к границам.
+    /// </summary>
+    public void GoToLine(int line)
+    {
+        if (_codeField == null) return;
+
+        string code = Code;
+        line = Mathf.Clamp(line, 1, CountLines(code));
+        int start = GetLineStart(code, line);
+        int cursor = start;
+        while (cursor < code.Length && (code[cursor] == ' ' || code[cursor] == '\t'))
+            cursor++;
+
+        _popup.Hide();
+
+        // Фокус от клика по логу — это тоже действие мышью: разрешаем его так же, как RestoreFocus
+        // (FocusIn без этого флага поле сбросит). Клавиатурная навигация сюда не попадает.
+        _focusedByMouse = true;
+        if (_codeField.focusController?.focusedElement != _codeField)
+            _codeField.Focus();
+        // Фокус не взялся (окно скрыто) — флаг не должен пропустить следующий фокус не от мыши
+        if (_codeField.focusController?.focusedElement != _codeField)
+            _focusedByMouse = false;
+
+        // Поле применяет позицию курсора с задержкой — через _pendingCursor, как после правки
+        _pendingCursor = cursor;
+        _pendingSelect = -1;
+        _codeField.SelectRange(cursor, cursor);
+        _codeField.schedule.Execute(ConfirmPendingCursor);
+        _codeField.schedule.Execute(() => ScrollToLine(line));
     }
 
     /// <summary>Стоит ли точка останова на строке.</summary>

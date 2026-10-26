@@ -13,6 +13,8 @@ public static class DepthSorting
     public const int BackOrder = 100;
     /// <summary>Всё, что должно быть поверх любых объектов (туман войны).</summary>
     public const int OverlayOrder = 2000;
+    /// <summary>Всплывающие надписи (цифры урона): выше любых объектов, ниже тумана.</summary>
+    public const int FloatingTextOrder = 1500;
 
     private static float _minWorldY;
     private static float _maxWorldY;

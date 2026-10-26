@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Мировая часть хаба (этап 4, plain class из Level в режиме Hub): площадка с клетками сетки поверх
-/// сгенерированной карты, спрайты поставленных построек и призрак размещения.
+/// сгенерированной карты, спрайты поставленных построек, значки их уровня (2+) и призрак размещения.
 /// Клетка (0,0) — левый нижний угол сетки, лежит в тайле карты <see cref="OriginTile"/>; одна клетка — один тайл.
 /// Площадка рисуется своими спрайтами поверх земли/воды (порядок ниже объектов 100–1000), поэтому вода
 /// под ней не мешает; объекты и туман над площадкой убирает Level.
@@ -28,6 +28,15 @@ public class HubGrid : System.IDisposable
     private static readonly Color GhostInvalidColor = new Color(1f, 0.3f, 0.25f, 0.45f);
     private static readonly Color GhostSpriteTint = new Color(1f, 1f, 1f, 0.65f);
 
+    // Значок уровня (T14): тёмная плашка с золотыми «пипсами» по числу уровней, у правого нижнего угла
+    // постройки. Порядок — над спрайтом постройки (+1/+2 к её порядку по основанию)
+    private const float BadgePip = 0.14f;      // доли клетки
+    private const float BadgeGap = 0.06f;
+    private const float BadgePadding = 0.05f;
+    private const float BadgeLift = 0.22f;     // подъём центра плашки над основанием
+    private static readonly Color BadgePlateColor = new Color(0.1f, 0.08f, 0.06f, 0.9f);
+    private static readonly Color BadgePipColor = new Color(1f, 0.82f, 0.3f, 1f);
+
     private readonly IMapDataProvider _mapData;
     private readonly HubService _hub;
     private readonly Material _spriteMaterial;
@@ -39,6 +48,8 @@ public class HubGrid : System.IDisposable
     private readonly Texture2D _texture;
     private readonly Sprite _square;
     private readonly Dictionary<string, GameObject> _buildingViews = new Dictionary<string, GameObject>();
+    // id постройки → значок уровня (только у уровня 2+)
+    private readonly Dictionary<string, GameObject> _levelBadges = new Dictionary<string, GameObject>();
 
     private GameObject _ghostRoot;
     private SpriteRenderer _ghostArea;
@@ -83,11 +94,13 @@ public class HubGrid : System.IDisposable
             CreateBuildingView(placed);
 
         _hub.OnBuilt += HandleBuilt;
+        _hub.OnUpgraded += HandleUpgraded;
     }
 
     public void Dispose()
     {
         _hub.OnBuilt -= HandleBuilt;
+        _hub.OnUpgraded -= HandleUpgraded;
 
         if (_root != null) Object.Destroy(_root);
         if (_square != null) Object.Destroy(_square);
@@ -186,7 +199,17 @@ public class HubGrid : System.IDisposable
     private void HandleBuilt(HubBuildingDefinition definition, Vector2Int cell)
     {
         HideGhost();
-        CreateBuildingView(new HubPlacement(definition.Id, definition, cell));
+        CreateBuildingView(new HubPlacement(definition.Id, definition, cell, _hub.GetLevel(definition)));
+    }
+
+    private void HandleUpgraded(HubBuildingDefinition definition, int level)
+    {
+        foreach (HubPlacement placed in _hub.GetPlaced())
+            if (placed.Id == definition.Id)
+            {
+                UpdateLevelBadge(placed);
+                return;
+            }
     }
 
     // ─── Отрисовка ────────────────────────────────────────────
@@ -258,6 +281,57 @@ public class HubGrid : System.IDisposable
         depth.Refresh();
 
         _buildingViews[placed.Id] = view;
+        UpdateLevelBadge(placed);
+    }
+
+    /// <summary>
+    /// Значок уровня постройки: плашка с placed.Level золотыми квадратиками у правого нижнего угла области.
+    /// Уровень 1 — без значка. Отдельный объект (не дочерний вида), чтобы DepthSortedSprite вида не
+    /// перезаписал его порядок; порядок — по основанию постройки +1/+2.
+    /// </summary>
+    private void UpdateLevelBadge(HubPlacement placed)
+    {
+        if (string.IsNullOrEmpty(placed.Id)) return;
+
+        if (_levelBadges.TryGetValue(placed.Id, out GameObject old))
+        {
+            if (old != null) Object.Destroy(old);
+            _levelBadges.Remove(placed.Id);
+        }
+
+        int level = placed.Level;
+        if (level < 2) return;
+
+        RectInt area = placed.Area;
+        float cell = Mathf.Abs(_cellStep.x);
+        float pip = BadgePip * cell;
+        float gap = BadgeGap * cell;
+        float padding = BadgePadding * cell;
+        float width = level * pip + (level - 1) * gap + padding * 2f;
+        float height = pip + padding * 2f;
+
+        Vector3 bottom = AreaBottomCenter(area);
+        float right = bottom.x + area.size.x * cell * 0.5f;
+        var center = new Vector3(right - width * 0.5f - padding, bottom.y + BadgeLift * Mathf.Abs(_cellStep.y), bottom.z);
+        int order = DepthSorting.GetOrder(bottom.y);
+
+        var badge = new GameObject($"{placed.Id}_Level{level}");
+        badge.transform.SetParent(_buildingsRoot, false);
+        badge.transform.position = center;
+
+        SpriteRenderer plate = CreateSquare("Plate", badge.transform, BadgePlateColor, order + 1);
+        plate.transform.localPosition = Vector3.zero;
+        plate.transform.localScale = new Vector3(width, height, 1f);
+
+        float x = -width * 0.5f + padding + pip * 0.5f;
+        for (int i = 0; i < level; i++, x += pip + gap)
+        {
+            SpriteRenderer dot = CreateSquare($"Pip{i + 1}", badge.transform, BadgePipColor, order + 2);
+            dot.transform.localPosition = new Vector3(x, 0f, 0f);
+            dot.transform.localScale = new Vector3(pip, pip, 1f);
+        }
+
+        _levelBadges[placed.Id] = badge;
     }
 
     private void EnsureGhost()

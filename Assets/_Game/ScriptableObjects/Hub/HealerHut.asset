@@ -28,3 +28,24 @@ MonoBehaviour:
   effects:
   - type: 3
     amount: 25
+  levels:
+  - cost:
+    - item: {fileID: 11400000, guid: f65700c717ab8fa4589e0c7a1f8fa961, type: 2}
+      amount: 8
+    - item: {fileID: 11400000, guid: 2c8f1bead1764530bc429718b1b60ecb, type: 2}
+      amount: 6
+    - item: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
+      amount: 6
+    effects:
+    - type: 3
+      amount: 15
+  - cost:
+    - item: {fileID: 11400000, guid: f65700c717ab8fa4589e0c7a1f8fa961, type: 2}
+      amount: 10
+    - item: {fileID: 11400000, guid: a7c5864a5dba5f744b1dc85986538286, type: 2}
+      amount: 3
+    - item: {fileID: 11400000, guid: 15b91cf9e0f54f54f8bcfb41bc7f27c4, type: 2}
+      amount: 8
+    effects:
+    - type: 3
+      amount: 20

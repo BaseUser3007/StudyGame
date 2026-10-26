@@ -6,7 +6,9 @@ using UnityEngine.UIElements;
 /// <summary>
 /// Панель построек лагеря (этап 4): карточки HubService.Definitions — иконка, название, размер, описание,
 /// эффекты, стоимость с иконками «есть/нужно» и состояние (Locked с достижением, которое открывает,
-/// Built, Not enough materials). Build → HubPlacementController.Begin; во время размещения внизу
+/// Built, Not enough materials). У построенной многоуровневой (T14) — «Level N/M», итог текущего уровня,
+/// прибавка и стоимость следующего и кнопка Upgrade (HubService.TryUpgrade; на максимуме кнопки нет).
+/// Build → HubPlacementController.Begin; во время размещения внизу
 /// подсказка «Click a cell to build · Right click / Esc to cancel». Туда же выводятся уведомления
 /// (их передаёт UIManager через INotificationDisplay) — в лагере верхней панели нет.
 /// Элементы — из шаблона HubPanel.uxml (часть RunScreens.uxml), создаёт CodeEditorManager только в лагере.
@@ -55,6 +57,9 @@ public class HubBuildPanel : INotificationDisplay
             _placement.OnFailed += HandleFailed;
         }
 
+        if (_hub != null)
+            _hub.OnUpgraded += HandleUpgraded;
+
         Refresh();
     }
 
@@ -75,6 +80,9 @@ public class HubBuildPanel : INotificationDisplay
             _placement.OnCancelled -= HandleCancelled;
             _placement.OnFailed -= HandleFailed;
         }
+
+        if (_hub != null)
+            _hub.OnUpgraded -= HandleUpgraded;
 
         _statusHide?.Pause();
         _statusHide = null;
@@ -135,14 +143,20 @@ public class HubBuildPanel : INotificationDisplay
         bool built = availability == HubBuildResult.AlreadyBuilt;
         bool placingThis = _placement != null && _placement.IsPlacing && _placement.Selected == definition;
 
+        // Уровень: у построенной — текущий, иначе постройка даёт уровень 1
+        int level = built ? _hub.GetLevel(definition) : 1;
+        bool upgradable = built && level < definition.MaxLevel;
+        HubUpgradeResult upgrade = built ? _hub.CheckUpgrade(definition) : HubUpgradeResult.NotBuilt;
+
         var card = new VisualElement();
         card.AddToClassList("hub-card");
-        card.EnableInClassList("hub-card--ready", availability == HubBuildResult.Ok);
+        card.EnableInClassList("hub-card--ready",
+            availability == HubBuildResult.Ok || upgrade == HubUpgradeResult.Ok);
         card.EnableInClassList("hub-card--built", built);
         card.EnableInClassList("hub-card--locked", availability == HubBuildResult.Locked);
         card.EnableInClassList("hub-card--placing", placingThis);
 
-        card.Add(CreateHeader(definition));
+        card.Add(CreateHeader(definition, built ? level : 0));
 
         if (!string.IsNullOrWhiteSpace(definition.Description))
         {
@@ -151,19 +165,42 @@ public class HubBuildPanel : INotificationDisplay
             card.Add(description);
         }
 
-        foreach (string effect in definition.DescribeEffects())
+        // Итог текущего уровня (у непостроенной — уровня 1)
+        foreach (string effect in definition.DescribeEffects(level))
+            card.Add(CreateEffectLabel(effect, next: false));
+
+        if (upgradable)
         {
-            var effectLabel = new Label(effect) { enableRichText = false };
-            effectLabel.AddToClassList("hub-card-effect");
-            card.Add(effectLabel);
+            // Что добавит следующий уровень и сколько он стоит (чипы «есть/нужно», как у постройки)
+            var nextTitle = new Label(Loc.F("Level {0} adds:", level + 1)) { enableRichText = false };
+            nextTitle.AddToClassList("hub-card-next");
+            card.Add(nextTitle);
+            foreach (string effect in definition.DescribeLevelEffects(level + 1))
+                card.Add(CreateEffectLabel(effect, next: true));
+            card.Add(CreateCost(definition.GetCost(level + 1), showStock: true));
+        }
+        else if (!built || definition.MaxLevel == 1)
+        {
+            // Непостроенная — цена с запасом склада; одноуровневая построенная — просто цена, как раньше
+            card.Add(CreateCost(definition.GetCost(), showStock: !built));
         }
 
-        card.Add(CreateCost(definition, built));
-        card.Add(CreateFooter(definition, availability, placingThis));
+        card.Add(built
+            ? CreateUpgradeFooter(definition, level, upgrade)
+            : CreateFooter(definition, availability, placingThis));
         return card;
     }
 
-    private static VisualElement CreateHeader(HubBuildingDefinition definition)
+    private static Label CreateEffectLabel(string text, bool next)
+    {
+        var label = new Label(text) { enableRichText = false };
+        label.AddToClassList("hub-card-effect");
+        label.EnableInClassList("hub-card-effect--next", next);
+        return label;
+    }
+
+    /// <param name="level">Уровень построенной (подпись «Level N/M» у многоуровневых); 0 — не построена.</param>
+    private static VisualElement CreateHeader(HubBuildingDefinition definition, int level)
     {
         var header = new VisualElement();
         header.AddToClassList("hub-card-header");
@@ -182,7 +219,12 @@ public class HubBuildPanel : INotificationDisplay
         heading.Add(title);
 
         Vector2Int size = definition.Size;
-        var sizeLabel = new Label(Loc.F("{0}×{1} cells", size.x, size.y));
+        string sizeText = Loc.F("{0}×{1} cells", size.x, size.y);
+        if (definition.MaxLevel > 1)
+            sizeText += " · " + (level > 0
+                ? Loc.F("Level {0}/{1}", level, definition.MaxLevel)
+                : Loc.F("Up to level {0}", definition.MaxLevel));
+        var sizeLabel = new Label(sizeText);
         sizeLabel.AddToClassList("hub-card-size");
         heading.Add(sizeLabel);
 
@@ -190,13 +232,17 @@ public class HubBuildPanel : INotificationDisplay
         return header;
     }
 
-    /// <summary>Стоимость: иконка материала и «есть/нужно» (красным, если не хватает). У построенной — только цена.</summary>
-    private VisualElement CreateCost(HubBuildingDefinition definition, bool built)
+    /// <summary>
+    /// Стоимость: иконка материала и «есть/нужно» (красным, если не хватает). showStock = false — только цена
+    /// (построенная одноуровневая постройка).
+    /// </summary>
+    private VisualElement CreateCost(List<HubBuildingCost> costs, bool showStock)
     {
+        bool built = !showStock;
         var row = new VisualElement();
         row.AddToClassList("hub-card-cost");
 
-        foreach (HubBuildingCost cost in definition.GetCost())
+        foreach (HubBuildingCost cost in costs)
         {
             int stored = _hub.GetStored(cost.Key);
             bool missing = !built && stored < cost.Amount;
@@ -254,6 +300,47 @@ public class HubBuildPanel : INotificationDisplay
         return footer;
     }
 
+    /// <summary>
+    /// Низ карточки построенной постройки: состояние (Built / Ready to upgrade / нехватка материалов /
+    /// максимальный уровень) и кнопка Upgrade, пока уровень не максимальный.
+    /// </summary>
+    private VisualElement CreateUpgradeFooter(HubBuildingDefinition definition, int level, HubUpgradeResult upgrade)
+    {
+        var footer = new VisualElement();
+        footer.AddToClassList("hub-card-footer");
+
+        string text;
+        switch (upgrade)
+        {
+            case HubUpgradeResult.MaxLevel:
+                text = definition.MaxLevel > 1 ? Loc.T("Built · maximum level") : Loc.T("Built");
+                break;
+            default:
+                text = Loc.T(HubService.Describe(upgrade));
+                break;
+        }
+
+        var state = new Label(text) { enableRichText = false };
+        state.AddToClassList("hub-card-state");
+        state.EnableInClassList("hub-card-state--built", upgrade == HubUpgradeResult.MaxLevel || upgrade == HubUpgradeResult.Ok);
+        state.EnableInClassList("hub-card-state--missing", upgrade == HubUpgradeResult.NotAffordable);
+        footer.Add(state);
+
+        if (level >= definition.MaxLevel) return footer;
+
+        // UI управляется только мышью — кнопка не должна забирать фокус
+        var button = new Button { text = Loc.T("Upgrade"), focusable = false };
+        button.AddToClassList("screen-btn");
+        button.AddToClassList("screen-btn--primary");
+        button.AddToClassList("hub-card-build");
+        button.AddToClassList("hub-card-upgrade");
+        button.SetEnabled(upgrade == HubUpgradeResult.Ok);
+        button.clicked += () => HandleUpgradeClicked(definition);
+        footer.Add(button);
+
+        return footer;
+    }
+
     private string DescribeState(HubBuildingDefinition definition, HubBuildResult availability, bool placingThis)
     {
         switch (availability)
@@ -287,6 +374,25 @@ public class HubBuildPanel : INotificationDisplay
         // При отказе Begin сам публикует уведомление и OnFailed
         if (_placement.Begin(definition))
             Refresh();
+    }
+
+    // ─── Улучшение ────────────────────────────────────────────
+
+    /// <summary>Upgrade — сразу улучшить (оплата со склада и сохранение — в HubService.TryUpgrade).</summary>
+    private void HandleUpgradeClicked(HubBuildingDefinition definition)
+    {
+        HubUpgradeResult result = _hub.TryUpgrade(definition);
+        if (result == HubUpgradeResult.Ok) return; // карточки и уведомление — в HandleUpgraded
+
+        UIEventBus.PublishNotification(Loc.T(HubService.Describe(result)), LogEntryType.Warning);
+        Refresh();
+    }
+
+    private void HandleUpgraded(HubBuildingDefinition definition, int level)
+    {
+        Refresh();
+        UIEventBus.PublishNotification(
+            Loc.F("{0} upgraded to level {1}", Loc.T(definition.Title), level), LogEntryType.Success);
     }
 
     private void HandlePlaced(HubBuildingDefinition definition, Vector2Int cell) => Refresh();

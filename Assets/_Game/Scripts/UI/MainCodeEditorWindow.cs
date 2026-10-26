@@ -9,6 +9,8 @@ using UnityEngine.UIElements;
 public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay, INotificationDisplay, ICodeErrorDisplay
 {
     public event Action OnAddMethodRequested;
+    // Клик по месту ошибки в логе: заголовок окна и номер строки
+    public event Action<string, int> OnGoToLineRequested;
 
     private Label _energyCostLabel;
     private Button _btnAddMethod;
@@ -37,6 +39,7 @@ public class MainCodeEditorWindow : CodeEditorWindowBase, IEnergyDisplay, INotif
         _btnAddMethod.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
 
         _runLog = new RunLog(_window.Q<VisualElement>("run-log"), _context?.Theme);
+        _runLog.OnGoToLineRequested += (window, line) => OnGoToLineRequested?.Invoke(window, line);
     }
 
     /// <summary>

@@ -20,6 +20,20 @@ public enum HubBuildResult
     Occupied
 }
 
+/// <summary>Результат проверки или попытки улучшения постройки хаба (T14).</summary>
+public enum HubUpgradeResult
+{
+    Ok,
+    /// <summary>Определения нет в каталоге.</summary>
+    Unknown,
+    /// <summary>Постройки ещё нет в хабе.</summary>
+    NotBuilt,
+    /// <summary>Уже максимальный уровень (или постройка одноуровневая).</summary>
+    MaxLevel,
+    /// <summary>Не хватает материалов на складе хаба для следующего уровня.</summary>
+    NotAffordable
+}
+
 /// <summary>
 /// Постройка, стоящая в хабе: определение (null — id из сохранения, которого нет в каталоге) и клетка
 /// левого нижнего угла.
@@ -29,12 +43,15 @@ public readonly struct HubPlacement
     public readonly string Id;
     public readonly HubBuildingDefinition Definition;
     public readonly Vector2Int Cell;
+    /// <summary>Уровень улучшения, не меньше 1.</summary>
+    public readonly int Level;
 
-    public HubPlacement(string id, HubBuildingDefinition definition, Vector2Int cell)
+    public HubPlacement(string id, HubBuildingDefinition definition, Vector2Int cell, int level = 1)
     {
         Id = id;
         Definition = definition;
         Cell = cell;
+        Level = Mathf.Max(1, level);
     }
 
     /// <summary>Занятая область; неизвестная постройка занимает одну клетку.</summary>
@@ -45,12 +62,15 @@ public readonly struct HubPlacement
 /// Логика хаба (этап 4, plain class из Level в режиме Hub): сетка, проверка места, оплата материалами
 /// со склада MetaProgress, запись расстановки и сохранение. Клетки — (0,0) левый нижний угол сетки,
 /// постройка ставится левым нижним углом в cell. Каждая постройка — один раз, без сноса.
-/// Открытость — через UnlockRegistry (награды достижений). Мировую часть рисует HubGrid по OnBuilt.
+/// Построенную можно улучшать до HubBuildingDefinition.MaxLevel (T14): CheckUpgrade / TryUpgrade.
+/// Открытость — через UnlockRegistry (награды достижений). Мировую часть рисует HubGrid по OnBuilt/OnUpgraded.
 /// </summary>
 public class HubService
 {
     /// <summary>Постройка поставлена (уже оплачена и сохранена).</summary>
     public event Action<HubBuildingDefinition, Vector2Int> OnBuilt;
+    /// <summary>Постройка улучшена (оплачено и сохранено): определение и новый уровень.</summary>
+    public event Action<HubBuildingDefinition, int> OnUpgraded;
 
     private readonly HubBuildingCatalog _catalog;
     private readonly MetaProgress _progress;
@@ -95,15 +115,25 @@ public class HubService
     /// <summary>Сколько материала с этим ключом на складе хаба.</summary>
     public int GetStored(string key) => _progress.GetMaterialCount(key);
 
-    /// <summary>Хватает ли материалов склада на постройку.</summary>
-    public bool CanAfford(HubBuildingDefinition definition)
+    /// <summary>Хватает ли материалов склада на постройку (уровень 1).</summary>
+    public bool CanAfford(HubBuildingDefinition definition) => CanAfford(definition, 1);
+
+    /// <summary>Хватает ли материалов склада на получение уровня level (1 — постройка, 2+ — улучшение).</summary>
+    public bool CanAfford(HubBuildingDefinition definition, int level)
     {
         if (definition == null) return false;
 
-        foreach (HubBuildingCost cost in definition.GetCost())
+        foreach (HubBuildingCost cost in definition.GetCost(level))
             if (_progress.GetMaterialCount(cost.Key) < cost.Amount)
                 return false;
         return true;
+    }
+
+    /// <summary>Уровень постройки в хабе; 0 — не построена.</summary>
+    public int GetLevel(HubBuildingDefinition definition)
+    {
+        PlacedHubBuilding placed = definition != null ? _progress.FindHubBuilding(definition.Id) : null;
+        return placed != null ? placed.Level : 0;
     }
 
     /// <summary>
@@ -126,7 +156,8 @@ public class HubService
     {
         var result = new List<HubPlacement>();
         foreach (PlacedHubBuilding placed in _progress.HubBuildings)
-            result.Add(new HubPlacement(placed.buildingId, Find(placed.buildingId), new Vector2Int(placed.x, placed.y)));
+            result.Add(new HubPlacement(
+                placed.buildingId, Find(placed.buildingId), new Vector2Int(placed.x, placed.y), placed.Level));
         return result;
     }
 
@@ -200,6 +231,67 @@ public class HubService
         GameEventBus.Publish(GameEventType.HubBuildingBuilt, definition.Id);
         OnBuilt?.Invoke(definition, cell);
         return HubBuildResult.Ok;
+    }
+
+    // ─── Улучшение ────────────────────────────────────────────
+
+    /// <summary>
+    /// Можно ли улучшить постройку до следующего уровня: известна, построена, не максимального уровня,
+    /// материалов на следующий уровень хватает. Открытость не проверяется — построенная уже открыта.
+    /// </summary>
+    public HubUpgradeResult CheckUpgrade(HubBuildingDefinition definition)
+    {
+        if (definition == null || Find(definition.Id) != definition) return HubUpgradeResult.Unknown;
+
+        int level = GetLevel(definition);
+        if (level <= 0) return HubUpgradeResult.NotBuilt;
+        if (level >= definition.MaxLevel) return HubUpgradeResult.MaxLevel;
+        if (!CanAfford(definition, level + 1)) return HubUpgradeResult.NotAffordable;
+        return HubUpgradeResult.Ok;
+    }
+
+    public bool CanUpgrade(HubBuildingDefinition definition) => CheckUpgrade(definition) == HubUpgradeResult.Ok;
+
+    /// <summary>
+    /// Улучшает постройку на один уровень: списывает стоимость следующего уровня со склада, записывает
+    /// уровень, сохраняет MetaProgress, публикует GameEventBus HubBuildingUpgraded (Id = id постройки,
+    /// Amount = новый уровень) и OnUpgraded. При отказе ничего не меняет.
+    /// </summary>
+    public HubUpgradeResult TryUpgrade(HubBuildingDefinition definition)
+    {
+        HubUpgradeResult result = CheckUpgrade(definition);
+        if (result != HubUpgradeResult.Ok) return result;
+
+        PlacedHubBuilding placed = _progress.FindHubBuilding(definition.Id);
+        int newLevel = placed.Level + 1;
+
+        // CanAfford проверен в CheckUpgrade — списание всех строк пройдёт
+        foreach (HubBuildingCost cost in definition.GetCost(newLevel))
+        {
+            bool removed = _progress.RemoveMaterial(cost.Key, cost.Amount);
+            Debug.Assert(removed, $"HubService: failed to take {cost.Amount} × {cost.Key} after CanAfford");
+        }
+
+        placed.level = newLevel;
+        _progress.Save();
+
+        GameEventBus.Publish(GameEventType.HubBuildingUpgraded, definition.Id, newLevel);
+        OnUpgraded?.Invoke(definition, newLevel);
+        return HubUpgradeResult.Ok;
+    }
+
+    /// <summary>Текст отказа улучшения для UI (английский, переводится через Loc.T у вызывающего).</summary>
+    public static string Describe(HubUpgradeResult result)
+    {
+        switch (result)
+        {
+            case HubUpgradeResult.Ok: return "Ready to upgrade";
+            case HubUpgradeResult.Unknown: return "Unknown building";
+            case HubUpgradeResult.NotBuilt: return "Build it first";
+            case HubUpgradeResult.MaxLevel: return "Maximum level";
+            case HubUpgradeResult.NotAffordable: return "Not enough materials to upgrade";
+            default: return result.ToString();
+        }
     }
 
     /// <summary>Текст отказа для UI (английский).</summary>

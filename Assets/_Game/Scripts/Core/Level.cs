@@ -178,6 +178,9 @@ public class Level : MonoBehaviour
         _enemyManager.SpawnInitial(startTile);
         // Удар по врагу (attack) — общий сервис, как ResourceHarvester; Lua-команда attack оборачивает его
         CombatService combat = new CombatService(executor, inventory, _enemyManager);
+        // Цифры урона над врагом и игроком (визуал; отписывается от событий боя в своём OnDestroy)
+        DamageNumbers damageNumbers = new GameObject("DamageNumbers").AddComponent<DamageNumbers>();
+        damageNumbers.Initialize(_enemyManager, combat, executor.transform);
 
         // 9b. Головоломки: только в забеге и только открытые типы, после врагов (держатся от лагерей
         // подальше), до песочницы (Lua-команды puzzle/solve получают PuzzleManager)

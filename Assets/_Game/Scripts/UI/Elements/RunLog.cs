@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
@@ -9,6 +10,9 @@ using UnityEngine.UIElements;
 public class RunLog
 {
     private const int MaxEntries = 30;
+
+    // Клик по месту ошибки («Line N in Main»): заголовок окна и номер строки в нём (1..)
+    public event Action<string, int> OnGoToLineRequested;
 
     private readonly VisualElement _root;
     private readonly ScrollView _entries;
@@ -55,10 +59,11 @@ public class RunLog
         VisualElement entry = CreateEntry(LogEntryType.Error);
         entry.Add(CreateText(error.Raw, "run-log-message", ColorOf(LogEntryType.Error)));
 
+        // Место — всегда, когда известно (клик → переход к строке), объяснение — только при подсказках
+        if (error.Location != null)
+            entry.Add(CreateLocation(error));
         if (error.HasExplanation)
         {
-            if (error.Location != null)
-                entry.Add(CreateText(error.Location, "run-log-location", null));
             entry.Add(CreateText(error.Explanation, "run-log-explanation", null));
             if (!string.IsNullOrEmpty(error.Suggestion))
                 entry.Add(CreateText(Loc.F("Try: {0}", error.Suggestion), "run-log-suggestion", null));
@@ -73,6 +78,29 @@ public class RunLog
     }
 
     // ─── Helpers ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Место ошибки. Если известны окно и строка — кликабельно: переход к строке в окне.
+    /// Только клик мышью (ClickEvent); фокус метка не принимает.
+    /// </summary>
+    private Label CreateLocation(LuaErrorExplanation error)
+    {
+        Label label = CreateText(error.Location, "run-log-location", null);
+        if (!error.HasLine) return label;
+
+        string window = error.Window;
+        int line = error.Line;
+        label.pickingMode = PickingMode.Position;
+        label.focusable = false;
+        label.AddToClassList("run-log-location--link");
+        label.RegisterCallback<ClickEvent>(evt =>
+        {
+            if (evt.button != 0) return;
+            evt.StopPropagation();
+            OnGoToLineRequested?.Invoke(window, line);
+        });
+        return label;
+    }
 
     private VisualElement CreateEntry(LogEntryType type)
     {

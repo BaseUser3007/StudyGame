@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -47,6 +48,12 @@ public class CombatService
     private readonly PlayerCommandExecutor _executor;
     private readonly PlayerInventory _inventory;
     private readonly EnemyManager _enemies;
+
+    /// <summary>
+    /// Удар игрока попал во врага (урон уже нанесён). Враг мог умереть и уйти в пул, но позиция
+    /// и IsVisible у него остаются как в момент удара. Только для визуала (цифры урона).
+    /// </summary>
+    public event Action<Enemy, int> OnEnemyDamaged;
 
     public CombatService(PlayerCommandExecutor executor, PlayerInventory inventory, EnemyManager enemies)
     {
@@ -108,6 +115,7 @@ public class CombatService
         // Анимация удара с разворотом к врагу (позиция — до смерти и возврата в пул)
         _executor.PlayAction(PlayerActionKind.Attack, target.Position);
         bool killed = target.TakeDamage(damage);
+        OnEnemyDamaged?.Invoke(target, damage);
 
         result = new AttackResult(target, damage, killed, weapon, broken);
         return true;

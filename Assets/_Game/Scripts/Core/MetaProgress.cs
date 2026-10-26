@@ -16,7 +16,7 @@ public class StoredMaterial
 
 /// <summary>
 /// Сооружение, поставленное в хабе (этап 4): id определения (HubBuildingDefinition.Id) и клетка сетки
-/// хаба — левый нижний угол занимаемой области (0,0 — левый нижний угол сетки).
+/// хаба — левый нижний угол занимаемой области (0,0 — левый нижний угол сетки), уровень улучшения.
 /// </summary>
 [Serializable]
 public class PlacedHubBuilding
@@ -24,6 +24,11 @@ public class PlacedHubBuilding
     public string buildingId;
     public int x;
     public int y;
+    // Уровень улучшения (T14). В старых сохранениях поля нет — JsonUtility даёт 0; читайте через Level
+    public int level = 1;
+
+    /// <summary>Уровень постройки, не меньше 1 (0/нет поля в старом сохранении — 1).</summary>
+    public int Level => Mathf.Max(1, level);
 }
 
 /// <summary>

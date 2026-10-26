@@ -253,7 +253,10 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             _unlocks.OnUnlocked -= HandleUnlocked;
 
         if (_hubService != null)
+        {
             _hubService.OnBuilt -= HandleHubBuilt;
+            _hubService.OnUpgraded -= HandleHubUpgraded;
+        }
         _hubPanel?.Dispose();
         _hubPanel = null;
         if (_uiManager != null)
@@ -305,6 +308,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _runScreens.HubIconResolver = FindHubMaterialIcon;
         _uiManager.SetNotificationDisplay(_hubPanel);
         _hubService.OnBuilt += HandleHubBuilt;
+        _hubService.OnUpgraded += HandleHubUpgraded;
 
         foreach (VisualElement element in new VisualElement[]
                  { _windowLayer, _topBar, _inventoryBar, _craftingPanel, _codeLibraryPanel })
@@ -319,15 +323,20 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         UIEventBus.PublishNotification(Loc.F("{0} built", Loc.T(definition.Title)), LogEntryType.Success);
     }
 
+    /// <summary>Постройка улучшена: склад уменьшился (карточки и уведомление — в HubBuildPanel).</summary>
+    private void HandleHubUpgraded(HubBuildingDefinition definition, int level) =>
+        _runScreens.RefreshHub(_hubService.Progress);
+
     /// <summary>Иконка материала склада: предмет ищется среди стоимостей построек (ResourceItem.Icon).</summary>
     private Sprite FindHubMaterialIcon(string key)
     {
         if (_hubService == null || string.IsNullOrEmpty(key)) return null;
 
         foreach (HubBuildingDefinition definition in _hubService.Definitions)
-            foreach (HubBuildingCost cost in definition.GetCost())
-                if (cost.Key == key && cost.Item != null)
-                    return cost.Item.Icon;
+            for (int level = 1; level <= definition.MaxLevel; level++)
+                foreach (HubBuildingCost cost in definition.GetCost(level))
+                    if (cost.Key == key && cost.Item != null)
+                        return cost.Item.Icon;
         return null;
     }
 
@@ -644,6 +653,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _mainWindow.OnCodeChanged += HandleCodeChanged;
         _mainWindow.OnRunRequested += HandleRunRequested;
         _mainWindow.OnAddMethodRequested += CreateAuxiliaryWindow;
+        _mainWindow.OnGoToLineRequested += HandleGoToLineRequested;
         // Главное окно в библиотеку не сохраняется — на перетаскивание не подписываемся
         _uiManager.RegisterWindow(_mainWindow);
         _windowLayer.Add(_mainWindow);
@@ -842,28 +852,41 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// Ошибка запуска: сырой текст и, если подсказки включены, объяснение для новичка
-    /// (имена для «Did you mean» — из реестра открытых команд и заголовков доп. окон).
+    /// Ошибка запуска: сырой текст, место (окно и строка — для перехода по клику) и, если подсказки
+    /// включены, объяснение для новичка (имена для «Did you mean» — из реестра открытых команд и заголовков доп. окон).
     /// </summary>
     private void ReportCodeError(string errorMessage)
     {
-        bool hintsEnabled = _tutorial == null || _tutorial.HintsEnabled;
-        if (!hintsEnabled)
-        {
-            UIEventBus.PublishCodeError(LuaErrorExplanation.RawOnly(errorMessage));
-            return;
-        }
-
         UnlockRegistry unlocks = _luaSandbox.Unlocks;
         LuaErrorExplanation error = LuaErrorExplainer.Explain(
             errorMessage, _luaSandbox.Registry.GetAllCommands(), GetWindowFunctionNames(), LuaSandbox.MainChunkName,
             unlocks != null ? unlocks.IsConstructUnlocked : (System.Func<string, bool>)null);
+
+        // Подсказки выключены — без объяснения, но место ошибки остаётся
+        bool hintsEnabled = _tutorial == null || _tutorial.HintsEnabled;
+        if (!hintsEnabled)
+            error = new LuaErrorExplanation(error.Raw, error.Window, error.Line, null, null);
 
         // Ошибка «в конце» доп. окна указывает на строку закрывающего end обёртки — не дальше последней строки
         CodeEditorWindowBase window = FindWindowByTitle(error.Window);
         if (window != null) error.ClampLine(CountLines(window.Code));
 
         UIEventBus.PublishCodeError(error);
+    }
+
+    /// <summary>
+    /// Клик по месту ошибки в логе: окно с этим заголовком поднимается, курсор — на строку.
+    /// Окно закрыто или переименовано — только предупреждение в лог.
+    /// </summary>
+    private void HandleGoToLineRequested(string title, int line)
+    {
+        CodeEditorWindowBase window = FindWindowByTitle(title);
+        if (window == null)
+        {
+            UIEventBus.PublishNotification(Loc.F("Window {0} is not open", title), LogEntryType.Warning);
+            return;
+        }
+        window.GoToLine(line);
     }
 
     private CodeEditorWindowBase FindWindowByTitle(string title)

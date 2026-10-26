@@ -127,6 +127,16 @@ public abstract class CodeEditorWindowBase : VisualElement
         _codeEditor?.SetErrorLine(line);
     }
 
+    /// <summary>
+    /// Поднять окно над остальными, прокрутить к строке и поставить на неё курсор
+    /// (фокус поля — как после клика мышью).
+    /// </summary>
+    public void GoToLine(int line)
+    {
+        BringToFront();
+        _codeEditor?.GoToLine(line);
+    }
+
     /// <summary>Выделить строку, которая выполняется сейчас (0 — снять).</summary>
     public void SetActiveLine(int line, bool paused = false)
     {

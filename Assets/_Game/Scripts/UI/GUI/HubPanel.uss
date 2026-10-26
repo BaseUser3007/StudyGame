@@ -171,6 +171,19 @@
     padding: 0;
 }
 
+/* Уровни (T14): заголовок «Level N adds:» и прибавки следующего уровня */
+.hub-card-next {
+    font-size: 11px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+    margin: 6px 0 0 0;
+    padding: 0;
+}
+
+.hub-card-effect--next {
+    color: rgb(230, 200, 110);
+}
+
 .hub-card-cost {
     flex-direction: row;
     flex-wrap: wrap;

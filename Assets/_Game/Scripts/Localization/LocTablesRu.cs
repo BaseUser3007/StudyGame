@@ -18,5 +18,7 @@ public static class LocTablesRu
         LocRuT05.Entries,
         LocRuT10.Entries,
         LocRuT22.Entries,
+        LocRuT04.Entries,
+        LocRuT14.Entries,
     };
 }

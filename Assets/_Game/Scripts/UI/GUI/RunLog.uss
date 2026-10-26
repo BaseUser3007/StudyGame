@@ -96,3 +96,20 @@
     margin-top: 2px;
     color: rgb(150, 210, 150);
 }
+
+/* Место ошибки, по которому можно кликнуть: переход к строке в окне (RunLog.CreateLocation) */
+.run-log-entry > .run-log-location--link {
+    align-self: flex-start;
+    padding: 0 2px;
+    margin-left: -2px;
+    border-radius: 2px;
+}
+
+.run-log-entry > .run-log-location--link:hover {
+    color: rgb(255, 230, 140);
+    background-color: rgb(60, 55, 35);
+}
+
+.run-log-entry > .run-log-location--link:active {
+    background-color: rgb(85, 75, 40);
+}

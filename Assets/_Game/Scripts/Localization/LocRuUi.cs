@@ -25,11 +25,11 @@ public static class LocRuUi
         ("Paused · {0}, line {1}", "Пауза · {0}, строка {1}"),
         ("Continue", "Продолжить"),
         ("Step", "Шаг"),
-        ("Run to the next breakpoint", "Выполнять до следующей точки останова"),
+        ("Run to the next breakpoint", "Выполнить до следующей точки останова"),
         ("Run to the next line that costs energy and pause again",
-            "Выполнить до следующей строки, которая стоит энергию, и снова встать"),
+            "Выполнить до следующей строки, которая стоит энергии, и снова остановиться"),
         ("Click a line number to set a breakpoint: the code will pause there",
-            "Нажмите на номер строки, чтобы поставить точку останова: код встанет на ней"),
+            "Нажмите на номер строки, чтобы поставить точку останова: код остановится на ней"),
         ("Variables · {0}, line {1}", "Переменные · {0}, строка {1}"),
         ("Local", "Локальные"),
         ("Global", "Глобальные"),
@@ -54,7 +54,7 @@ public static class LocRuUi
         // ─── Окна кода (Main/Auxiliary.uxml, RunLog) ──────────
 
         ("Add a method window", "Добавить окно-метод"),
-        ("Energy cost of each line", "Цена энергии каждой строки"),
+        ("Energy cost of each line", "Цена каждой строки в энергии"),
         ("Run log", "Лог"),
         ("Clear the log", "Очистить лог"),
         ("Cost {0}", "Цена {0}"),
@@ -88,7 +88,7 @@ public static class LocRuUi
 
         // ─── Справка (CommandHelp) ────────────────────────────
         ("The cost is charged on every call. Mining and crafting also spend energy for the resource and the recipe.",
-            "Цена списывается при каждом вызове. Добыча и крафт дополнительно тратят энергию по ресурсу и рецепту."),
+            "Цена списывается при каждом вызове. Добыча и крафт дополнительно тратят энергию на ресурс и рецепт."),
         ("findObjects list", "Список findObjects"),
         ("Methods are called with a colon: list:getNear(). where, sortBy and take return a new list, " +
          "so they can be chained. Object fields: {0}. Harvested objects are skipped.",
@@ -100,8 +100,8 @@ public static class LocRuUi
         ("Language constructs", "Конструкции языка"),
         ("Charged every time they execute: a condition on every check, a loop on every iteration. " +
          "Locked constructs are unlocked during the game: code that uses them won't run.",
-            "Списывается каждый раз при выполнении: условие — при каждой проверке, цикл — на каждой итерации. " +
-            "Закрытые (locked) конструкции открываются по ходу игры — код с ними не запустится."),
+            "Цена списывается при каждом выполнении: условие — при каждой проверке, цикл — на каждой итерации. " +
+            "Закрытые конструкции открываются по ходу игры — код с ними не запустится."),
         ("{0} en.", "{0} эн."),
         ("{0} en. {1}", "{0} эн. {1}"),
         ("locked", "закрыто"),
@@ -134,7 +134,7 @@ public static class LocRuUi
         ("Placing — click a free cell", "Размещение — кликните по свободной клетке"),
         ("Ready to build", "Можно строить"),
         ("Built", "Построено"),
-        ("Locked · Unlock: {0}", "Закрыто · Открывает: {0}"),
+        ("Locked · Unlock: {0}", "Закрыто · Достижение: {0}"),
         ("Locked · complete an achievement", "Закрыто · выполните достижение"),
         ("Placing: {0}", "Размещение: {0}"),
         ("{0} built", "{0}: построено"),
@@ -170,7 +170,7 @@ public static class LocRuUi
         ("Completed", "Выполнено"),
         ("This run: {0} / {1}", "Этот запуск: {0} / {1}"),
         ("Achievement unlocked", "Достижение получено"),
-        ("+{0} more", "ещё +{0}"),
+        ("+{0} more", "и ещё {0}"),
 
         // ─── Окно открытия (UnlockPopup) ──────────────────────
         ("Unlocked", "Открыто"),
@@ -243,8 +243,8 @@ public static class LocRuUi
         ("The chest is empty.", "Сундук пуст."),
         ("Found {0} {1} in the chest.", "В сундуке: {1} ×{0}."),
         ("Found {0} {1}: {2} taken, {3} on the ground (inventory is full).",
-            "Найдено: {1} ×{0}: {2} взято, {3} на земле (инвентарь полон)."),
-        ("Found {0} {1}, but the inventory is full — {2} lost.", "Найдено: {1} ×{0}, но инвентарь полон — {2} потеряно."),
+            "Найдено {1} ×{0}: {2} взято, {3} на земле (инвентарь полон)."),
+        ("Found {0} {1}, but the inventory is full — {2} lost.", "Найдено {1} ×{0}, но инвентарь полон — {2} потеряно."),
         ("Max energy +{0} for this run, +{0} energy now.", "Максимум энергии +{0} на этот забег, +{0} энергии сейчас."),
         ("Max health +{0} for this run, health restored.", "Максимум здоровья +{0} на этот забег, здоровье восстановлено."),
 
@@ -289,7 +289,7 @@ public static class LocRuUi
         ("Press Run", "Нажмите «Запуск»"),
         ("Energy is your daily budget. Every command spends it, even failed ones.",
             "Энергия — ваш бюджет на день. Её тратит каждая команда, даже неудачная."),
-        ("Wait for the code to finish", "Дождитесь окончания кода"),
+        ("Wait for the code to finish", "Дождитесь, пока код завершится"),
         ("Gathered items go here. Gather 3 items to unlock cheaper commands and conditions.",
             "Собранные предметы попадают сюда. Соберите 3 предмета, чтобы открыть более дешёвые команды и условия."),
         ("Gather 3 items — run obtain() a few times", "Соберите 3 предмета — запустите obtain() несколько раз"),
@@ -298,13 +298,13 @@ public static class LocRuUi
             "Аргументы пишутся в скобках: `obtain(\"stick\")` подбирает только палки. " +
             "Текст пишется в кавычках."),
         ("You have {runs} runs per day. After the last one the day ends and energy refills.",
-            "В день у вас {runs} запуска кода. После последнего день заканчивается и энергия восполняется."),
+            "Запусков кода в день: {runs}. После последнего день заканчивается и энергия восполняется."),
         ("Help lists every command you have and its cost.", "В справке — все ваши команды и их цена."),
         ("Open Help", "Откройте «Справку»"),
         ("Return to camp at any time. Only materials are kept — and nothing if you die.",
-            "Вернуться в лагерь можно в любой момент. Сохраняются только материалы — а при гибели ничего."),
+            "Вернуться в лагерь можно в любой момент. Сохраняются только материалы, а при гибели — ничего."),
         ("Goblins will patrol from tomorrow. Use `findObjects(\"enemy\")` to see them before they see you.",
-            "С завтрашнего дня патрулируют гоблины. `findObjects(\"enemy\")` покажет их раньше, чем они заметят вас."),
+            "С завтрашнего дня начнут патрулировать гоблины. `findObjects(\"enemy\")` покажет их раньше, чем они заметят вас."),
         ("Extra windows become functions named after the title. " +
          "Drag a window by its header onto the library tab on the right to save it.",
             "Дополнительные окна становятся функциями с именем из заголовка. " +
@@ -339,7 +339,7 @@ public static class LocRuUi
         ("Values inside the brackets are arguments — they tell the command what exactly to do. " +
          "Text goes in quotes: `obtain(\"stick\")`. Several arguments are separated by commas: " +
          "`moveTo(x, y)`.",
-            "Значения в скобках — аргументы: они уточняют, что именно сделать команде. " +
+            "Значения в скобках — аргументы: они уточняют, что именно должна сделать команда. " +
             "Текст пишется в кавычках: `obtain(\"stick\")`. Несколько аргументов разделяются запятыми: " +
             "`moveTo(x, y)`."),
         ("Variable", "Переменная"),
@@ -390,7 +390,7 @@ public static class LocRuUi
             "за предмет с новым поиском каждый раз."),
         ("You paid 10 energy for every autoExplore(). Walking yourself is cheaper — but you never know how " +
          "far the land goes, so how many move() lines should you write?",
-            "Вы платили 10 энергии за каждый autoExplore(). Ходить самому дешевле — но заранее не знаешь, " +
+            "Вы платили 10 энергии за каждый вызов autoExplore(). Ходить самому дешевле — но заранее не знаете, " +
             "докуда тянется суша, так сколько строк move() писать?"),
         ("while repeats a block as long as its condition is true. Use it when you don't know the number of " +
          "passes in advance: walk until something stops you, chop while trees are in sight.",
@@ -450,7 +450,7 @@ public static class LocRuUi
             "1 за вызов плюс добыча: дерево стоит 1 + 12. Топор изнашивается за 20 использований."),
         ("Your code stopped with an error. The quickest way to find out why is to look at what your code " +
          "actually sees.",
-            "Ваш код остановился с ошибкой. Быстрее всего понять почему — посмотреть, что код " +
+            "Ваш код остановился с ошибкой. Быстрее всего понять причину — посмотреть, что код " +
             "видит на самом деле."),
         ("print(...) writes values to the log under the main window: numbers, text, nil, and tables with their fields.",
             "print(...) пишет значения в лог под главным окном: числа, текст, nil и таблицы с их полями."),
@@ -466,7 +466,7 @@ public static class LocRuUi
             "2 за удар. Настоящая цена — здоровье: сражайтесь с мечом."),
 
         // ─── Декомпиляция (LuaDecompileGuide) ─────────────────
-        ("Every obtain() cost you 8 energy — three of them, 24.", "Каждый obtain() стоил вам 8 энергии — три штуки, 24."),
+        ("Every obtain() cost you 8 energy — three of them, 24.", "Каждый вызов obtain() стоил вам 8 энергии — три вызова, 24."),
         ("obtain() was never magic. Inside, it looked for the nearest visible object it could pick up " +
          "(findObjects + getNear), walked up to it (moveTo) and picked it up (harvest). " +
          "Now you can write the same steps yourself and pay only for the ones you need.",
@@ -474,22 +474,22 @@ public static class LocRuUi
             "(findObjects + getNear), подходила к нему (moveTo) и подбирала (harvest). " +
             "Теперь вы можете написать те же шаги сами и платить только за нужные."),
         ("Every autoExplore() cost you 10 energy, and it only walks a few tiles.",
-            "Каждый autoExplore() стоил вам 10 энергии, а проходит он всего несколько клеток."),
+            "Каждый вызов autoExplore() стоил вам 10 энергии, а проходит команда всего несколько клеток."),
         ("autoExplore() was a walk with a good memory. It compared the 8 directions, picked the one where " +
          "6 tiles of walking (move) would reveal the most land you had never seen, and stopped at water; " +
          "when everything around was already explored, it headed for the nearest edge of the fog. " +
          "check only sees tiles that are in sight, so your code can't count hidden land — but it doesn't need to: " +
          "keep walking one way while check shows land ahead, and turn when it shows water. " +
          "Every step goes into new ground, and a check plus a move costs a fraction of autoExplore().",
-            "autoExplore() был прогулкой с хорошей памятью. Он сравнивал 8 направлений, выбирал то, где " +
-            "6 клеток пути (move) откроют больше всего невиданной суши, и останавливался у воды; " +
-            "когда вокруг всё было исследовано, шёл к ближайшему краю тумана. " +
+            "autoExplore() была прогулкой с хорошей памятью. Она сравнивала 8 направлений, выбирала то, где " +
+            "6 клеток пути (move) откроют больше всего невиданной суши, и останавливалась у воды; " +
+            "когда вокруг всё было исследовано, шла к ближайшему краю тумана. " +
             "check видит только клетки в поле зрения, поэтому ваш код не сосчитает скрытую сушу — но это и не нужно: " +
             "идите в одну сторону, пока check показывает впереди сушу, и поворачивайте, когда видна вода. " +
             "Каждый шаг ведёт на новую землю, а check плюс move стоят малую долю autoExplore()."),
 
         // ─── Ошибки Lua (LuaErrorExplainer; сырой текст ошибки не переводится) ─
-        ("Line {0} in {1}", "Строка {0} в {1}"),
+        ("Line {0} in {1}", "Строка {0} в окне {1}"),
         ("In window {0}", "В окне {0}"),
         ("A `[[` text is not closed: it needs `]]` at the end.", "Текст `[[` не закрыт: в конце нужно `]]`."),
         ("Add `]]` where the text should end.", "Добавьте `]]` там, где текст должен закончиться."),
@@ -515,7 +515,7 @@ public static class LocRuUi
         ("In `for i = 1, 10, 1 do` the start, end and step must be numbers. Check the variables used there.",
             "В `for i = 1, 10, 1 do` начало, конец и шаг должны быть числами. Проверьте переменные, которые там используются."),
         ("Your energy ran out at {0}: it needed {1}, but only {2} was left. Every command call, loop pass and condition check costs energy.",
-            "Энергия кончилась на {0}: нужно было {1}, а осталось только {2}. Каждый вызов команды, проход цикла и проверка условия стоят энергии."),
+            "Энергия закончилась на {0}: нужно было {1}, а осталось только {2}. Каждый вызов команды, проход цикла и проверка условия стоят энергии."),
         ("Look at the cost next to each line and do fewer steps or loop passes. End Day restores energy for tomorrow.",
             "Посмотрите на цену рядом с каждой строкой и сделайте меньше шагов или проходов цикла. «Конец дня» восстановит энергию на завтра."),
         ("The code ran too long without a pause, so the game stopped it. Usually this is a loop that never ends, like `while true do` with nothing that stops it.",
@@ -544,8 +544,8 @@ public static class LocRuUi
         ("Check the type name in Help.", "Проверьте имя типа в справке."),
         ("`{0}` doesn't know the type \"{1}\".", "`{0}` не знает тип \"{1}\"."),
         ("`{0}` needs more arguments: argument {1} is missing.", "`{0}` нужно больше аргументов: нет аргумента {1}."),
-        ("Argument {0} of `{1}` has the wrong kind of value ({2}).", "Аргумент {0} у `{1}` — значение не того вида ({2})."),
-        ("Check the order and the kinds of arguments in Help.", "Проверьте порядок и виды аргументов в справке."),
+        ("Argument {0} of `{1}` has the wrong kind of value ({2}).", "Аргумент {0} у `{1}` — значение не того типа ({2})."),
+        ("Check the order and the kinds of arguments in Help.", "Проверьте порядок и типы аргументов в справке."),
         ("`{0}` was called with arguments it doesn't understand.", "`{0}` вызвана с аргументами, которые она не понимает."),
         ("Correct forms: {0}", "Правильные варианты: {0}"),
         ("The list method `{0}` got a wrong argument: {1}.", "Метод списка `{0}` получил неверный аргумент: {1}."),
@@ -585,7 +585,7 @@ public static class LocRuUi
         ("Remove the extra `end` (one per `if`, `for`, `while` and `function`). `return` and `break` must be the last line of their block.",
             "Уберите лишний `end` (по одному на `if`, `for`, `while` и `function`). `return` и `break` должны быть последней строкой своего блока."),
         ("Lua expected a name here: letters, digits and `_`, not starting with a digit and not a Lua word.",
-            "Здесь Lua ждала имя: буквы, цифры и `_`, не с цифры в начале и не слово Lua."),
+            "Здесь Lua ждала имя: буквы, цифры и `_`; имя не может начинаться с цифры или быть словом Lua."),
         ("For example `local count = 0` or `function Helper()` — a function needs a name.",
             "Например, `local count = 0` или `function Helper()` — функции нужно имя."),
         ("Lua expected `{0}` here.", "Здесь Lua ждала `{0}`."),
@@ -619,7 +619,7 @@ public static class LocRuUi
         ("{0}, so you can't use `.` or `:` on it. This often happens when a command found nothing: `getNear()`, `find()` or `check()` returned nil.",
             "{0}, поэтому к нему нельзя применить `.` или `:`. Так часто бывает, когда команда ничего не нашла: `getNear()`, `find()` или `check()` вернули nil."),
         ("Make sure something is in sight before you look for it (`findObjects(...).count` shows how many), or explore first. Conditions (`if`) unlock after your first harvest.",
-            "Убедитесь, что искомое в поле зрения (`findObjects(...).count` покажет, сколько его), или сначала исследуйте. Условия (`if`) откроются после первого сбора."),
+            "Убедитесь, что искомое в поле зрения (`findObjects(...).count` покажет количество), или сначала исследуйте. Условия (`if`) откроются после первого сбора."),
         ("Check it before use: `if {0} then ... end`. Also check the spelling of the variable.",
             "Проверьте перед использованием: `if {0} then ... end`. И проверьте написание переменной."),
         ("Check the value before use: `if obj then ... end`.", "Проверьте значение перед использованием: `if obj then ... end`."),
@@ -628,7 +628,7 @@ public static class LocRuUi
             "Поля найденных объектов — простые значения: пишите `obj.x`, а не `obj.x.y`."),
         ("You did math with {0} that is nil (has no value). Maybe the name is misspelled, it was never set, or a command returned nothing.",
             "Вы считали с {0}, а это nil (нет значения). Возможно, имя написано с ошибкой, значение не задано или команда ничего не вернула."),
-        ("a value", "значением"),
+        ("a value", "каким-то значением"),
         ("Give it a value first (`local count = 0`) or check it: `if x then ... end`.",
             "Сначала задайте значение (`local count = 0`) или проверьте его: `if x then ... end`."),
         ("You did math with text ({0}). Numbers in quotes are text: \"5\" is not 5.",
@@ -646,7 +646,7 @@ public static class LocRuUi
         ("Check that the list exists. For findObjects results you can also use `list.count`.",
             "Проверьте, что список существует. Для результата findObjects можно использовать и `list.count`."),
         ("One side of the comparison (`<`, `>`, `<=`, `>=`) is nil — it has no value, so Lua can't compare it.",
-            "Одна сторона сравнения (`<`, `>`, `<=`, `>=`) — nil, у неё нет значения, и Lua не может сравнить."),
+            "Одна сторона сравнения (`<`, `>`, `<=`, `>=`) — nil, у неё нет значения, и Lua не может их сравнить."),
         ("Maybe a name is misspelled or a command returned nil. Check first: `if x and x > 3 then ... end`.",
             "Возможно, имя написано с ошибкой или команда вернула nil. Сначала проверьте: `if x and x > 3 then ... end`."),
         ("You compared a {0} with a {1}. `<` and `>` work only for two numbers (or two texts).",

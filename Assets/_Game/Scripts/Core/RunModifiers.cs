@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Параметры одного забега. Собираются при старте из базовых значений PlayerConfig
-/// и эффектов построек хаба (HubBuildingDefinition.Effects) — системы забега читают их отсюда, а не из PlayerConfig напрямую.
+/// и эффектов построек хаба на их текущем уровне (HubBuildingDefinition.GetEffects) — системы забега читают их отсюда, а не из PlayerConfig напрямую.
 /// </summary>
 public class RunModifiers
 {
@@ -23,7 +23,7 @@ public class RunModifiers
     private RunModifiers() { }
 
     /// <summary>
-    /// Параметры забега: база из PlayerConfig + эффекты построек хаба из progress.HubBuildings,
+    /// Параметры забега: база из PlayerConfig + эффекты построек хаба из progress.HubBuildings (на их уровне),
     /// найденных в catalog (без каталога — только база; постройки не из каталога пропускаются).
     /// </summary>
     public static RunModifiers Create(PlayerConfig config, MetaProgress progress, HubBuildingCatalog catalog = null)
@@ -82,7 +82,8 @@ public class RunModifiers
             HubBuildingDefinition definition = catalog.Find(placed.buildingId);
             if (definition == null) continue;
 
-            foreach (HubBuildingEffect effect in definition.Effects)
+            // Итог уровней 1..level (уровень из сохранения, 0 в старом файле — 1)
+            foreach (HubBuildingEffect effect in definition.GetEffects(placed.Level))
                 if (effect != null)
                     Apply(effect);
         }
