@@ -13,6 +13,9 @@ using UnityEngine.UIElements;
 /// (их передаёт UIManager через INotificationDisplay) — в лагере верхней панели нет.
 /// Бонусы за соседство (T15): в карточке — «Neighbour bonuses:» (возможные/действующие), при размещении под
 /// подсказкой — строки предпросмотра «+5 energy limit (next to Shrine)» по HubPlacementController.OnPreviewChanged.
+/// Перенос: у каждой построенной (включая портал) кнопка Move → HubPlacementController.BeginMove; во время
+/// переноса она же — Cancel, внизу «Click a cell to move · Right click / Esc to cancel». Постоянная постройка
+/// (портал) не строится и не улучшается — только «Built» и Move.
 /// Элементы — из шаблона HubPanel.uxml (часть RunScreens.uxml), создаёт CodeEditorManager только в лагере.
 /// </summary>
 public class HubBuildPanel : INotificationDisplay
@@ -64,8 +67,10 @@ public class HubBuildPanel : INotificationDisplay
         if (_placement != null)
         {
             _placement.OnPlaced += HandlePlaced;
+            _placement.OnMoved += HandleMoved;
             _placement.OnCancelled += HandleCancelled;
             _placement.OnFailed += HandleFailed;
+            _placement.OnMoveFailed += HandleMoveFailed;
             _placement.OnPreviewChanged += HandlePreviewChanged;
         }
 
@@ -89,8 +94,10 @@ public class HubBuildPanel : INotificationDisplay
         if (_placement != null)
         {
             _placement.OnPlaced -= HandlePlaced;
+            _placement.OnMoved -= HandleMoved;
             _placement.OnCancelled -= HandleCancelled;
             _placement.OnFailed -= HandleFailed;
+            _placement.OnMoveFailed -= HandleMoveFailed;
             _placement.OnPreviewChanged -= HandlePreviewChanged;
         }
 
@@ -112,6 +119,19 @@ public class HubBuildPanel : INotificationDisplay
         if (_hub == null) return false;
         foreach (HubBuildingDefinition definition in _hub.Definitions)
             if (_hub.CheckAvailability(definition) == HubBuildResult.Ok)
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// В лагере стоит хоть одна постройка игрока — постоянные (портал) не считаются, они стоят всегда
+    /// (для шага туториала hub_build).
+    /// </summary>
+    public bool HasPlayerBuilding()
+    {
+        if (_hub == null) return false;
+        foreach (HubPlacement placed in _hub.GetPlaced())
+            if (placed.Definition == null || !placed.Definition.IsPermanent)
                 return true;
         return false;
     }
@@ -154,11 +174,12 @@ public class HubBuildPanel : INotificationDisplay
     {
         HubBuildResult availability = _hub.CheckAvailability(definition);
         bool built = availability == HubBuildResult.AlreadyBuilt;
+        // И размещение новой, и перенос этой постройки подсвечивают карточку
         bool placingThis = _placement != null && _placement.IsPlacing && _placement.Selected == definition;
 
-        // Уровень: у построенной — текущий, иначе постройка даёт уровень 1
+        // Уровень: у построенной — текущий, иначе постройка даёт уровень 1. Портал не улучшается
         int level = built ? _hub.GetLevel(definition) : 1;
-        bool upgradable = built && level < definition.MaxLevel;
+        bool upgradable = built && !definition.IsPermanent && level < definition.MaxLevel;
         HubUpgradeResult upgrade = built ? _hub.CheckUpgrade(definition) : HubUpgradeResult.NotBuilt;
 
         var card = new VisualElement();
@@ -192,16 +213,17 @@ public class HubBuildPanel : INotificationDisplay
                 card.Add(CreateEffectLabel(effect, next: true));
             card.Add(CreateCost(definition.GetCost(level + 1), showStock: true));
         }
-        else if (!built || definition.MaxLevel == 1)
+        else if ((!built || definition.MaxLevel == 1) && definition.GetCost().Count > 0)
         {
-            // Непостроенная — цена с запасом склада; одноуровневая построенная — просто цена, как раньше
+            // Непостроенная — цена с запасом склада; одноуровневая построенная — просто цена, как раньше.
+            // Бесплатная (портал) — без строки цены
             card.Add(CreateCost(definition.GetCost(), showStock: !built));
         }
 
         AddAdjacencyBonuses(card, definition, built);
 
         card.Add(built
-            ? CreateUpgradeFooter(definition, level, upgrade)
+            ? CreateUpgradeFooter(definition, level, upgrade, placingThis)
             : CreateFooter(definition, availability, placingThis));
         return card;
     }
@@ -329,7 +351,8 @@ public class HubBuildPanel : INotificationDisplay
         state.EnableInClassList("hub-card-state--missing", availability == HubBuildResult.NotAffordable);
         footer.Add(state);
 
-        if (availability == HubBuildResult.AlreadyBuilt) return footer;
+        // Портал не строится из панели (не поставлен — значит, сетка забита: кнопки нет)
+        if (availability == HubBuildResult.AlreadyBuilt || availability == HubBuildResult.Permanent) return footer;
 
         // UI управляется только мышью — кнопка не должна забирать фокус
         var button = new Button { text = Loc.T(placingThis ? "Cancel" : "Build"), focusable = false };
@@ -345,9 +368,11 @@ public class HubBuildPanel : INotificationDisplay
 
     /// <summary>
     /// Низ карточки построенной постройки: состояние (Built / Ready to upgrade / нехватка материалов /
-    /// максимальный уровень) и кнопка Upgrade, пока уровень не максимальный.
+    /// максимальный уровень), кнопка Move (перенос; во время переноса этой постройки — Cancel) и кнопка
+    /// Upgrade, пока уровень не максимальный (у портала её нет).
     /// </summary>
-    private VisualElement CreateUpgradeFooter(HubBuildingDefinition definition, int level, HubUpgradeResult upgrade)
+    private VisualElement CreateUpgradeFooter(
+        HubBuildingDefinition definition, int level, HubUpgradeResult upgrade, bool movingThis)
     {
         var footer = new VisualElement();
         footer.AddToClassList("hub-card-footer");
@@ -356,7 +381,9 @@ public class HubBuildPanel : INotificationDisplay
         switch (upgrade)
         {
             case HubUpgradeResult.MaxLevel:
-                text = definition.MaxLevel > 1 ? Loc.T("Built · maximum level") : Loc.T("Built");
+                text = definition.MaxLevel > 1 && !definition.IsPermanent
+                    ? Loc.T("Built · maximum level")
+                    : Loc.T("Built");
                 break;
             default:
                 text = Loc.T(HubService.Describe(upgrade));
@@ -369,9 +396,21 @@ public class HubBuildPanel : INotificationDisplay
         state.EnableInClassList("hub-card-state--missing", upgrade == HubUpgradeResult.NotAffordable);
         footer.Add(state);
 
-        if (level >= definition.MaxLevel) return footer;
+        var buttons = new VisualElement();
+        buttons.AddToClassList("hub-card-buttons");
+        footer.Add(buttons);
 
-        // UI управляется только мышью — кнопка не должна забирать фокус
+        // Перенос — у любой построенной, бесплатно; UI управляется только мышью — кнопки без фокуса
+        var move = new Button { text = Loc.T(movingThis ? "Cancel" : "Move"), focusable = false };
+        move.AddToClassList("screen-btn");
+        move.AddToClassList(movingThis ? "screen-btn--danger" : "screen-btn--secondary");
+        move.AddToClassList("hub-card-build");
+        move.AddToClassList("hub-card-move");
+        move.clicked += () => HandleMoveClicked(definition);
+        buttons.Add(move);
+
+        if (definition.IsPermanent || level >= definition.MaxLevel) return footer;
+
         var button = new Button { text = Loc.T("Upgrade"), focusable = false };
         button.AddToClassList("screen-btn");
         button.AddToClassList("screen-btn--primary");
@@ -379,7 +418,7 @@ public class HubBuildPanel : INotificationDisplay
         button.AddToClassList("hub-card-upgrade");
         button.SetEnabled(upgrade == HubUpgradeResult.Ok);
         button.clicked += () => HandleUpgradeClicked(definition);
-        footer.Add(button);
+        buttons.Add(button);
 
         return footer;
     }
@@ -408,7 +447,7 @@ public class HubBuildPanel : INotificationDisplay
     {
         if (_placement == null) return;
 
-        if (_placement.IsPlacing && _placement.Selected == definition)
+        if (_placement.IsPlacing && !_placement.IsMoving && _placement.Selected == definition)
         {
             _placement.Cancel();
             return;
@@ -418,6 +457,34 @@ public class HubBuildPanel : INotificationDisplay
         if (_placement.Begin(definition))
             Refresh();
     }
+
+    // ─── Перенос ──────────────────────────────────────────────
+
+    /// <summary>Move — начать перенос построенной; повторный клик по той же карточке (Cancel) — отменить.</summary>
+    private void HandleMoveClicked(HubBuildingDefinition definition)
+    {
+        if (_placement == null) return;
+
+        if (_placement.IsMoving && _placement.Selected == definition)
+        {
+            _placement.Cancel();
+            return;
+        }
+
+        // При отказе BeginMove сам публикует уведомление и OnMoveFailed
+        if (_placement.BeginMove(definition))
+            Refresh();
+    }
+
+    /// <summary>Перенос завершён: карточки (действующие бонусы соседства) и сообщение.</summary>
+    private void HandleMoved(HubBuildingDefinition definition, Vector2Int cell)
+    {
+        Refresh();
+        UIEventBus.PublishNotification(Loc.F("{0} moved", Loc.T(definition.Title)), LogEntryType.Success);
+    }
+
+    // Место занято / вне сетки: причину уже показало уведомление
+    private void HandleMoveFailed(HubMoveResult result) => Refresh();
 
     // ─── Улучшение ────────────────────────────────────────────
 
@@ -459,7 +526,10 @@ public class HubBuildPanel : INotificationDisplay
             // «Здесь бонуса нет» — только если у постройки вообще есть бонусы за соседство и призрак стоит
             // на допустимом месте (на красном призраке подпись не нужна)
             Vector2Int? cell = _placement.PreviewCell;
-            return cell.HasValue && _hub.CanPlaceAt(selected, cell.Value)
+            bool valid = cell.HasValue && (_placement.IsMoving
+                ? _hub.CanMoveTo(selected, cell.Value)
+                : _hub.CanPlaceAt(selected, cell.Value));
+            return valid
                    && _hub.GetPossibleAdjacencyBonuses(selected).Count > 0
                 ? Loc.T("No neighbour bonus here")
                 : string.Empty;
@@ -481,7 +551,17 @@ public class HubBuildPanel : INotificationDisplay
         bool placing = _placement != null && _placement.IsPlacing;
         bool hasStatus = !_status.ClassListContains(HiddenClass);
 
-        _hintTitle.text = placing ? Loc.F("Placing: {0}", Loc.T(_placement.Selected.Title)) : string.Empty;
+        bool moving = placing && _placement.IsMoving;
+
+        _hintTitle.text = !placing
+            ? string.Empty
+            : moving
+                ? Loc.F("Moving: {0}", Loc.T(_placement.Selected.Title))
+                : Loc.F("Placing: {0}", Loc.T(_placement.Selected.Title));
+        // Текст из UXML переводит LocUxml; здесь он ставится заново, т.к. у переноса своя подсказка
+        _hintText.text = Loc.T(moving
+            ? "Click a cell to move · Right click / Esc to cancel"
+            : "Click a cell to build · Right click / Esc to cancel");
         _hintTitle.EnableInClassList(HiddenClass, !placing);
         _hintText.EnableInClassList(HiddenClass, !placing);
         _adjacency.EnableInClassList(HiddenClass, !placing || string.IsNullOrEmpty(_adjacency.text));

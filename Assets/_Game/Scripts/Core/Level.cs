@@ -83,6 +83,20 @@ public class Level : MonoBehaviour
     /// <summary>Головоломки забега (в лагере — пустой список, но не null).</summary>
     public PuzzleManager Puzzles => _puzzleManager;
 
+    // ─── Место забега и портал ───
+    private RunLocation _runLocation;
+    private RunPortal _portal;
+    private RunController _runController;
+
+    /// <summary>Место забега: спавн и площадь портала. В лагере — null.</summary>
+    public RunLocation RunLocation => _runLocation;
+
+    /// <summary>Портал забега (выход в лагерь): Position, IsNear, DistanceTo. В лагере — null.</summary>
+    public RunPortal Portal => _portal;
+
+    /// <summary>Выход через портал (RunController). Создаётся последним в Awake.</summary>
+    public IRunExitService RunExit => _runController;
+
     // ─── Системы забега для отладочного окна (CodeRogue/Debug) ───
     private PlayerCommandExecutor _executor;
     private UnlockRegistry _unlocks;
@@ -154,10 +168,20 @@ public class Level : MonoBehaviour
         tilemapGenerator.GenerateMap();
         ConfigureDepthSorting();
 
-        // 2. Спавн
+        // 2. Спавн: в забеге — место забега (портал + точка появления вплотную к нему, IRunLocationGenerator),
+        // в лагере — как раньше, SpawnPoint (он же — запасной вариант генератора места)
+        GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
         spawnPoint.Initialize(tilemapGenerator);
         Vector2Int startTile = spawnPoint.GetSpawnTile();
+        if (mode == GameMode.Run)
+        {
+            _runLocation = CreateRunLocationGenerator(startTile).Generate(tilemapGenerator, tilemapGenerator.Seed);
+            startTile = _runLocation.SpawnTile;
+        }
         GameObject player = SpawnPlayer(startTile);
+        // Портал — до объектов, лагерей и головоломок: его коллайдер и зона учитываются при их расстановке
+        if (_runLocation != null)
+            _portal = CreatePortal(_runLocation, player);
 
         // 3. Компоненты игрока
         PlayerCommandExecutor executor = player.GetComponent<PlayerCommandExecutor>();
@@ -172,10 +196,11 @@ public class Level : MonoBehaviour
         // 5. Камера
         cameraController.Initialize(tilemapGenerator, player.transform, codeEditorManager);
 
-        // 6. Объекты (в забеге — плюс гарантированный стартовый набор у спавна из MapGenerationConfig)
-        GameMode mode = GameSession.RequestedMode ?? (startInHub ? GameMode.Hub : GameMode.Run);
+        // 6. Объекты (в забеге — плюс гарантированный стартовый набор у спавна из MapGenerationConfig;
+        // у портала ресурсов нет)
         objectManager.Initialize(
-            tilemapGenerator, startTile, mode == GameMode.Run ? tilemapGenerator.Config : null);
+            tilemapGenerator, startTile, mode == GameMode.Run ? tilemapGenerator.Config : null,
+            GetPortalKeepClear());
 
         // 7. Параметры забега (база из PlayerConfig + постройки лагеря), открытия, энергия, здоровье, инвентарь
         MetaProgress progress = GameSession.Progress;
@@ -240,7 +265,7 @@ public class Level : MonoBehaviour
         luaSandbox.Initialize(
             executor, tilemapGenerator, fogOfWarSystem, energyConfig, objectManager, playerEnergy, playerHealth,
             inventory, recipeBook, structures, playerConfig.structureInteractionRadius, dayCycle, unlocks,
-            _enemyManager, combat, _puzzleManager);
+            _enemyManager, combat, _puzzleManager, _portal);
         dayCycle.Attach(luaSandbox);
         _enemyManager.Attach(luaSandbox);
         // Овцы бродят около точки появления, пока выполняется код (не в воду, головоломки и лагеря)
@@ -259,7 +284,7 @@ public class Level : MonoBehaviour
         // 11. UI
         codeEditorManager.Initialize(
             luaSandbox, uiManager, recipeBook, structures, dayCycle, _achievementTracker,
-            _hubService, _hubPlacement);
+            _hubService, _hubPlacement, hubBuildingCatalog);
         uiManager.Initialize(
             codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
 
@@ -282,8 +307,13 @@ public class Level : MonoBehaviour
         // Статистика забега для экрана итогов (подписана на статическую GameEventBus — Dispose в OnDestroy)
         _runStats = new RunStats();
         RunController runController = new RunController(
-            mode, codeEditorManager.RunScreens, codeEditorManager.TopBar, luaSandbox, inventory, playerHealth,
+            mode, codeEditorManager.RunScreens, luaSandbox, inventory, playerHealth,
             dayCycle, progress, _achievementTracker, _runStats);
+        _runController = runController;
+        // enterPortal() выходит через RunController — он создаётся после песочницы
+        luaSandbox.RunExit = runController;
+        // Последний запуск дня с выходом через портал не заканчивает день — сразу итоги
+        dayCycle.RunExit = runController;
         runController.Start();
 
         // 13. Звуки на действия: после врагов, достижений и UI (переключатель звука в лагере);
@@ -344,7 +374,39 @@ public class Level : MonoBehaviour
         _hubPlacement = _hubGrid.Root.gameObject.AddComponent<HubPlacementController>();
         _hubPlacement.Initialize(_hubService, _hubGrid, codeEditorManager);
 
+        // Персонаж стоит у портала (HubService поставил его сам, если в сохранении не было) и ходит за ним при переносе
+        _hubGrid.SetPlayer(player.transform);
+
         cameraController.FocusOn(_hubGrid.WorldCenter);
+    }
+
+    /// <summary>
+    /// Генератор места забега — единственное место, где он выбирается. Чтобы заменить генерацию локации
+    /// забега, верните отсюда свою реализацию IRunLocationGenerator (см. комментарий к интерфейсу).
+    /// </summary>
+    private IRunLocationGenerator CreateRunLocationGenerator(Vector2Int fallbackSpawn)
+    {
+        return RandomPortalLocationGenerator.FromConfig(tilemapGenerator.Config, fallbackSpawn);
+    }
+
+    private RunPortal CreatePortal(RunLocation location, GameObject player)
+    {
+        MapGenerationConfig config = tilemapGenerator.Config;
+        SpriteRenderer playerRenderer = player.GetComponentInChildren<SpriteRenderer>();
+        return RunPortal.Create(
+            config != null ? config.portalPrefab : null, tilemapGenerator, location,
+            playerRenderer != null ? playerRenderer.sharedMaterial : null);
+    }
+
+    /// <summary>Площадь портала с полем portalClearRadius — ресурсы туда не ставятся. В лагере — null.</summary>
+    private Rect? GetPortalKeepClear()
+    {
+        if (_portal == null) return null;
+
+        MapGenerationConfig config = tilemapGenerator.Config;
+        float clear = config != null ? config.portalClearRadius : 0f;
+        Rect bounds = _portal.Bounds;
+        return new Rect(bounds.xMin - clear, bounds.yMin - clear, bounds.width + clear * 2f, bounds.height + clear * 2f);
     }
 
     private System.Collections.Generic.IEnumerable<string> GetRecipeKeys()

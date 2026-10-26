@@ -20,6 +20,8 @@ using UnityEngine;
 /// от точной позиции персонажа, как её проверяет attack().
 /// Головоломки (kind = "puzzle", type "obelisk"/"maze", поле solved): id = <see cref="PuzzleIdOffset"/> + PuzzleStructure.Id;
 /// distance до них — от точной позиции персонажа до края области (так досягаемость проверяют puzzle()/solve()).
+/// Портал забега (kind = type = "portal"): id = <see cref="LuaPortal.PortalId"/>, distance — до края портала
+/// (так досягаемость проверяет enterPortal()), approachX/approachY — проходимый тайл перед ним (RunPortal.ApproachTile).
 /// Каждый вызов метода стоит <see cref="MethodCost"/> энергии.
 /// </summary>
 public class LuaObjectList
@@ -53,6 +55,7 @@ public class LuaObjectList
     public const string KindObject = "object";
     public const string KindEnemy = "enemy";
     public const string KindPuzzle = "puzzle";
+    public const string KindPortal = LuaPortal.TypeName;
 
     /// <summary>
     /// id врага в Lua = EnemyIdOffset + Enemy.Id. Объекты карты создаются во время игры, их GetInstanceID
@@ -79,13 +82,14 @@ public class LuaObjectList
     private readonly PlayerCommandExecutor _executor;
 
     /// <summary>
-    /// Элемент списка: ресурс, враг или головоломка (ровно одно из трёх) и его таблица для Lua.
+    /// Элемент списка: ресурс, враг, головоломка или портал (ровно одно из четырёх) и его таблица для Lua.
     /// </summary>
     private readonly struct Entry
     {
         public readonly ResourceObject Obj;
         public readonly Enemy Enemy;
         public readonly PuzzleStructure Puzzle;
+        public readonly RunPortal Portal;
         // Враги берутся из пула: после гибели тот же компонент может стать другим врагом с новым Id
         public readonly int EnemyId;
         public readonly LuaTable Table;
@@ -95,6 +99,7 @@ public class LuaObjectList
             Obj = obj;
             Enemy = null;
             Puzzle = null;
+            Portal = null;
             EnemyId = 0;
             Table = table;
         }
@@ -104,6 +109,7 @@ public class LuaObjectList
             Obj = null;
             Enemy = enemy;
             Puzzle = null;
+            Portal = null;
             EnemyId = enemy.Id;
             Table = table;
         }
@@ -113,19 +119,34 @@ public class LuaObjectList
             Obj = null;
             Enemy = null;
             Puzzle = puzzle;
+            Portal = null;
+            EnemyId = 0;
+            Table = table;
+        }
+
+        public Entry(RunPortal portal, LuaTable table)
+        {
+            Obj = null;
+            Enemy = null;
+            Puzzle = null;
+            Portal = portal;
             EnemyId = 0;
             Table = table;
         }
 
         public bool IsEnemy => !ReferenceEquals(Enemy, null);
         public bool IsPuzzle => !ReferenceEquals(Puzzle, null);
+        public bool IsPortal => !ReferenceEquals(Portal, null);
 
-        // Головоломка остаётся на карте до конца забега (решённая — с solved = true)
+        // Головоломка (решённая — с solved = true) и портал остаются на карте до конца забега
         public bool IsAlive => IsEnemy
             ? Enemy != null && Enemy.IsAlive && Enemy.Id == EnemyId
-            : IsPuzzle ? Puzzle != null : Obj != null && Obj.IsAvailable;
+            : IsPuzzle ? Puzzle != null
+            : IsPortal ? Portal != null
+            : Obj != null && Obj.IsAvailable;
 
-        public Vector2 Position => IsEnemy ? Enemy.Position : IsPuzzle ? Puzzle.Position : Obj.Position;
+        public Vector2 Position => IsEnemy ? Enemy.Position : IsPuzzle ? Puzzle.Position
+            : IsPortal ? Portal.Position : Obj.Position;
     }
 
     public LuaObjectList(PlayerCommandExecutor executor)
@@ -154,7 +175,17 @@ public class LuaObjectList
     public LuaTable Build(
         List<ResourceObject> objects, List<Enemy> enemies, List<PuzzleStructure> puzzles, EnergyMeter meter)
     {
-        var entries = new List<Entry>((objects?.Count ?? 0) + (enemies?.Count ?? 0) + (puzzles?.Count ?? 0));
+        return Build(objects, enemies, puzzles, null, meter);
+    }
+
+    /// <summary>
+    /// Смешанный список: ресурсы, живые враги, головоломки, затем портал (null — без него; видимость проверяет вызывающий).
+    /// </summary>
+    public LuaTable Build(
+        List<ResourceObject> objects, List<Enemy> enemies, List<PuzzleStructure> puzzles, RunPortal portal,
+        EnergyMeter meter)
+    {
+        var entries = new List<Entry>((objects?.Count ?? 0) + (enemies?.Count ?? 0) + (puzzles?.Count ?? 0) + 1);
         if (objects != null)
             foreach (ResourceObject obj in objects)
                 entries.Add(new Entry(obj, BuildObjectTable(obj)));
@@ -166,6 +197,8 @@ public class LuaObjectList
             foreach (PuzzleStructure puzzle in puzzles)
                 if (puzzle != null)
                     entries.Add(new Entry(puzzle, BuildPuzzleTable(puzzle)));
+        if (portal != null)
+            entries.Add(new Entry(portal, BuildPortalTable(portal)));
 
         return BuildList(entries, meter);
     }
@@ -197,6 +230,29 @@ public class LuaObjectList
             LuaPuzzles.AddArea(table, plates);
         }
         RefreshPuzzle(table, puzzle);
+        return table;
+    }
+
+    /// <summary>
+    /// Таблица портала (kind = type = "portal") — элемент findObjects, поле portal у check.
+    /// </summary>
+    public LuaTable BuildPortalTable(RunPortal portal)
+    {
+        LuaTable table = new LuaTable();
+
+        table["id"] = LuaPortal.PortalId;
+        table["kind"] = KindPortal;
+        table["type"] = LuaPortal.TypeName;
+        // Центр портала — как у других объектов (сортировка, расстояния, check(p.x, p.y))
+        table["x"] = (double)portal.Position.x;
+        table["y"] = (double)portal.Position.y;
+        // Проходимый тайл перед порталом: портал сплошной, поэтому moveTo(p) идёт сюда (LuaPortal.TryReadApproach),
+        // а не в центр, где упёрся бы в коллайдер до stuckTimeout
+        table["approachX"] = (double)portal.ApproachTile.x;
+        table["approachY"] = (double)portal.ApproachTile.y;
+        // Не добывается — энергии на «добычу» 0
+        table["durability"] = 0d;
+        table["distance"] = (double)Distance(portal);
         return table;
     }
 
@@ -461,9 +517,16 @@ public class LuaObjectList
         return _executor != null ? puzzle.DistanceTo(_executor.Position) : 0f;
     }
 
+    // До портала — от точной позиции персонажа до его края: так досягаемость проверяет enterPortal()
+    private float Distance(RunPortal portal)
+    {
+        return _executor != null ? portal.DistanceTo(_executor.Position) : 0f;
+    }
+
     private float Distance(Entry e)
     {
-        return e.IsEnemy ? Distance(e.Enemy) : e.IsPuzzle ? Distance(e.Puzzle) : Distance(e.Obj);
+        return e.IsEnemy ? Distance(e.Enemy) : e.IsPuzzle ? Distance(e.Puzzle)
+            : e.IsPortal ? Distance(e.Portal) : Distance(e.Obj);
     }
 
     private LuaValue GetField(Entry e, string field)
@@ -508,6 +571,7 @@ public class LuaObjectList
         {
             if (e.IsEnemy) RefreshEnemy(e.Table, e.Enemy);
             else if (e.IsPuzzle) RefreshPuzzle(e.Table, e.Puzzle);
+            else if (e.IsPortal) e.Table["distance"] = (double)Distance(e.Portal);
             else e.Table["distance"] = (double)Distance(e.Obj);
         }
         return entries;

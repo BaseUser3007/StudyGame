@@ -44,6 +44,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         new Dictionary<TutorialAnchor, VisualElement>();
     // Лагерь (этап 4): null в забеге
     private HubService _hubService;
+    private HubBuildingCatalog _hubCatalog;
     private HubPlacementController _hubPlacement;
     private HubBuildPanel _hubPanel;
     private int _windowCount = 0;
@@ -75,11 +76,14 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
     /// <param name="hubService">Логика лагеря (Level.HubService); null — забег.</param>
     /// <param name="hubPlacement">Размещение построек мышью (Level.HubPlacement); null — забег.</param>
+    /// <param name="hubCatalog">Каталог построек лагеря (и в забеге — названия в окне открытия); может быть null.</param>
     public void Initialize(
         LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook, IStationProvider stations,
         DayCycle dayCycle, AchievementTracker achievements,
-        HubService hubService = null, HubPlacementController hubPlacement = null)
+        HubService hubService = null, HubPlacementController hubPlacement = null,
+        HubBuildingCatalog hubCatalog = null)
     {
+        _hubCatalog = hubCatalog;
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
         _recipeBook = recipeBook;
@@ -350,7 +354,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         _achievementsPanel = new AchievementsPanel(_runScreens.GetOverlay("achievements-overlay"), _achievements);
         _unlockPopup = new UnlockPopup(
-            _runScreens.GetOverlay("unlock-overlay"), _luaSandbox, _recipeBook, _context.Highlighter);
+            _runScreens.GetOverlay("unlock-overlay"), _luaSandbox, _recipeBook, _context.Highlighter, _hubCatalog);
         _achievementToasts = new AchievementToasts(_runScreens.GetOverlay("toast-overlay"));
 
         _topBar.OnAchievementsRequested += HandleAchievementsRequested;
@@ -404,7 +408,12 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         _tutorialOverlay = new TutorialOverlay(_runScreens.GetOverlay("tutorial-overlay"), _context.Highlighter);
         var state = new TutorialState(progress, _unlocks, _dayCycle, IsKeywordLocked);
-        if (_hubPanel != null) state.HubBuildAvailable = _hubPanel.IsAnyBuildAvailable;
+        if (_hubPanel != null)
+        {
+            state.HubBuildAvailable = _hubPanel.IsAnyBuildAvailable;
+            // Портал стоит всегда — шаг hub_build закрывает только постройка игрока
+            state.HubPlayerBuildingExists = _hubPanel.HasPlayerBuilding;
+        }
         // Энергия — то, что UIManager передал в TopBar из UIEventBus (шаг low_energy)
         state.Energy = GetTopBarEnergy;
         _tutorial = new TutorialController(_tutorialOverlay, progress, state, ResolveTutorialAnchor, IsTutorialBlocked);
@@ -437,7 +446,6 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     {
         return (_unlockPopup != null && _unlockPopup.IsOpen)
             || (_achievementsPanel != null && _achievementsPanel.IsOpen)
-            || _runScreens.IsExitConfirmOpen
             || _runScreens.IsSummaryShown
             // Во время размещения постройки карточка не должна закрывать клетки сетки
             || (_hubPanel != null && _hubPanel.IsPlacing);
@@ -471,7 +479,6 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
             case TutorialAnchor.HelpButton: return _topBar.FindElement("btn-help");
             case TutorialAnchor.EndDayButton: return _topBar.FindElement("btn-end-day");
             case TutorialAnchor.AchievementsButton: return _topBar.FindElement("btn-achievements");
-            case TutorialAnchor.ExitRunButton: return _topBar.FindElement("btn-exit-run");
             case TutorialAnchor.Inventory: return _inventoryBar.Q<VisualElement>("inventory-bar");
             case TutorialAnchor.CraftButton: return _craftingPanel.Q<VisualElement>("btn-craft");
             case TutorialAnchor.LibraryTab: return _codeLibraryPanel.Q<VisualElement>("btn-library-toggle");

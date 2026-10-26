@@ -64,8 +64,16 @@ public class TutorialState
 
     public bool CanBuildInHub => HubBuildAvailable != null && HubBuildAvailable();
 
-    /// <summary>В лагере уже стоит хоть одна постройка (из сохранения).</summary>
-    public bool HasHubBuilding => _progress != null && _progress.HubBuildings.Count > 0;
+    /// <summary>
+    /// Стоит ли в лагере постройка, поставленная игроком (без постоянных — портал стоит всегда); задаёт
+    /// CodeEditorManager в лагере. null — по сохранению: хоть одна запись.
+    /// </summary>
+    public Func<bool> HubPlayerBuildingExists { get; set; }
+
+    /// <summary>В лагере уже стоит хоть одна постройка игрока (из сохранения).</summary>
+    public bool HasHubBuilding => HubPlayerBuildingExists != null
+        ? HubPlayerBuildingExists()
+        : _progress != null && _progress.HubBuildings.Count > 0;
 
     /// <summary>Доля энергии, ниже которой туториал предупреждает о её нехватке (шаг low_energy).</summary>
     public const float LowEnergyFraction = 0.25f;

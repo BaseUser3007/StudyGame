@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b119815fa70400644b3757b53eb4385d, type: 3}
+  m_Name: Portal
+  m_EditorClassIdentifier: Assembly-CSharp::HubBuildingDefinition
+  id: portal
+  title: Portal
+  description: "Portal \u2014 the way from the camp into a new run. It is always
+    in the camp: it can be moved, but not built or upgraded."
+  sprite: {fileID: 21300000, guid: 03b438cc1edb849a7978ee3571c43887, type: 3}
+  prefab: {fileID: 0}
+  size: {x: 2, y: 2}
+  isPermanent: 1
+  cost: []
+  effects: []
+  levels: []
+  adjacencyBonuses: []

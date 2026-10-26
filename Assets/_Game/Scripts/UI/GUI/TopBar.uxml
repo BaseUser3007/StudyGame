@@ -31,7 +31,6 @@
                 <ui:Button name="btn-step"       class="top-bar-btn btn-debug hidden" text="Step" tooltip="Run to the next line that costs energy and pause again"/>
                 <ui:Button name="btn-run"        class="top-bar-btn btn-run" text="Run"/>
                 <ui:Button name="btn-end-day"    class="top-bar-btn btn-end-day" text="End Day"/>
-                <ui:Button name="btn-exit-run"   class="top-bar-btn btn-exit-run" text="Exit Run" tooltip="Return to the camp: only materials are carried over"/>
                 <ui:Button name="btn-simulation" class="top-bar-btn" text="Simulation"/>
             </ui:VisualElement>
         </ui:VisualElement>

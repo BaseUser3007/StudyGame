@@ -58,6 +58,7 @@ public class LuaSandbox : MonoBehaviour
     private EnemyManager _enemies;
     private CombatService _combat;
     private PuzzleManager _puzzles;
+    private RunPortal _portal;
 
     private LuaState _state;
     // Все команды игры; в _registry (и в Lua) попадают только открытые
@@ -85,6 +86,12 @@ public class LuaSandbox : MonoBehaviour
     public bool IsRunning { get; private set; }
 
     /// <summary>
+    /// Выход из забега через портал (RunController) — для enterPortal(). Задаётся после Initialize:
+    /// RunController создаётся последним в Level. null — выйти нельзя (команда вернёт причину).
+    /// </summary>
+    public IRunExitService RunExit { get; set; }
+
+    /// <summary>
     /// Энергия, потраченная с начала текущего запуска кода (всё, что списано с PlayerEnergy);
     /// 0, если код не выполняется. То же значение уйдёт в CodeRunReport.EnergySpent.
     /// </summary>
@@ -110,7 +117,8 @@ public class LuaSandbox : MonoBehaviour
         UnlockRegistry unlocks,
         EnemyManager enemies,
         CombatService combat,
-        PuzzleManager puzzles = null)
+        PuzzleManager puzzles = null,
+        RunPortal portal = null)
     {
         _executor = executor;
         _mapData = mapData;
@@ -130,6 +138,8 @@ public class LuaSandbox : MonoBehaviour
         _combat = combat;
         // Головоломок нет в лагере (пустой менеджер) и в тестах без сцены (null) — команды «ничего не видят»
         _puzzles = puzzles;
+        // Портал есть только в забеге (в лагере и в тестах без сцены — null)
+        _portal = portal;
         UnityEngine.Debug.Assert(_unlocks != null, "LuaSandbox: UnlockRegistry is not assigned");
 
         _registry = new LuaCommandRegistry();
@@ -170,13 +180,13 @@ public class LuaSandbox : MonoBehaviour
 
         // Объекты
         var harvester = new ResourceHarvester(_executor, _mapData, _objectManager, _playerEnergy, _inventory);
-        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager, _enemies, _fog, _puzzles));
-        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures, _enemies, _puzzles));
-        AddCommand(new HarvestCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles));
-        AddCommand(new MineCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles));
+        AddCommand(new FindObjectsCommand(_executor, _mapData, _objectManager, _enemies, _fog, _puzzles, _portal));
+        AddCommand(new CheckCommand(_executor, _mapData, _fog, _objectManager, _structures, _enemies, _puzzles, _portal));
+        AddCommand(new HarvestCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles, _portal));
+        AddCommand(new MineCommand(_executor, _mapData, harvester, _objectManager, _enemies, _puzzles, _portal));
 
         // Бой (удар — CombatService, общий с будущими готовыми командами)
-        AddCommand(new AttackCommand(_executor, _mapData, _enemies, _combat, _puzzles));
+        AddCommand(new AttackCommand(_executor, _mapData, _enemies, _combat, _puzzles, _portal));
 
         // Готовые команды: удобнее, но дороже самописного аналога
         AddCommand(new ObtainCommand(_executor, _mapData, _objectManager, harvester));
@@ -204,10 +214,28 @@ public class LuaSandbox : MonoBehaviour
         AddCommand(new PuzzleCommand(_executor, _mapData, _puzzles));
         AddCommand(new SolveCommand(_puzzles));
 
+        // Выход из забега через портал (кнопки Exit Run нет) — в стартовом наборе
+        AddCommand(new EnterPortalCommand(_executor, _mapData, _portal, _buildReach, ExitThroughPortal));
+
         // Добавляй новые команды здесь ↓ (открытость задаётся UnlockConfig / MetaProgress)
     }
 
     private float GetEnergySpentThisRun() => EnergySpentThisRun;
+
+    /// <summary>
+    /// enterPortal(): просит RunController выйти (итог — после конца запуска) и сразу заканчивает запуск —
+    /// EnergyMeter.Halt (pcall не даст продолжить) и отмена. Итог запуска — «ok», не ошибка и не Stop.
+    /// false — выйти нельзя (лагерь, забег уже закончен, идёт поражение).
+    /// </summary>
+    private bool ExitThroughPortal()
+    {
+        if (RunExit == null || !RunExit.RequestExitThroughPortal()) return false;
+
+        _meter.Halt();
+        try { _cts?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        return true;
+    }
 
     private void PublishPrint(string text)
     {
@@ -479,6 +507,13 @@ public class LuaSandbox : MonoBehaviour
             outcome = GameEventBus.RunTagOk;
             return ExecutionResult.Success();
         }
+        catch (OperationCanceledException) when (_meter.IsHalted)
+        {
+            // Вышли через портал (enterPortal): запуск закончен намеренно — успех, а не Stop
+            succeeded = true;
+            outcome = GameEventBus.RunTagOk;
+            return ExecutionResult.Success();
+        }
         catch (OperationCanceledException)
         {
             outcome = _meter.IsExhausted ? GameEventBus.RunTagEnergy : GameEventBus.RunTagStopped;
@@ -488,6 +523,13 @@ public class LuaSandbox : MonoBehaviour
         {
             outcome = GameEventBus.RunTagError;
             return ExecutionResult.CompileError(ex.Message);
+        }
+        catch (Exception) when (_meter.IsHalted)
+        {
+            // Выход через портал, обёрнутый Lua в ошибку (pcall/error пересоздали RunHaltedException)
+            succeeded = true;
+            outcome = GameEventBus.RunTagOk;
+            return ExecutionResult.Success();
         }
         catch (Exception ex)
         {

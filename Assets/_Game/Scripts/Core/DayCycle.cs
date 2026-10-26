@@ -77,6 +77,12 @@ public class DayCycle
     public int DaysUntilThreat => Mathf.Max(0, ThreatDay - Day);
     public bool IsThreatActive => Day >= ThreatDay;
 
+    /// <summary>
+    /// Выход через портал (RunController создаётся последним — задаётся после конструктора).
+    /// Запуск, после которого ждёт выход через портал, не засчитывается: забег кончается, день — нет.
+    /// </summary>
+    public IRunExitService RunExit { get; set; }
+
     public DayCycle(
         PlayerConfig config, RunModifiers modifiers, PlayerEnergy energy, ISleepingPlaceProvider sleepingPlaces,
         PlayerHealth health = null)
@@ -134,9 +140,14 @@ public class DayCycle
 
     /// <summary>
     /// Засчитать законченный запуск; после последнего за день — конец дня.
+    /// Не засчитывается, если после запуска ждёт выход через портал или игрок погиб: забег закончен,
+    /// день (DayPassed, лечение сном, новый максимум энергии, угроза) уже не наступает.
     /// </summary>
     public void RegisterRunFinished()
     {
+        if (RunExit != null && RunExit.IsExitPending) return;
+        if (_health != null && _health.IsDead) return;
+
         RunsUsed++;
         if (RunsUsed >= RunsPerDay)
             EndDay();

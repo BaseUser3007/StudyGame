@@ -129,6 +129,13 @@ public static class LuaErrorExplainer
         (R(@"^(?<what>.+?) is not unlocked yet \((?<chunk>[A-Za-z_][A-Za-z0-9_]*), line (?<line>\d+)\)"), LockedConstruct),
 
         // ── Ошибки команд ──
+        // enterPortal() вернул причину, а код превратил её в ошибку (assert / error)
+        (R(@"portal is too far"), (m, i) => (
+            Loc.T("The portal is too far: `enterPortal()` works only when the player stands next to the portal."),
+            Loc.T("Walk up to it first: `moveTo(findObjects(\"portal\")[1])` goes to the tile in front of it, then call `enterPortal()`."))),
+        (R(@"portal can't be (?:harvested|mined|attacked)"), (m, i) => (
+            Loc.T("The portal is not a resource or an enemy — it is the way back to the camp."),
+            Loc.T("Stand next to it and call `enterPortal()` to leave the run."))),
         (R(@"(?:(?<cmd>[A-Za-z_]\w*): )?unknown type '(?<name>[^']*)'(?: \(known: (?<known>[^)]*)\))?"), UnknownType),
         (R(@"bad argument #(?<n>\d+) to '(?<fn>[^']+)' \((?<detail>.*?)\)*$"), BadArgument),
         (R(@"^(?<fn>[A-Za-z_]\w*): usage:? (?<usage>.+)$"), WrongUsage),

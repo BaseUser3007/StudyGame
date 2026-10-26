@@ -57,10 +57,6 @@ public class RunScreens : VisualElement
     private IVisualElementScheduledItem _resetProgressDisarm;
     private Button _btnHubLanguage;
 
-    private VisualElement _exitConfirm;
-    private Button _btnExitConfirm;
-    private Button _btnExitCancel;
-
     private VisualElement _summary;
     private Label _summaryTitle;
     private Label _summaryStats;
@@ -73,7 +69,6 @@ public class RunScreens : VisualElement
     private Button _btnToHub;
 
     public event Action OnStartRunRequested;
-    public event Action OnExitConfirmed;
     public event Action OnReturnToHubRequested;
     /// <summary>Кнопка Achievements в лагере — панель показывает CodeEditorManager.</summary>
     public event Action OnAchievementsRequested;
@@ -114,7 +109,7 @@ public class RunScreens : VisualElement
                  {
                      _btnStartRun, _btnHubAchievements, _btnHubHints, _btnHubSound, _btnHubResetTutorial,
                      _btnHubResetProgress, _btnHubLanguage,
-                     _btnExitConfirm, _btnExitCancel, _btnToHub
+                     _btnToHub
                  })
             button.focusable = false;
 
@@ -127,8 +122,6 @@ public class RunScreens : VisualElement
         _btnHubLanguage.text = Loc.IsRussian ? "Language: English" : "Язык: Русский";
 
         _btnStartRun.clicked += () => OnStartRunRequested?.Invoke();
-        _btnExitCancel.clicked += HideExitConfirm;
-        _btnExitConfirm.clicked += HandleExitConfirmed;
         _btnToHub.clicked += () => OnReturnToHubRequested?.Invoke();
         _btnHubAchievements.clicked += () => OnAchievementsRequested?.Invoke();
 
@@ -149,9 +142,6 @@ public class RunScreens : VisualElement
         _btnHubResetProgress = root.Q<Button>("btn-hub-reset-progress");
         _btnHubLanguage = root.Q<Button>("btn-hub-language");
 
-        _exitConfirm = root.Q<VisualElement>("exit-confirm");
-        _btnExitConfirm = root.Q<Button>("btn-exit-confirm");
-        _btnExitCancel = root.Q<Button>("btn-exit-cancel");
 
         _summary = root.Q<VisualElement>("run-summary");
         _summaryTitle = root.Q<Label>("summary-title");
@@ -173,8 +163,6 @@ public class RunScreens : VisualElement
         Debug.Assert(_btnHubHints != null && _btnHubSound != null && _btnHubResetTutorial != null && _btnHubResetProgress != null
                      && _btnHubLanguage != null,
             "RunScreens: hub tutorial settings not found");
-        Debug.Assert(_exitConfirm != null && _btnExitConfirm != null && _btnExitCancel != null,
-            "RunScreens: exit confirmation elements not found");
         Debug.Assert(_summary != null && _summaryTitle != null && _summaryStats != null && _summaryLoot != null
                      && _summaryLootEmpty != null && _summaryLost != null && _btnToHub != null
                      && _summaryAchievements != null && _summaryAchievementsEmpty != null
@@ -184,7 +172,6 @@ public class RunScreens : VisualElement
 
     // ─── Public API ───────────────────────────────────────────
 
-    public bool IsExitConfirmOpen => !_exitConfirm.ClassListContains(HiddenClass);
     public bool IsHubShown => !_hubScreen.ClassListContains(HiddenClass);
     public bool IsSummaryShown => !_summary.ClassListContains(HiddenClass);
 
@@ -250,14 +237,8 @@ public class RunScreens : VisualElement
         _hubMaterialsEmpty.EnableInClassList(HiddenClass, _hubMaterials.childCount > 0);
     }
 
-    public void ShowExitConfirm() => _exitConfirm.RemoveFromClassList(HiddenClass);
-
-    public void HideExitConfirm() => _exitConfirm.AddToClassList(HiddenClass);
-
     public void ShowSummary(RunSummary summary)
     {
-        HideExitConfirm();
-
         _summaryTitle.text = Loc.T(summary.Defeated ? "Defeat" : "Run complete");
         _summaryTitle.EnableInClassList("screen-title--defeat", summary.Defeated);
         _summaryStats.text = summary.Defeated
@@ -346,12 +327,6 @@ public class RunScreens : VisualElement
         _resetProgressDisarm = null;
         _btnHubResetProgress.text = Loc.T("Reset progress");
         _btnHubResetProgress.RemoveFromClassList("screen-btn--confirm");
-    }
-
-    private void HandleExitConfirmed()
-    {
-        HideExitConfirm();
-        OnExitConfirmed?.Invoke();
     }
 
     private static VisualElement CreateItemRow(Sprite icon, string name, int count)

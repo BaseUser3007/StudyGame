@@ -16,6 +16,12 @@ public class EnergyMeter
     /// <summary>Причина остановки — для сообщения игроку.</summary>
     public string ExhaustedMessage { get; private set; }
 
+    /// <summary>
+    /// Запуск закончен изнутри (enterPortal): любое следующее списание бросает
+    /// <see cref="RunHaltedException"/>, так что pcall не даст коду продолжиться. Сбрасывается в Reset.
+    /// </summary>
+    public bool IsHalted { get; private set; }
+
     public EnergyMeter(PlayerEnergy energy)
     {
         _energy = energy;
@@ -30,6 +36,13 @@ public class EnergyMeter
     {
         IsExhausted = false;
         ExhaustedMessage = null;
+        IsHalted = false;
+    }
+
+    /// <summary>Останавливает запуск: дальше ничего не списывается, каждое списание — исключение.</summary>
+    public void Halt()
+    {
+        IsHalted = true;
     }
 
     /// <summary>Подсветка выполняемой строки (может не быть — например, в тестах).</summary>
@@ -55,6 +68,7 @@ public class EnergyMeter
     public void Charge(float amount, string source)
     {
         if (amount <= 0f) return;
+        if (IsHalted) throw new RunHaltedException();
 
         if (!IsExhausted && _energy.TrySpend(amount)) return;
 
@@ -72,4 +86,15 @@ public class EnergyMeter
 public class OutOfEnergyException : Exception
 {
     public OutOfEnergyException(string message) : base(message) { }
+}
+
+/// <summary>
+/// Запуск закончен командой (enterPortal): код дальше не выполняется. Наследник OperationCanceledException —
+/// песочница считает это остановкой, а не ошибкой кода.
+/// </summary>
+public class RunHaltedException : OperationCanceledException
+{
+    public const string HaltMessage = "the run was ended by enterPortal()";
+
+    public RunHaltedException() : base(HaltMessage) { }
 }

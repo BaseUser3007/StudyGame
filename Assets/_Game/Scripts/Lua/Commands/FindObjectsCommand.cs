@@ -9,7 +9,9 @@ using Lua;
 /// Враги (тип "enemy" — все, или по EnemyDefinition.enemyId, например "goblin") попадают в список, только
 /// если стоят на видимом тайле (Enemy.IsVisible); погибшие пропускаются. Головоломки ("obelisk"/"code_task",
 /// "maze", "plates", "puzzle" — все) — если хоть один тайл их области без тумана; решённые остаются (solved = true).
-/// Без аргумента — всё сразу.
+/// Портал забега ("portal") — если его хоть раз видели (он не двигается, к нему возвращаются издалека);
+/// в findObjects() без аргумента его нет (игрок появляется рядом, и getNear() отдавал бы портал вместо ресурса).
+/// Без аргумента — всё в поле зрения сразу.
 /// </summary>
 public class FindObjectsCommand : PlayerCommandBase
 {
@@ -21,9 +23,11 @@ public class FindObjectsCommand : PlayerCommandBase
     public override string Signature => "findObjects([type])";
     public override string Description =>
         "Array of visible objects of a type: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (dropped); " +
-        "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all). " +
-        "Without an argument — everything visible, enemies and puzzles included. " +
-        $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\" or \"puzzle\"; " +
+        "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all); " +
+        "portal — the run portal (found once it has been seen, even from afar; it also has approachX, approachY — " +
+        "the tile in front of it, moveTo(portal) goes there). " +
+        "Without an argument — everything visible, enemies and puzzles included (the portal only by type \"portal\"). " +
+        $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\", \"puzzle\" or \"portal\"; " +
         "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
         "The array has count and methods for searching, filtering and sorting " +
         "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section";
@@ -32,6 +36,7 @@ public class FindObjectsCommand : PlayerCommandBase
     private readonly EnemyManager _enemies;
     private readonly IFogProvider _fog;
     private readonly PuzzleManager _puzzles;
+    private readonly RunPortal _portal;
     private readonly LuaObjectList _objectList;
 
     private static readonly Dictionary<string, Type> TypeMap
@@ -70,7 +75,8 @@ public class FindObjectsCommand : PlayerCommandBase
         ObjectManager objectManager,
         EnemyManager enemies,
         IFogProvider fog = null,
-        PuzzleManager puzzles = null)
+        PuzzleManager puzzles = null,
+        RunPortal portal = null)
         : base(executor, mapData)
     {
         _objectManager = objectManager;
@@ -78,6 +84,8 @@ public class FindObjectsCommand : PlayerCommandBase
         // Головоломок может не быть (тесты без сцены); без тумана видны все
         _fog = fog;
         _puzzles = puzzles;
+        // Портала нет в лагере и в тестах без сцены
+        _portal = portal;
         _objectList = new LuaObjectList(executor);
     }
 
@@ -112,13 +120,20 @@ public class FindObjectsCommand : PlayerCommandBase
         List<ResourceObject> objects = null;
         List<Enemy> enemies = null;
         List<PuzzleStructure> puzzles = null;
+        RunPortal portal = null;
 
         if (!hasArgument)
         {
-            // Всё в поле зрения: ресурсы любого типа, видимые враги и головоломки
+            // Всё в поле зрения: ресурсы любого типа, видимые враги и головоломки. Портала нет:
+            // игрок появляется рядом с ним, и findObjects():getNear() отдавал бы портал вместо ресурса
             objects = _objectManager.GetObjectsInRadius<ResourceObject>(Executor.CurrentTile, Executor.VisionRadius);
             enemies = GetVisibleEnemies(null);
             puzzles = LuaPuzzles.GetVisible(_puzzles, _fog, Executor.Position, null);
+        }
+        else if (string.Equals(typeName, LuaPortal.TypeName, StringComparison.OrdinalIgnoreCase))
+        {
+            // Портал — ориентир: виден издалека, если его уже видели (в лагере его нет — пустой список)
+            if (LuaPortal.IsExplored(_portal, _fog)) portal = _portal;
         }
         else if (TryGetType(typeName, out Type type))
         {
@@ -136,10 +151,10 @@ public class FindObjectsCommand : PlayerCommandBase
                 throw new ArgumentException(
                     $"findObjects: unknown type '{typeName}' " +
                     $"(known: {string.Join(", ", TypeMap.Keys)}, {EnemyTypeName}, {string.Join(", ", KnownEnemyTypes)}, " +
-                    $"{LuaPuzzles.KnownTypeNames})");
+                    $"{LuaPuzzles.KnownTypeNames}, {LuaPortal.TypeName})");
         }
 
-        context.Return(_objectList.Build(objects, enemies, puzzles, Meter));
+        context.Return(_objectList.Build(objects, enemies, puzzles, portal, Meter));
         return new ValueTask<int>(1);
     }
 

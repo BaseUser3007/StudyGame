@@ -66,6 +66,23 @@ public class MapGenerationConfig : ScriptableObject
     [Tooltip("Внешний радиус кольца. Обзор — квадрат ±visionRadius тайлов (4) вокруг тайла игрока, " +
              "видна любая точка с |dx|, |dy| < visionRadius + 0.5, поэтому 4 — ещё целиком в обзоре")]
     [Min(0f)] public float starterMaxRadius = 4f;
+
+    [Header("Run Location: portal (Run only)")]
+    [Tooltip("Вид портала забега (опорная точка — основание, Collider2D у основания). Компонент RunPortal " +
+             "добавится сам. Пусто — рисованный овал")]
+    public GameObject portalPrefab;
+
+    [Tooltip("Размер портала в тайлах")]
+    public Vector2Int portalSize = Vector2Int.one;
+
+    [Tooltip("Поле суши вокруг портала (тайлы): под ним и вокруг нет воды и края карты")]
+    [Min(0)] public int portalLandMargin = 1;
+
+    [Tooltip("Минимальная площадь связной суши (тайлы), где начинается забег. Нет такой — самая большая")]
+    [Min(1)] public int portalMinRegionTiles = RandomPortalLocationGenerator.DefaultMinRegionTiles;
+
+    [Tooltip("Ресурсы не создаются ближе этого (тайлы) к краю портала")]
+    [Min(0f)] public float portalClearRadius = 1.5f;
 }
 
 /// <summary>

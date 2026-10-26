@@ -40,6 +40,7 @@ public class UnlockPopup
     private readonly List<PendingUnlock> _queue = new List<PendingUnlock>();
     private readonly LuaSandbox _sandbox;
     private readonly RecipeBook _recipeBook;
+    private readonly HubBuildingCatalog _hubCatalog;
     private readonly LuaSyntaxHighlighter _highlighter;
     private readonly LuaTokenizer _tokenizer = new LuaTokenizer();
 
@@ -56,10 +57,14 @@ public class UnlockPopup
     public bool IsOpen => !_backdrop.ClassListContains(HiddenClass);
 
     /// <param name="root">Хост шаблона UnlockPopup.uxml.</param>
-    public UnlockPopup(VisualElement root, LuaSandbox sandbox, RecipeBook recipeBook, LuaSyntaxHighlighter highlighter)
+    /// <param name="hubCatalog">Постройки лагеря — название в заголовке открытия; null — показываем id.</param>
+    public UnlockPopup(
+        VisualElement root, LuaSandbox sandbox, RecipeBook recipeBook, LuaSyntaxHighlighter highlighter,
+        HubBuildingCatalog hubCatalog = null)
     {
         _sandbox = sandbox;
         _recipeBook = recipeBook;
+        _hubCatalog = hubCatalog;
         _highlighter = highlighter;
 
         _backdrop = root.Q<VisualElement>("unlock-backdrop");
@@ -228,7 +233,7 @@ public class UnlockPopup
             case UnlockKind.Construct: BuildConstruct(id); break;
             case UnlockKind.Recipe: BuildRecipe(id); break;
             case UnlockKind.HubBuilding:
-                SetHeader("New camp building", id);
+                SetHeader("New camp building", GetHubBuildingTitle(id));
                 AddText(Loc.T("It can now be built in the camp."), "unlock-text");
                 break;
             case UnlockKind.MapEvent:
@@ -481,6 +486,13 @@ public class UnlockPopup
     // ─── Helpers ──────────────────────────────────────────────
 
     /// <param name="caption">Английский исходник — переводится здесь.</param>
+    /// <summary>Переведённое название постройки лагеря по id; нет в каталоге — сам id.</summary>
+    private string GetHubBuildingTitle(string id)
+    {
+        HubBuildingDefinition definition = _hubCatalog != null ? _hubCatalog.Find(id) : null;
+        return definition != null && !string.IsNullOrEmpty(definition.Title) ? Loc.T(definition.Title) : id;
+    }
+
     private void SetHeader(string caption, string title)
     {
         _caption.text = Loc.T(caption);

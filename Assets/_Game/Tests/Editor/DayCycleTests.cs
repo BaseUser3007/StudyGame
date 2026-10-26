@@ -157,4 +157,45 @@ public class DayCycleTests
         day.TryEndDay();
         Assert.AreEqual(50f + _config.sleepHealAmount, health.Current, 0.001f);
     }
+
+    private class FakeRunExit : IRunExitService
+    {
+        public bool Pending;
+        public bool RequestExitThroughPortal() => true;
+        public bool IsExitPending => Pending;
+    }
+
+    [Test]
+    public void LastRunWithPendingPortalExit_DoesNotEndTheDay()
+    {
+        var exit = new FakeRunExit();
+        _day.RunExit = exit;
+
+        _day.RegisterRunFinished();
+        _day.RegisterRunFinished();
+        exit.Pending = true;
+        _day.RegisterRunFinished();
+
+        Assert.AreEqual(1, _day.Day, "выход через портал — итоги без конца дня");
+        Assert.AreEqual(2, _day.RunsUsed, "запуск перед порталом не засчитан");
+
+        exit.Pending = false;
+        _day.RegisterRunFinished();
+        Assert.AreEqual(2, _day.Day);
+    }
+
+    [Test]
+    public void RunFinishedAfterDeath_DoesNotEndTheDay()
+    {
+        var health = new PlayerHealth(100f);
+        var day = new DayCycle(_config, RunModifiers.Create(_config, new MetaProgress()), _energy, _bed, health);
+
+        day.RegisterRunFinished();
+        day.RegisterRunFinished();
+        health.TakeDamage(100f);
+        day.RegisterRunFinished();
+
+        Assert.AreEqual(1, day.Day, "поражение — день не наступает");
+        Assert.AreEqual(2, day.RunsUsed);
+    }
 }

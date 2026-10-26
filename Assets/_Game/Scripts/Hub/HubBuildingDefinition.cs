@@ -92,7 +92,8 @@ public class HubBuildingLevel
 /// <summary>
 /// Определение постройки хаба (этап 4): id (ключ в MetaProgress — не меняйте после выпуска), название,
 /// описание, вид, размер на сетке, стоимость в материалах склада хаба и эффекты на следующие забеги.
-/// Открывается наградой достижения (AchievementRewardKind.HubBuilding с этим id).
+/// Открывается наградой достижения (AchievementRewardKind.HubBuilding с этим id); постоянная (isPermanent,
+/// портал) открыта всегда и ставится HubService сама, её можно только переносить.
 /// Все определения собираются в <see cref="HubBuildingCatalog"/>, его получает Level.
 /// </summary>
 [CreateAssetMenu(fileName = "HubBuilding", menuName = "CodeRogue/Hub/HubBuilding")]
@@ -115,6 +116,10 @@ public class HubBuildingDefinition : ScriptableObject
     [Header("Grid")]
     [Tooltip("Сколько клеток сетки хаба занимает (ширина × высота)")]
     [SerializeField] private Vector2Int size = Vector2Int.one;
+    [Tooltip("Постоянная постройка (портал): стоит в лагере всегда — HubService ставит её сам, если в сохранении " +
+             "её нет; не строится и не улучшается из панели, всегда открыта, но переносится. Стоимость и эффекты " +
+             "не нужны. Игрок в лагере стоит у первой такой постройки каталога")]
+    [SerializeField] private bool isPermanent;
 
     [Header("Cost & effects")]
     [Tooltip("Материалы со склада хаба (ключ — itemId предмета, иначе имя ассета)")]
@@ -137,6 +142,8 @@ public class HubBuildingDefinition : ScriptableObject
     public Sprite Sprite => sprite;
     public GameObject Prefab => prefab;
     public Vector2Int Size => new Vector2Int(Mathf.Max(1, size.x), Mathf.Max(1, size.y));
+    /// <summary>Постоянная постройка (портал): ставится автоматически, не строится и не улучшается, но переносится.</summary>
+    public bool IsPermanent => isPermanent;
     /// <summary>Эффекты уровня 1 (сырой список). Итог для уровня — <see cref="GetEffects(int)"/>.</summary>
     public IReadOnlyList<HubBuildingEffect> Effects => effects;
 
@@ -242,8 +249,11 @@ public class HubBuildingDefinition : ScriptableObject
         if (string.IsNullOrWhiteSpace(title)) problems.Add("title is empty");
         if (sprite == null && prefab == null) problems.Add("neither sprite nor prefab is assigned");
         if (size.x < 1 || size.y < 1) problems.Add($"size {size} must be at least 1×1");
-        if (GetCost().Count == 0) problems.Add("cost is empty — the building is free");
-        if (effects == null || effects.Count == 0) problems.Add("no effects");
+        // Постоянная постройка (портал) не строится — стоимость и эффекты ей не нужны
+        if (!isPermanent && GetCost().Count == 0) problems.Add("cost is empty — the building is free");
+        if (!isPermanent && (effects == null || effects.Count == 0)) problems.Add("no effects");
+        if (isPermanent && levels != null && levels.Count > 0)
+            problems.Add("a permanent building has levels — they are ignored (it is never upgraded)");
 
         if (cost != null)
             for (int i = 0; i < cost.Count; i++)

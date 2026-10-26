@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Мировая часть хаба (этап 4, plain class из Level в режиме Hub): площадка с клетками сетки поверх
-/// сгенерированной карты, спрайты поставленных построек, значки их уровня (2+) и призрак размещения.
+/// сгенерированной карты, спрайты поставленных построек, значки их уровня (2+) и призрак размещения/переноса;
+/// персонаж стоит у входа (портала, SetPlayer) и переходит за ним при переносе (OnMoved).
 /// Клетка (0,0) — левый нижний угол сетки, лежит в тайле карты <see cref="OriginTile"/>; одна клетка — один тайл.
 /// Площадка рисуется своими спрайтами поверх земли/воды (порядок ниже объектов 100–1000), поэтому вода
 /// под ней не мешает; объекты и туман над площадкой убирает Level.
@@ -27,6 +28,7 @@ public class HubGrid : System.IDisposable
     private static readonly Color GhostValidColor = new Color(0.3f, 1f, 0.4f, 0.45f);
     private static readonly Color GhostInvalidColor = new Color(1f, 0.3f, 0.25f, 0.45f);
     private static readonly Color GhostSpriteTint = new Color(1f, 1f, 1f, 0.65f);
+    private static readonly Color PortalFallbackColor = new Color(0.55f, 0.35f, 0.85f, 0.9f);
 
     // Подсветка соседей, рядом с которыми появится бонус за соседство (T15): над постройками, под призраком
     private const int BonusOrder = GhostAreaOrder - 3;
@@ -56,6 +58,15 @@ public class HubGrid : System.IDisposable
     private readonly Dictionary<string, GameObject> _buildingViews = new Dictionary<string, GameObject>();
     // id постройки → значок уровня (только у уровня 2+)
     private readonly Dictionary<string, GameObject> _levelBadges = new Dictionary<string, GameObject>();
+
+    // Перенос: вид переносимой постройки приглушён (исходные цвета её спрайтов — чтобы вернуть)
+    private const float MovingViewAlpha = 0.35f;
+    private string _dimmedId;
+    private readonly List<(SpriteRenderer Renderer, Color Color)> _dimmedColors = new List<(SpriteRenderer, Color)>();
+
+    // Игрок в лагере стоит у входа (портала): чуть ниже нижнего края его области, в доле клетки
+    private const float PlayerStandOffset = 0.3f;
+    private Transform _player;
 
     private GameObject _ghostRoot;
     private SpriteRenderer _ghostArea;
@@ -103,12 +114,14 @@ public class HubGrid : System.IDisposable
 
         _hub.OnBuilt += HandleBuilt;
         _hub.OnUpgraded += HandleUpgraded;
+        _hub.OnMoved += HandleMoved;
     }
 
     public void Dispose()
     {
         _hub.OnBuilt -= HandleBuilt;
         _hub.OnUpgraded -= HandleUpgraded;
+        _hub.OnMoved -= HandleMoved;
 
         if (_root != null) Object.Destroy(_root);
         if (_square != null) Object.Destroy(_square);
@@ -132,6 +145,103 @@ public class HubGrid : System.IDisposable
 
         int below = spawnTile.y - gridSize.y;
         return new Vector2Int(x, Mathf.Clamp(below, 0, maxY));
+    }
+
+    // ─── Игрок у входа ────────────────────────────────────────
+
+    /// <summary>
+    /// Ставит персонажа лагеря у входа (HubService.EntranceBuilding, портал): по центру нижнего края его
+    /// области, чуть ниже — перед ним по порядку отрисовки. При переносе входа персонаж переходит за ним.
+    /// Нет входа в расстановке — персонаж остаётся, где был (у точки спавна). В лагере код не выполняется,
+    /// поэтому логический тайл PlayerCommandExecutor не важен — двигаем только transform.
+    /// </summary>
+    public void SetPlayer(Transform player)
+    {
+        _player = player;
+        PlacePlayerAtEntrance();
+    }
+
+    /// <summary>Мировая точка, где стоит персонаж у входа; false — входа нет в расстановке.</summary>
+    public bool TryGetEntranceStandPoint(out Vector3 point)
+    {
+        point = default;
+        HubBuildingDefinition entrance = _hub.EntranceBuilding;
+        if (entrance == null || !_hub.TryGetCell(entrance, out Vector2Int cell)) return false;
+
+        Vector2Int size = entrance.Size;
+        Vector3 bottom = AreaBottomCenter(new RectInt(cell, size));
+        // Под входом — край сетки или другая постройка: стоим внутри области входа, у её нижнего края,
+        // иначе — чуть ниже неё (перед входом по порядку отрисовки)
+        float offset = PlayerStandOffset * Mathf.Abs(_cellStep.y);
+        if (!IsBelowFree(cell, size, entrance.Id)) offset = -offset;
+        point = new Vector3(bottom.x, bottom.y - offset, bottom.z);
+        return true;
+    }
+
+    /// <summary>
+    /// Клетки сразу под серединой нижнего края области (одна при нечётной ширине, две при чётной)
+    /// внутри сетки и не заняты другой постройкой.
+    /// </summary>
+    private bool IsBelowFree(Vector2Int cell, Vector2Int size, string ownId)
+    {
+        int y = cell.y - 1;
+        int left = cell.x + (size.x - 1) / 2;
+        int right = cell.x + size.x / 2;
+        for (int x = left; x <= right; x++)
+        {
+            var below = new Vector2Int(x, y);
+            if (!_hub.IsCellInGrid(below)) return false;
+            HubPlacement placed = _hub.GetPlacementAt(below);
+            if (placed.Id != null && placed.Id != ownId) return false;
+        }
+        return true;
+    }
+
+    private void PlacePlayerAtEntrance()
+    {
+        if (_player == null || !TryGetEntranceStandPoint(out Vector3 point)) return;
+
+        _player.position = new Vector3(point.x, point.y, _player.position.z);
+        // Коллайдер персонажа — сразу на новом месте
+        Physics2D.SyncTransforms();
+    }
+
+    // ─── Перенос ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Приглушает вид постройки id (и значок уровня) на время переноса; null — вернуть прежний вид.
+    /// Вызывает HubPlacementController.
+    /// </summary>
+    public void SetMovingBuilding(string id)
+    {
+        if (_dimmedId == id) return;
+        RestoreDimmed();
+        if (string.IsNullOrEmpty(id)) return;
+
+        _dimmedId = id;
+        DimObject(_buildingViews.TryGetValue(id, out GameObject view) ? view : null);
+        DimObject(_levelBadges.TryGetValue(id, out GameObject badge) ? badge : null);
+    }
+
+    private void DimObject(GameObject target)
+    {
+        if (target == null) return;
+
+        foreach (SpriteRenderer sr in target.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            _dimmedColors.Add((sr, sr.color));
+            Color color = sr.color;
+            color.a *= MovingViewAlpha;
+            sr.color = color;
+        }
+    }
+
+    private void RestoreDimmed()
+    {
+        foreach ((SpriteRenderer sr, Color color) in _dimmedColors)
+            if (sr != null) sr.color = color;
+        _dimmedColors.Clear();
+        _dimmedId = null;
     }
 
     // ─── Координаты ───────────────────────────────────────────
@@ -282,6 +392,28 @@ public class HubGrid : System.IDisposable
         CreateBuildingView(new HubPlacement(definition.Id, definition, cell, _hub.GetLevel(definition)));
     }
 
+    /// <summary>
+    /// Постройка перенесена: вид и значок уровня пересоздаются на новом месте (всё, что привязано к клетке),
+    /// у входа персонаж переходит за ним.
+    /// </summary>
+    private void HandleMoved(HubBuildingDefinition definition, Vector2Int from, Vector2Int to)
+    {
+        HideGhost();
+        if (_dimmedId == definition.Id) RestoreDimmed();
+
+        if (_buildingViews.TryGetValue(definition.Id, out GameObject view))
+        {
+            if (view != null) Object.Destroy(view);
+            _buildingViews.Remove(definition.Id);
+        }
+
+        // Значок уровня пересоздаст CreateBuildingView → UpdateLevelBadge
+        CreateBuildingView(new HubPlacement(definition.Id, definition, to, _hub.GetLevel(definition)));
+
+        if (definition == _hub.EntranceBuilding)
+            PlacePlayerAtEntrance();
+    }
+
     private void HandleUpgraded(HubBuildingDefinition definition, int level)
     {
         foreach (HubPlacement placed in _hub.GetPlaced())
@@ -348,8 +480,11 @@ public class HubGrid : System.IDisposable
             }
             else
             {
-                // Неизвестная постройка (нет в каталоге) или без вида — тёмная клетка, чтобы место было видно занятым
-                SpriteRenderer sr = CreateSquare("Missing", view.transform, new Color(0.2f, 0.2f, 0.2f, 0.8f), 0);
+                // Неизвестная постройка (нет в каталоге) или без вида — тёмная клетка, чтобы место было видно занятым;
+                // постоянная (портал) без спрайта — фиолетовая заглушка
+                bool permanent = placed.Definition != null && placed.Definition.IsPermanent;
+                SpriteRenderer sr = CreateSquare("Missing", view.transform,
+                    permanent ? PortalFallbackColor : new Color(0.2f, 0.2f, 0.2f, 0.8f), 0);
                 sr.transform.position = AreaCenter(area);
                 sr.transform.localScale = AreaScale(area.size, CellFill);
             }

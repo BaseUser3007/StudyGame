@@ -262,6 +262,22 @@
     opacity: 0.4;
 }
 
+/* Кнопки построенной: Move (перенос) и Upgrade рядом */
+.hub-card-buttons {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.hub-card .hub-card-move {
+    padding: 0 10px;
+}
+
+/* После .hub-card .hub-card-build (margin: 0) — та же сила селектора, побеждает порядок */
+.hub-card .hub-card-upgrade {
+    margin-left: 4px;
+}
+
 /* ── Placement hint ──────────────────────────────────────── */
 .hub-hint-row {
     position: absolute;

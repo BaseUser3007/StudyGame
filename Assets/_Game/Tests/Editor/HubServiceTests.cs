@@ -767,4 +767,236 @@ public class HubServiceTests
 
         Assert.AreEqual(10, RunModifiers.Create(Config(), progress).InventorySlots, "no catalog — base only");
     }
+
+    // ─── Перенос ──────────────────────────────────────────────
+
+    [Test]
+    public void Move_Valid_UpdatesCellKeepsLevelAndSaves()
+    {
+        StorageWithLevels();
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", new Vector2Int(0, 0));
+        progress.FindHubBuilding("storage").level = 2;
+        progress.AddMaterial(_log, 5);
+        HubService hub = Hub(progress);
+        var moves = new List<(HubBuildingDefinition, Vector2Int, Vector2Int)>();
+        hub.OnMoved += (definition, from, to) => moves.Add((definition, from, to));
+
+        Assert.AreEqual(HubMoveResult.Ok, hub.CheckMove(_storage, new Vector2Int(4, 2)));
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(_storage, new Vector2Int(4, 2)));
+
+        Assert.AreEqual(1, moves.Count);
+        Assert.AreSame(_storage, moves[0].Item1);
+        Assert.AreEqual(Vector2Int.zero, moves[0].Item2);
+        Assert.AreEqual(new Vector2Int(4, 2), moves[0].Item3);
+        Assert.IsNull(hub.GetPlacementAt(Vector2Int.zero).Id, "the old place is free");
+        Assert.AreEqual("storage", hub.GetPlacementAt(new Vector2Int(5, 3)).Id);
+        Assert.AreEqual(2, hub.GetLevel(_storage), "the level stays");
+        Assert.AreEqual(5, hub.GetStored("log"), "moving is free");
+
+        // TryMove сохранил сам
+        PlacedHubBuilding reloaded = _saves.Progress().FindHubBuilding("storage");
+        Assert.AreEqual(4, reloaded.x);
+        Assert.AreEqual(2, reloaded.y);
+        Assert.AreEqual(2, reloaded.Level);
+        CollectionAssert.IsEmpty(_events, "moving publishes no GameEventBus events");
+    }
+
+    [Test]
+    public void Move_Invalid_ChangesNothing()
+    {
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", new Vector2Int(0, 0));
+        progress.AddHubBuilding("shrine", new Vector2Int(4, 0));
+        progress.Save();
+        HubService hub = Hub(progress);
+        int moved = 0;
+        hub.OnMoved += (definition, from, to) => moved++;
+
+        Assert.AreEqual(HubMoveResult.OutOfBounds, hub.TryMove(_storage, new Vector2Int(7, 0)));
+        Assert.AreEqual(HubMoveResult.OutOfBounds, hub.TryMove(_storage, new Vector2Int(0, -1)));
+        Assert.AreEqual(HubMoveResult.Occupied, hub.TryMove(_storage, new Vector2Int(3, 1)), "overlaps the shrine");
+        Assert.AreEqual(HubMoveResult.NotBuilt, hub.TryMove(_watchtower, new Vector2Int(2, 2)));
+        Assert.AreEqual(HubMoveResult.Unknown, hub.TryMove(null, Vector2Int.zero));
+        HubBuildingDefinition stranger = Define("stranger", Vector2Int.one, new[] { Stack(_log, 1) });
+        Assert.AreEqual(HubMoveResult.Unknown, hub.TryMove(stranger, new Vector2Int(2, 2)));
+        Assert.IsFalse(hub.CanMoveTo(_storage, new Vector2Int(3, 1)));
+
+        Assert.AreEqual(0, moved);
+        PlacedHubBuilding storage = _saves.Progress().FindHubBuilding("storage");
+        Assert.AreEqual(0, storage.x);
+        Assert.AreEqual(0, storage.y);
+    }
+
+    [Test]
+    public void Move_OntoItselfShifted_OwnPlaceDoesNotBlock()
+    {
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("storage", new Vector2Int(0, 0));
+        HubService hub = Hub(progress);
+        int moved = 0;
+        hub.OnMoved += (definition, from, to) => moved++;
+
+        // Та же клетка — Ok без события; для постройки новой области своё место заняло бы её
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(_storage, Vector2Int.zero));
+        Assert.AreEqual(0, moved);
+        Assert.IsFalse(hub.CanPlaceAt(_storage, new Vector2Int(1, 0)), "build check sees the own footprint");
+
+        Assert.IsTrue(hub.CanMoveTo(_storage, new Vector2Int(1, 0)));
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(_storage, new Vector2Int(1, 0)));
+        Assert.AreEqual(1, moved);
+        Assert.AreEqual(new RectInt(1, 0, 2, 2), hub.GetPlaced()[0].Area);
+    }
+
+    [Test]
+    public void Move_AdjacencyRecalculated()
+    {
+        WithAdjacency(_healerHut, Bonus("shrine", HubEffectType.MaxHealth, 10));
+        MetaProgress progress = _saves.Progress();
+        progress.AddHubBuilding("shrine", new Vector2Int(0, 0));
+        progress.AddHubBuilding("healer_hut", new Vector2Int(4, 0));
+        HubService hub = Hub(progress);
+
+        CollectionAssert.IsEmpty(hub.GetAdjacencyBonuses());
+        Assert.AreEqual(125f, RunModifiers.Create(Config(), progress, _catalog).MaxHealth);
+
+        // Предпросмотр переноса: своё старое место не мешает и не участвует
+        List<HubAdjacencyMatch> preview = hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(2, 0));
+        Assert.AreEqual(1, preview.Count);
+        Assert.AreEqual("shrine", preview[0].Other("healer_hut").Id);
+        CollectionAssert.IsEmpty(hub.PreviewAdjacencyBonuses(_healerHut, new Vector2Int(3, 0)),
+            "overlapping its own old place is allowed, but (3..4) does not touch the shrine (0..1)");
+
+        // Перенос вплотную (касание стороной частично: y 1..2 против 0..1) — бонус появляется
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(_healerHut, new Vector2Int(2, 1)));
+        List<HubAdjacencyMatch> active = hub.GetAdjacencyBonuses();
+        Assert.AreEqual(1, active.Count);
+        Assert.AreEqual("healer_hut", active[0].Owner.Id);
+        Assert.AreEqual(135f, RunModifiers.Create(Config(), _saves.Progress(), _catalog).MaxHealth,
+            "the saved layout gives the bonus in the next run");
+
+        // Перенос прочь — бонус пропадает
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(_healerHut, new Vector2Int(6, 4)));
+        CollectionAssert.IsEmpty(hub.GetAdjacencyBonuses());
+        Assert.AreEqual(125f, RunModifiers.Create(Config(), _saves.Progress(), _catalog).MaxHealth);
+    }
+
+    // ─── Портал (постоянная постройка) ────────────────────────
+
+    private HubBuildingDefinition Portal()
+    {
+        HubBuildingDefinition portal = Define("portal", new Vector2Int(2, 2), new ItemStack[0]);
+        SetPrivate(portal, "isPermanent", true);
+        return portal;
+    }
+
+    [Test]
+    public void Portal_AutoPlacedOnEmptySave_BottomCentre()
+    {
+        HubBuildingDefinition portal = Portal();
+        _catalog = Catalog(_storage, _shrine, _watchtower, _healerHut, portal);
+        MetaProgress progress = _saves.Progress();
+
+        var hub = new HubService(_catalog, progress, Registry(progress));
+
+        Assert.IsTrue(hub.IsBuilt(portal));
+        Assert.IsTrue(hub.TryGetCell(portal, out Vector2Int cell));
+        Assert.AreEqual(new Vector2Int(3, 0), cell, "bottom row, centred on the 8-wide grid");
+        Assert.AreSame(portal, hub.EntranceBuilding);
+        Assert.AreEqual(1, hub.GetLevel(portal));
+        CollectionAssert.IsEmpty(_events, "not a player's building — no HubBuildingBuilt");
+
+        // Сохранено сразу
+        Assert.IsTrue(_saves.Progress().HasHubBuilding("portal"));
+        // Повторно не ставится
+        Assert.IsFalse(hub.EnsurePermanentBuildings());
+        Assert.AreEqual(1, hub.GetPlaced().Count);
+    }
+
+    [Test]
+    public void Portal_OldSave_PreferredSpotOccupied_NearestFreePlace()
+    {
+        HubBuildingDefinition portal = Portal();
+        _catalog = Catalog(_storage, _shrine, _watchtower, _healerHut, portal);
+        File.WriteAllText(_saves.PathOf("meta_progress.json"), @"{
+    ""hubBuildings"": [
+        { ""buildingId"": ""storage"", ""x"": 3, ""y"": 0, ""level"": 1 }
+    ]
+}");
+        MetaProgress progress = _saves.Progress();
+
+        var hub = new HubService(_catalog, progress, unlocks: null);
+
+        // Ближайшие к (3,0) свободные — (1,0), (5,0) и (3,2) на расстоянии 2; при равенстве — ниже, затем левее
+        Assert.IsTrue(hub.TryGetCell(portal, out Vector2Int cell));
+        Assert.AreEqual(new Vector2Int(1, 0), cell);
+        Assert.AreEqual(2, hub.GetPlaced().Count);
+        PlacedHubBuilding saved = _saves.Progress().FindHubBuilding("portal");
+        Assert.AreEqual(1, saved.x);
+        Assert.AreEqual(0, saved.y);
+    }
+
+    [Test]
+    public void Portal_NotBuildableNorUpgradable_ButMovable()
+    {
+        HubBuildingDefinition portal = Portal();
+        // Уровни в ассете портала игнорируются
+        WithLevels(portal, Level(new[] { Stack(_log, 1) }, Effect(HubEffectType.EnergyLimit, 50)));
+        _catalog = Catalog(_storage, portal);
+        MetaProgress progress = _saves.Progress();
+        progress.AddMaterial(_log, 10);
+        // Реестр без открытий: портал всё равно не Locked
+        var hub = new HubService(_catalog, progress, Registry(progress));
+
+        Assert.IsTrue(hub.IsUnlocked(portal));
+        Assert.AreEqual(HubBuildResult.AlreadyBuilt, hub.CheckAvailability(portal));
+        Assert.AreEqual(HubBuildResult.AlreadyBuilt, hub.TryBuild(portal, new Vector2Int(0, 4)));
+        Assert.AreEqual(HubUpgradeResult.MaxLevel, hub.CheckUpgrade(portal));
+        Assert.AreEqual(HubUpgradeResult.MaxLevel, hub.TryUpgrade(portal));
+        Assert.AreEqual(10, hub.GetStored("log"));
+
+        Assert.AreEqual(HubMoveResult.Ok, hub.TryMove(portal, new Vector2Int(0, 4)));
+        PlacedHubBuilding saved = _saves.Progress().FindHubBuilding("portal");
+        Assert.AreEqual(0, saved.x);
+        Assert.AreEqual(4, saved.y);
+        Assert.AreEqual(100f, RunModifiers.Create(Config(), progress, _catalog).BaseEnergyLimit,
+            "level effects of a permanent building never apply");
+    }
+
+    [Test]
+    public void Portal_NoRoom_NotPlacedAndRefused()
+    {
+        HubBuildingDefinition portal = Portal();
+        _catalog = Catalog(portal);
+        SetPrivate(_catalog, "gridSize", new Vector2Int(1, 1));
+        MetaProgress progress = _saves.Progress();
+
+        UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+            new System.Text.RegularExpressions.Regex("no free place for the permanent camp building 'portal'"));
+        var hub = new HubService(_catalog, progress, unlocks: null);
+
+        Assert.IsFalse(hub.IsBuilt(portal));
+        Assert.AreEqual(HubBuildResult.Permanent, hub.CheckAvailability(portal));
+        Assert.AreEqual(HubBuildResult.Permanent, hub.TryBuild(portal, Vector2Int.zero));
+        Assert.IsFalse(File.Exists(_saves.PathOf("meta_progress.json")), "nothing to save");
+    }
+
+    [Test]
+    public void Portal_RunModifiersUnaffected()
+    {
+        HubBuildingDefinition portal = Portal();
+        _catalog = Catalog(_storage, _shrine, _watchtower, _healerHut, portal);
+        MetaProgress progress = _saves.Progress();
+        new HubService(_catalog, progress, unlocks: null);
+        Assert.IsTrue(progress.HasHubBuilding("portal"));
+
+        RunModifiers withPortal = RunModifiers.Create(Config(), progress, _catalog);
+        RunModifiers baseline = RunModifiers.Create(Config(), progress);
+        Assert.AreEqual(baseline.BaseEnergyLimit, withPortal.BaseEnergyLimit);
+        Assert.AreEqual(baseline.MaxHealth, withPortal.MaxHealth);
+        Assert.AreEqual(baseline.InventorySlots, withPortal.InventorySlots);
+        Assert.AreEqual(baseline.RunsPerDay, withPortal.RunsPerDay);
+        Assert.AreEqual(baseline.ThreatDay, withPortal.ThreatDay);
+        CollectionAssert.IsEmpty(HubService.GetAdjacencyBonuses(HubService.CollectPlacements(progress, _catalog)));
+    }
 }

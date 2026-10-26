@@ -35,8 +35,6 @@ public static class LocRuUi
         ("Global", "Глобальные"),
         ("No variables yet: create one with local x = …", "Переменных пока нет: создайте, например, local x = …"),
         ("End Day", "Конец дня"),
-        ("Exit Run", "Выйти из забега"),
-        ("Return to the camp: only materials are carried over", "Вернуться в лагерь: с собой уносятся только материалы"),
         ("Simulation", "Симуляция"),
         ("Commands", "Команды"),
 
@@ -146,12 +144,7 @@ public static class LocRuUi
         ("Doesn't fit the camp grid", "Не помещается в сетку лагеря"),
         ("The place is occupied", "Место занято"),
 
-        // ─── Выход из забега и итоги (RunScreens.uxml) ────────
-        ("Leave the run?", "Покинуть забег?"),
-        ("Only materials are carried to the camp. Tools, buildings and food stay here.",
-            "В лагерь уносятся только материалы. Инструменты, постройки и еда останутся здесь."),
-        ("Stay", "Остаться"),
-        ("Leave", "Уйти"),
+        // ─── Итоги забега (RunScreens.uxml) ───────────────────
         ("Run complete", "Забег завершён"),
         ("Defeat", "Поражение"),
         ("Carried to the camp", "Унесено в лагерь"),
@@ -224,7 +217,6 @@ public static class LocRuUi
         ("Run finished", "Запуск завершён"),
         ("Can't end the day while the code is running", "Нельзя закончить день, пока выполняется код"),
         ("Can't reset progress while the code is running", "Нельзя сбросить прогресс, пока выполняется код"),
-        ("Can't leave the run while the code is running", "Нельзя покинуть забег, пока выполняется код"),
         ("Failed to save progress: {0}", "Не удалось сохранить прогресс: {0}"),
         ("Day {0}: max energy {1}. {2}", "День {0}: максимум энергии {1}. {2}"),
         ("−{0}: energy ran out", "−{0}: энергия кончилась"),
@@ -301,8 +293,10 @@ public static class LocRuUi
             "Запусков кода в день: {runs}. После последнего день заканчивается и энергия восполняется."),
         ("Help lists every command you have and its cost.", "В справке — все ваши команды и их цена."),
         ("Open Help", "Откройте «Справку»"),
-        ("Return to camp at any time. Only materials are kept — and nothing if you die.",
-            "Вернуться в лагерь можно в любой момент. Сохраняются только материалы, а при гибели — ничего."),
+        ("To return to camp, stand next to the portal and call `enterPortal()` — " +
+         "`findObjects(\"portal\")` shows where it is. Only materials are kept — and nothing if you die.",
+            "Чтобы вернуться в лагерь, встаньте рядом с порталом и вызовите `enterPortal()` — " +
+            "`findObjects(\"portal\")` покажет, где он. Сохраняются только материалы, а при гибели — ничего."),
         ("Goblins will patrol from tomorrow. Use `findObjects(\"enemy\")` to see them before they see you.",
             "С завтрашнего дня начнут патрулировать гоблины. `findObjects(\"enemy\")` покажет их раньше, чем они заметят вас."),
         ("Extra windows become functions named after the title. " +
@@ -504,6 +498,14 @@ public static class LocRuUi
             "Циклу `for` после имени переменной нужно `=` (цикл со счётчиком) или `in` (обход списка)."),
         ("Write it like `for i = 1, 10 do ... end` or `for _, obj in ipairs(list) do ... end`.",
             "Пишите так: `for i = 1, 10 do ... end` или `for _, obj in ipairs(list) do ... end`."),
+        ("The portal is too far: `enterPortal()` works only when the player stands next to the portal.",
+            "Портал слишком далеко: `enterPortal()` работает, только когда персонаж стоит рядом с порталом."),
+        ("Walk up to it first: `moveTo(findObjects(\"portal\")[1])` goes to the tile in front of it, then call `enterPortal()`.",
+            "Сначала подойдите к нему: `moveTo(findObjects(\"portal\")[1])` ведёт на клетку перед ним, затем вызовите `enterPortal()`."),
+        ("The portal is not a resource or an enemy — it is the way back to the camp.",
+            "Портал — не ресурс и не враг, это дорога обратно в лагерь."),
+        ("Stand next to it and call `enterPortal()` to leave the run.",
+            "Встаньте рядом и вызовите `enterPortal()`, чтобы уйти из забега."),
         ("A number is written wrongly, for example `3x` or `1.2.3`.", "Число записано неправильно, например `3x` или `1.2.3`."),
         ("Put an operator between a number and a name: `3 * x`.", "Поставьте оператор между числом и именем: `3 * x`."),
         ("After `obj:name` Lua expects brackets with arguments.", "После `obj:name` Lua ждёт скобки с аргументами."),

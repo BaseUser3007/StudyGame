@@ -10,18 +10,6 @@
         <!-- Лагерь (хаб, этап 4): боковые панели поверх карты с сеткой; середина не ловит мышь (HubPanel.uxml) -->
         <ui:Instance template="HubPanel" name="hub-screen" class="screen-overlay hidden" picking-mode="Ignore"/>
 
-        <!-- Подтверждение выхода из забега -->
-        <ui:VisualElement name="exit-confirm" class="screen-backdrop hidden">
-            <ui:VisualElement class="screen-card dialog-card">
-                <ui:Label class="screen-title" text="Leave the run?"/>
-                <ui:Label class="screen-text" text="Only materials are carried to the camp. Tools, buildings and food stay here."/>
-                <ui:VisualElement class="screen-buttons">
-                    <ui:Button name="btn-exit-cancel" class="screen-btn" text="Stay"/>
-                    <ui:Button name="btn-exit-confirm" class="screen-btn screen-btn--danger" text="Leave"/>
-                </ui:VisualElement>
-            </ui:VisualElement>
-        </ui:VisualElement>
-
         <!-- Итоги забега (выход или поражение) -->
         <ui:VisualElement name="run-summary" class="screen-backdrop hidden">
             <ui:VisualElement class="screen-card summary-card">

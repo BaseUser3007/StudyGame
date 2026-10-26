@@ -200,6 +200,15 @@ public class DataIntegrityTests
     }
 
     [Test]
+    public void UnlockConfig_EnterPortal_IsStartingCommand()
+    {
+        // Кнопки Exit Run нет: без enterPortal() из забега не выйти
+        UnlockConfig config = TestHelpers.Load<UnlockConfig>(UnlockConfigPath);
+        CollectionAssert.Contains(config.startingCommands, "enterPortal",
+            "enterPortal must be in DefaultUnlockConfig.startingCommands — it is the only way to leave a run");
+    }
+
+    [Test]
     public void UnlockConfig_PuzzleCommands_ComeWithCodeTaskOnly()
     {
         UnlockConfig config = TestHelpers.Load<UnlockConfig>(UnlockConfigPath);

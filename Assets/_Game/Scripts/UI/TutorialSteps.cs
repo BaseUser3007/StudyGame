@@ -26,7 +26,6 @@ public enum TutorialAnchor
     CraftButton,
     EndDayButton,
     AchievementsButton,
-    ExitRunButton,
     AddWindowButton,
     LibraryTab,
     ThreatLabel,
@@ -233,9 +232,11 @@ public static class TutorialSteps
         // ─── Забег: шаги «по времени» — раньше длинных ожиданий ───
         new TutorialStep
         {
-            Id = "exit_run", Mode = TutorialMode.Run, Anchor = TutorialAnchor.ExitRunButton, After = "energy",
+            // Выход — только через портал (кнопки Exit Run нет); новый id, чтобы шаг увидели и те, кто видел старый
+            Id = "portal_exit", Mode = TutorialMode.Run, Anchor = TutorialAnchor.MainWindow, After = "energy",
             Requires = s => s.Day >= 2,
-            Text = "Return to camp at any time. Only materials are kept — and nothing if you die."
+            Text = "To return to camp, stand next to the portal and call `enterPortal()` — " +
+                   "`findObjects(\"portal\")` shows where it is. Only materials are kept — and nothing if you die."
         },
         new TutorialStep
         {

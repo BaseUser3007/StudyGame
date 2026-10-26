@@ -29,6 +29,8 @@ public class ObjectGenerator : MonoBehaviour
     private Vector2 _spawnCenter;
     // null — стартовый набор не нужен (лагерь)
     private MapGenerationConfig _starterConfig;
+    // Зона без ресурсов (портал забега с полем, координаты карты); null — нет
+    private Rect? _keepClear;
     // От seed карты: при фиксированном seed объекты раскладываются так же, как карта и биомы
     private System.Random _random;
     // Позиции созданных объектов по тайлам — для быстрой проверки расстояния
@@ -38,11 +40,13 @@ public class ObjectGenerator : MonoBehaviour
     // ─── Инициализация ────────────────────────────────────────
 
     /// <param name="starterConfig">Откуда брать стартовый набор у спавна; null — не досыпать (лагерь).</param>
+    /// <param name="keepClear">Прямоугольник карты, который коллайдеры ресурсов не задевают (портал забега).</param>
     public void Initialize(
         IMapDataProvider mapData,
         ObjectPool objectPool,
         Vector2Int spawnCenter,
-        MapGenerationConfig starterConfig)
+        MapGenerationConfig starterConfig,
+        Rect? keepClear = null)
     {
         ValidateReferences(mapData, objectPool);
 
@@ -50,6 +54,7 @@ public class ObjectGenerator : MonoBehaviour
         _objectPool = objectPool;
         _spawnCenter = new Vector2(spawnCenter.x, spawnCenter.y);
         _starterConfig = starterConfig;
+        _keepClear = keepClear;
         // Сдвиг, чтобы последовательность не совпадала с той, что раздала биомы
         _random = new System.Random(unchecked(mapData.Seed * 31 + 7919));
 
@@ -287,6 +292,9 @@ public class ObjectGenerator : MonoBehaviour
         Rect area = PlaceFootprint(footprint, position);
 
         if (DistanceToRect(_spawnCenter, area) < spawnClearRadius)
+            return false;
+
+        if (_keepClear.HasValue && _keepClear.Value.Overlaps(area))
             return false;
 
         if (!IsLandUnder(area))

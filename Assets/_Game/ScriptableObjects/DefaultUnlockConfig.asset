@@ -22,6 +22,7 @@ MonoBehaviour:
   - getStatus
   - getPosition
   - eat
+  - enterPortal
   startingConstructs:
   - local
   mapEventThresholds:

@@ -2,15 +2,15 @@
 
 /// <summary>
 /// Режим игры на этой загрузке сцены: лагерь (экран хаба поверх карты) или забег.
-/// В забеге — выход по кнопке Exit Run (с подтверждением) и поражение при 0 здоровья:
-/// показывает итоги, переносит материалы на склад лагеря (при поражении — ничего) и
+/// В забеге — выход через портал (Lua-команда enterPortal → RequestExitThroughPortal; кнопки Exit Run нет)
+/// и поражение при 0 здоровья: показывает итоги, переносит материалы на склад лагеря (при поражении — ничего) и
 /// сохраняет мета-прогресс сразу, до перехода, чтобы итог нельзя было отменить закрытием игры.
+/// Выход через портал во время выполнения кода — после конца запуска.
 /// </summary>
-public class RunController
+public class RunController : IRunExitService
 {
     private readonly GameMode _mode;
     private readonly RunScreens _screens;
-    private readonly TopBar _topBar;
     private readonly LuaSandbox _sandbox;
     private readonly PlayerInventory _inventory;
     private readonly PlayerHealth _health;
@@ -22,15 +22,18 @@ public class RunController
     private bool _finished;
     // Здоровье кончилось во время выполнения кода: итог — после остановки запуска
     private bool _defeatPending;
+    // Выход через портал запрошен во время выполнения кода: итог — после остановки запуска
+    private bool _portalExitPending;
+
+    public bool IsExitPending => _portalExitPending;
 
     public RunController(
-        GameMode mode, RunScreens screens, TopBar topBar, LuaSandbox sandbox, PlayerInventory inventory,
+        GameMode mode, RunScreens screens, LuaSandbox sandbox, PlayerInventory inventory,
         PlayerHealth health, DayCycle dayCycle, MetaProgress progress, AchievementTracker achievements,
         RunStats stats = null)
     {
         _mode = mode;
         _screens = screens;
-        _topBar = topBar;
         _sandbox = sandbox;
         _inventory = inventory;
         _health = health;
@@ -41,10 +44,8 @@ public class RunController
 
         // Всё это живёт до перезагрузки сцены вместе с контроллером — отписка не нужна
         _screens.OnStartRunRequested += GameSession.StartRun;
-        _screens.OnExitConfirmed += HandleExitConfirmed;
         _screens.OnReturnToHubRequested += GameSession.ReturnToHub;
         _screens.OnResetProgressRequested += HandleResetProgressRequested;
-        _topBar.OnExitRunRequested += HandleExitRunRequested;
         _health.OnDied += HandleDied;
     }
 
@@ -70,25 +71,41 @@ public class RunController
         GameSession.ResetProgress();
     }
 
-    private void HandleExitRunRequested()
-    {
-        if (_finished || _defeatPending || _mode != GameMode.Run) return;
+    // ─── Portal ───────────────────────────────────────────────
 
-        if (_sandbox.IsRunning)
+    /// <summary>
+    /// Выход через портал (enterPortal), без подтверждения. Во время выполнения кода — после конца
+    /// запуска (finally запуска ещё публикует события, выполненные ими достижения попадут в итоги).
+    /// Повторный запрос, пока выход ждёт, — true без изменений.
+    /// </summary>
+    public bool RequestExitThroughPortal()
+    {
+        if (_finished || _defeatPending || _mode != GameMode.Run) return false;
+        if (_portalExitPending) return true;
+
+        if (!_sandbox.IsRunning)
         {
-            UIEventBus.PublishNotification(Loc.T("Can't leave the run while the code is running"), LogEntryType.Warning);
-            return;
+            Finish(defeated: false);
+            return true;
         }
 
-        _screens.ShowExitConfirm();
+        _portalExitPending = true;
+        _sandbox.OnRunningChanged += HandleRunningChangedAfterPortal;
+        return true;
     }
 
-    private void HandleExitConfirmed()
+    private void HandleRunningChangedAfterPortal(bool running)
     {
-        // Пока висел диалог, код запустить нельзя (диалог закрывает экран), но проверим ещё раз
-        if (_sandbox.IsRunning) return;
+        if (running) return;
+
+        _sandbox.OnRunningChanged -= HandleRunningChangedAfterPortal;
+        _portalExitPending = false;
+        // Игрок погиб, пока доигрывал запуск, — итог даёт поражение
+        if (_defeatPending) return;
         Finish(defeated: false);
     }
+
+    // ─── Defeat ───────────────────────────────────────────────
 
     private void HandleDied()
     {

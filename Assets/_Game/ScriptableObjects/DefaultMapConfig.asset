@@ -32,3 +32,8 @@ MonoBehaviour:
     count: 2
   starterMinRadius: 3
   starterMaxRadius: 5
+  portalPrefab: {fileID: 4124610766224056487, guid: c9050db1c6c5b5a44838ebe0a4a38b94, type: 3}
+  portalSize: {x: 1, y: 1}
+  portalLandMargin: 1
+  portalMinRegionTiles: 150
+  portalClearRadius: 1.5

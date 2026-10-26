@@ -17,6 +17,22 @@ public enum HubBuildResult
     /// <summary>Область выходит за сетку.</summary>
     OutOfBounds,
     /// <summary>Область пересекается с другой постройкой.</summary>
+    Occupied,
+    /// <summary>Постоянная постройка (портал) ставится автоматически — из панели не строится.</summary>
+    Permanent
+}
+
+/// <summary>Результат проверки или попытки переноса постройки хаба.</summary>
+public enum HubMoveResult
+{
+    Ok,
+    /// <summary>Определения нет в каталоге.</summary>
+    Unknown,
+    /// <summary>Постройки ещё нет в хабе — переносить нечего.</summary>
+    NotBuilt,
+    /// <summary>Область выходит за сетку.</summary>
+    OutOfBounds,
+    /// <summary>Область пересекается с другой постройкой (своё старое место не мешает).</summary>
     Occupied
 }
 
@@ -95,8 +111,11 @@ public readonly struct HubAdjacencyMatch
 /// Логика хаба (этап 4, plain class из Level в режиме Hub): сетка, проверка места, оплата материалами
 /// со склада MetaProgress, запись расстановки и сохранение. Клетки — (0,0) левый нижний угол сетки,
 /// постройка ставится левым нижним углом в cell. Каждая постройка — один раз, без сноса.
-/// Построенную можно улучшать до HubBuildingDefinition.MaxLevel (T14): CheckUpgrade / TryUpgrade.
-/// Открытость — через UnlockRegistry (награды достижений). Мировую часть рисует HubGrid по OnBuilt/OnUpgraded.
+/// Построенную можно улучшать до HubBuildingDefinition.MaxLevel (T14): CheckUpgrade / TryUpgrade —
+/// и бесплатно переносить (CheckMove / TryMove), уровень сохраняется, соседство пересчитывается само.
+/// Постоянные постройки (IsPermanent, портал) конструктор ставит сам, если их нет в сохранении
+/// (EnsurePermanentBuildings): не строятся и не улучшаются, всегда открыты, переносятся.
+/// Открытость — через UnlockRegistry (награды достижений). Мировую часть рисует HubGrid по OnBuilt/OnUpgraded/OnMoved.
 /// </summary>
 public class HubService
 {
@@ -104,6 +123,8 @@ public class HubService
     public event Action<HubBuildingDefinition, Vector2Int> OnBuilt;
     /// <summary>Постройка улучшена (оплачено и сохранено): определение и новый уровень.</summary>
     public event Action<HubBuildingDefinition, int> OnUpgraded;
+    /// <summary>Постройка перенесена (сохранено): определение, старая и новая клетка левого нижнего угла.</summary>
+    public event Action<HubBuildingDefinition, Vector2Int, Vector2Int> OnMoved;
 
     private readonly HubBuildingCatalog _catalog;
     private readonly MetaProgress _progress;
@@ -133,14 +154,33 @@ public class HubService
         foreach (HubPlacement placed in GetPlaced())
             if (placed.Definition == null)
                 Debug.LogWarning($"HubService: saved camp building '{placed.Id}' is not in the catalog — shown as an occupied cell");
+
+        // Портал стоит всегда: новое или старое сохранение без него — ставим сами и сохраняем
+        EnsurePermanentBuildings();
     }
 
     // ─── Состояние ────────────────────────────────────────────
 
     public HubBuildingDefinition Find(string id) => _catalog != null ? _catalog.Find(id) : null;
 
+    /// <summary>Открыта ли постройка; постоянная (портал) открыта всегда.</summary>
     public bool IsUnlocked(HubBuildingDefinition definition) =>
-        definition != null && (_unlocks == null || _unlocks.IsHubBuildingUnlocked(definition.Id));
+        definition != null
+        && (definition.IsPermanent || _unlocks == null || _unlocks.IsHubBuildingUnlocked(definition.Id));
+
+    /// <summary>
+    /// Вход в лагерь — первая постоянная постройка каталога (портал), у которой стоит игрок; null — нет такой.
+    /// </summary>
+    public HubBuildingDefinition EntranceBuilding
+    {
+        get
+        {
+            foreach (HubBuildingDefinition definition in Definitions)
+                if (definition.IsPermanent)
+                    return definition;
+            return null;
+        }
+    }
 
     public bool IsBuilt(HubBuildingDefinition definition) =>
         definition != null && _progress.HasHubBuilding(definition.Id);
@@ -184,6 +224,8 @@ public class HubService
     {
         if (definition == null || Find(definition.Id) != definition) return HubBuildResult.Unknown;
         if (IsBuilt(definition)) return HubBuildResult.AlreadyBuilt;
+        // Портал ставит EnsurePermanentBuildings; не стоит только если сетка забита — построить его нельзя
+        if (definition.IsPermanent) return HubBuildResult.Permanent;
         if (!IsUnlocked(definition)) return HubBuildResult.Locked;
         if (!CanAfford(definition)) return HubBuildResult.NotAffordable;
         return HubBuildResult.Ok;
@@ -227,13 +269,19 @@ public class HubService
     }
 
     /// <summary>Область не пересекается с поставленными постройками.</summary>
-    public bool IsAreaFree(HubBuildingDefinition definition, Vector2Int cell)
+    public bool IsAreaFree(HubBuildingDefinition definition, Vector2Int cell) => IsAreaFree(definition, cell, null);
+
+    /// <summary>
+    /// Область не пересекается с поставленными постройками, кроме постройки с id ignoreId (перенос: своё
+    /// старое место не мешает; null — без исключений).
+    /// </summary>
+    public bool IsAreaFree(HubBuildingDefinition definition, Vector2Int cell, string ignoreId)
     {
         if (definition == null) return false;
 
         var area = new RectInt(cell, definition.Size);
         foreach (HubPlacement placed in GetPlaced())
-            if (placed.Area.Overlaps(area))
+            if (placed.Id != ignoreId && placed.Area.Overlaps(area))
                 return false;
         return true;
     }
@@ -307,12 +355,14 @@ public class HubService
     /// <summary>
     /// Предпросмотр для призрака: какие бонусы появятся, если поставить definition левым нижним углом в cell, —
     /// и те, что получит она сама, и те, что дадут ей уже стоящие соседи (их записи с её id). Пусто, если сюда
-    /// поставить нельзя (вне сетки / занято). Уже стоящая постройка с тем же id в расчёте не участвует.
+    /// поставить нельзя (вне сетки / занято). Уже стоящая постройка с тем же id в расчёте не участвует —
+    /// так тот же предпросмотр работает и для переноса (своё старое место не мешает и не даёт бонусов).
     /// </summary>
     public List<HubAdjacencyMatch> PreviewAdjacencyBonuses(HubBuildingDefinition definition, Vector2Int cell)
     {
         var result = new List<HubAdjacencyMatch>();
-        if (definition == null || !CanPlaceAt(definition, cell)) return result;
+        if (definition == null || !IsInBounds(definition, cell) || !IsAreaFree(definition, cell, definition.Id))
+            return result;
 
         string id = definition.Id;
         var placements = new List<HubPlacement>();
@@ -405,7 +455,8 @@ public class HubService
 
         int level = GetLevel(definition);
         if (level <= 0) return HubUpgradeResult.NotBuilt;
-        if (level >= definition.MaxLevel) return HubUpgradeResult.MaxLevel;
+        // Постоянная постройка (портал) не улучшается, даже если в ассете остались уровни
+        if (definition.IsPermanent || level >= definition.MaxLevel) return HubUpgradeResult.MaxLevel;
         if (!CanAfford(definition, level + 1)) return HubUpgradeResult.NotAffordable;
         return HubUpgradeResult.Ok;
     }
@@ -440,6 +491,135 @@ public class HubService
         return HubUpgradeResult.Ok;
     }
 
+    // ─── Перенос ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Можно ли перенести построенную постройку левым нижним углом в cell: известна, стоит в хабе, область в
+    /// границах и не пересекает другие постройки (своё старое место не мешает — можно сдвинуть на клетку).
+    /// Бесплатно, открытость не проверяется. Та же клетка — Ok (TryMove ничего не меняет).
+    /// </summary>
+    public HubMoveResult CheckMove(HubBuildingDefinition definition, Vector2Int cell)
+    {
+        if (definition == null || Find(definition.Id) != definition) return HubMoveResult.Unknown;
+        if (!IsBuilt(definition)) return HubMoveResult.NotBuilt;
+        if (!IsInBounds(definition, cell)) return HubMoveResult.OutOfBounds;
+        if (!IsAreaFree(definition, cell, definition.Id)) return HubMoveResult.Occupied;
+        return HubMoveResult.Ok;
+    }
+
+    /// <summary>Только место для переноса (для подсветки призрака): в границах и свободно, кроме своего места.</summary>
+    public bool CanMoveTo(HubBuildingDefinition definition, Vector2Int cell) =>
+        CheckMove(definition, cell) == HubMoveResult.Ok;
+
+    /// <summary>
+    /// Переносит постройку: меняет клетку в расстановке (уровень остаётся), сохраняет MetaProgress и публикует
+    /// OnMoved(def, from, to). Бонусы за соседство и RunModifiers считаются по расстановке — пересчитываются сами.
+    /// Та же клетка — Ok без сохранения и события. При отказе ничего не меняет.
+    /// </summary>
+    public HubMoveResult TryMove(HubBuildingDefinition definition, Vector2Int cell)
+    {
+        HubMoveResult result = CheckMove(definition, cell);
+        if (result != HubMoveResult.Ok) return result;
+
+        PlacedHubBuilding placed = _progress.FindHubBuilding(definition.Id);
+        var from = new Vector2Int(placed.x, placed.y);
+        if (from == cell) return HubMoveResult.Ok;
+
+        placed.x = cell.x;
+        placed.y = cell.y;
+        _progress.Save();
+
+        OnMoved?.Invoke(definition, from, cell);
+        return HubMoveResult.Ok;
+    }
+
+    /// <summary>Клетка постройки в хабе (левый нижний угол); false — не построена.</summary>
+    public bool TryGetCell(HubBuildingDefinition definition, out Vector2Int cell)
+    {
+        PlacedHubBuilding placed = definition != null ? _progress.FindHubBuilding(definition.Id) : null;
+        cell = placed != null ? new Vector2Int(placed.x, placed.y) : default;
+        return placed != null;
+    }
+
+    // ─── Постоянные постройки (портал) ────────────────────────
+
+    /// <summary>
+    /// Ставит постоянные постройки каталога, которых нет в сохранении (новая игра, старое сохранение до портала),
+    /// на первое свободное место ближе всего к <see cref="GetPreferredCell"/> (низ сетки по центру — там, где
+    /// игрок стоял раньше) и сохраняет. Бесплатно, без событий (это не постройка игрока). Сетка забита —
+    /// предупреждение, постройка не ставится. Возвращает, поставлено ли что-нибудь. Повторный вызов ничего не делает.
+    /// </summary>
+    public bool EnsurePermanentBuildings()
+    {
+        bool placedAny = false;
+
+        foreach (HubBuildingDefinition definition in Definitions)
+        {
+            if (!definition.IsPermanent || IsBuilt(definition)) continue;
+
+            if (!TryFindFreeCell(definition, GetPreferredCell(definition), out Vector2Int cell))
+            {
+                Debug.LogWarning($"HubService: no free place for the permanent camp building '{definition.Id}'");
+                continue;
+            }
+
+            _progress.AddHubBuilding(definition.Id, cell);
+            placedAny = true;
+        }
+
+        if (placedAny) _progress.Save();
+        return placedAny;
+    }
+
+    /// <summary>Место постоянной постройки по умолчанию: нижний ряд сетки, по центру.</summary>
+    public Vector2Int GetPreferredCell(HubBuildingDefinition definition)
+    {
+        Vector2Int size = definition != null ? definition.Size : Vector2Int.one;
+        return new Vector2Int(Mathf.Max(0, (GridSize.x - size.x) / 2), 0);
+    }
+
+    /// <summary>
+    /// Свободная клетка для постройки, ближайшая к preferred (по квадрату расстояния; при равенстве — ниже,
+    /// затем левее). Детерминированно, без Random.
+    /// </summary>
+    public bool TryFindFreeCell(HubBuildingDefinition definition, Vector2Int preferred, out Vector2Int cell)
+    {
+        cell = default;
+        if (definition == null) return false;
+
+        bool found = false;
+        int best = int.MaxValue;
+        Vector2Int size = definition.Size;
+
+        for (int y = 0; y + size.y <= GridSize.y; y++)
+            for (int x = 0; x + size.x <= GridSize.x; x++)
+            {
+                var candidate = new Vector2Int(x, y);
+                int distance = (candidate - preferred).sqrMagnitude;
+                if (distance >= best || !IsAreaFree(definition, candidate)) continue;
+
+                best = distance;
+                cell = candidate;
+                found = true;
+            }
+
+        return found;
+    }
+
+    /// <summary>Текст отказа переноса для UI (английский, переводится через Loc.T у вызывающего).</summary>
+    public static string Describe(HubMoveResult result)
+    {
+        switch (result)
+        {
+            case HubMoveResult.Ok: return "Ready to move";
+            case HubMoveResult.Unknown: return "Unknown building";
+            case HubMoveResult.NotBuilt: return "Build it first";
+            case HubMoveResult.OutOfBounds: return "Doesn't fit the camp grid";
+            case HubMoveResult.Occupied: return "The place is occupied";
+            default: return result.ToString();
+        }
+    }
+
     /// <summary>Текст отказа улучшения для UI (английский, переводится через Loc.T у вызывающего).</summary>
     public static string Describe(HubUpgradeResult result)
     {
@@ -466,6 +646,7 @@ public class HubService
             case HubBuildResult.NotAffordable: return "Not enough materials";
             case HubBuildResult.OutOfBounds: return "Doesn't fit the camp grid";
             case HubBuildResult.Occupied: return "The place is occupied";
+            case HubBuildResult.Permanent: return "Always in the camp — it can only be moved";
             default: return result.ToString();
         }
     }

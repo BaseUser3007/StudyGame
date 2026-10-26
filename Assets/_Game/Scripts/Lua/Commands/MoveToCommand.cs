@@ -20,7 +20,9 @@ public class MoveToCommand : PlayerCommandBase
     protected override async ValueTask<int> ExecuteAsync(LuaFunctionExecutionContext context, CancellationToken ct)
     {
         // moveTo(x, y) или moveTo(obj) — таблица с полями x и y
-        if (context.ArgumentCount == 0 || !HarvestCommand.TryReadPoint(context, out Vector2 point))
+        // Портал сплошной: moveTo(portal) идёт на клетку перед ним (approachX, approachY), а не в центр
+        if (!LuaPortal.TryReadApproach(context, out Vector2 point)
+            && (context.ArgumentCount == 0 || !HarvestCommand.TryReadPoint(context, out point)))
             throw new ArgumentException("moveTo: usage moveTo(x, y) or moveTo(obj)");
 
         // Координаты объектов дробные — идём в тайл, где лежит точка

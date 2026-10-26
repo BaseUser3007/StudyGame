@@ -810,7 +810,7 @@ print(getStatus().spent)   -- energy spent in this run so far
 | 13 | главное окно кода (после попапа `first_axe`) | Trees need an axe: `mine(tree)` chops it and drops logs on the ground. Pick them up with `harvest`. | `Mined` |
 | 14 | кнопка End Day | End the day early to refill energy. Ending with less than 1 energy lowers tomorrow's limit. | Next |
 | 15 | кнопка Achievements | Achievements unlock new commands and language features. | панель открыта |
-| 16 | кнопка Exit Run (в начале дня 2) | Return to camp at any time. Only materials are kept — and nothing if you die. | Next |
+| 16 | главное окно кода (с дня 2; шаг `portal_exit`) | To return to camp, stand next to the portal and call `enterPortal()` — `findObjects("portal")` shows where it is. Only materials are kept — and nothing if you die. | Next |
 | 17 | TopBar, угроза (в начале дня `threatDay − 1`) | Goblins will patrol from tomorrow. Use `findObjects("enemy")` to see them before they see you. | Next |
 | 18 | кнопка «+» / вкладка библиотеки (после попапа `classes`) | Extra windows become functions named after the title. Drag a window onto the library to save it. | Next |
 

@@ -21,7 +21,9 @@ public class ObjectManager : MonoBehaviour
     // ─── Инициализация ────────────────────────────────────────
 
     /// <param name="starterConfig">Стартовый набор у спавна (только забег); null — без него.</param>
-    public void Initialize(IMapDataProvider mapData, Vector2Int spawnCenter, MapGenerationConfig starterConfig)
+    /// <param name="keepClear">Прямоугольник карты без ресурсов (портал забега с полем); null — нет.</param>
+    public void Initialize(IMapDataProvider mapData, Vector2Int spawnCenter, MapGenerationConfig starterConfig,
+        Rect? keepClear = null)
     {
         ValidateReferences();
 
@@ -30,7 +32,7 @@ public class ObjectManager : MonoBehaviour
 
         // Подписываемся до генерации, иначе объекты не попадут в индекс
         objectGenerator.OnObjectSpawned += HandleObjectSpawned;
-        objectGenerator.Initialize(mapData, _pool, spawnCenter, starterConfig);
+        objectGenerator.Initialize(mapData, _pool, spawnCenter, starterConfig, keepClear);
     }
 
     private void OnDestroy()

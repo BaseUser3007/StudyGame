@@ -23,6 +23,7 @@ public class MineCommand : PlayerCommandBase
     private readonly ObjectManager _objectManager;
     private readonly EnemyManager _enemies;
     private readonly PuzzleManager _puzzles;
+    private readonly RunPortal _portal;
 
     public MineCommand(
         PlayerCommandExecutor executor,
@@ -30,13 +31,15 @@ public class MineCommand : PlayerCommandBase
         ResourceHarvester harvester,
         ObjectManager objectManager,
         EnemyManager enemies,
-        PuzzleManager puzzles = null)
+        PuzzleManager puzzles = null,
+        RunPortal portal = null)
         : base(executor, mapData)
     {
         _harvester = harvester;
         _objectManager = objectManager;
         _enemies = enemies;
         _puzzles = puzzles;
+        _portal = portal;
     }
 
     // Команда мгновенная — без async, чтобы не было пустого конечного автомата
@@ -50,7 +53,7 @@ public class MineCommand : PlayerCommandBase
             // Подвижный объект ищется по id; иначе враг на точке — не ресурс: подсказываем attack() вместо «no object at»
             int movingId = HarvestCommand.ReadMovingObjectId(context, _objectManager);
             error = (movingId != 0 ? null
-                        : AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined", _puzzles))
+                        : AttackCommand.GetNotHarvestableError(context, point, _objectManager, _enemies, "mined", _puzzles, _portal))
                     ?? _harvester.TryMineAt(point, movingId);
         }
         else

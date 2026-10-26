@@ -45,19 +45,19 @@ public static class LocRuCommands
 
         ("What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
          "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
-         "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\"), " +
+         "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle, portal } " +
+         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\", run portal — \"portal\"), " +
          "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
-         "walkable = false on a maze wall; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
-         "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; " +
+         "walkable = false on a maze wall and on the portal; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
+         "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; portal — the portal if it stands on the tile, or nil; " +
          "on a pressure plate also plate — its number, and pressed — whether it is pressed",
          "Что находится в клетке: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
          "(направления как у move, расстояние в клетках, по умолчанию 1, по диагонали — шаги по обеим осям). " +
-         "Только клетки без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle } " +
-         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\", нажимная плита — \"plate\"), " +
+         "Только клетки без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle, portal } " +
+         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\", нажимная плита — \"plate\", портал забега — \"portal\"), " +
          "иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
-         "на стене лабиринта walkable = false; objects — массив ресурсов клетки, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
-         "puzzle — головоломка, в область которой входит клетка (как элемент findObjects), или nil; " +
+         "на стене лабиринта и на портале walkable = false; objects — массив ресурсов клетки, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
+         "puzzle — головоломка, в область которой входит клетка (как элемент findObjects), или nil; portal — портал, если он стоит на клетке, или nil; " +
          "на нажимной плите ещё plate — её номер и pressed — нажата ли она"),
 
         ("Craft an item by name (recipes are in the crafting panel). " +
@@ -84,16 +84,20 @@ public static class LocRuCommands
          "или nil и причину (\"already full\" — еда не тратится)"),
 
         ("Array of visible objects of a type: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (dropped); " +
-         "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all). " +
-         "Without an argument — everything visible, enemies and puzzles included. " +
-         $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\" or \"puzzle\"; " +
+         "enemies — enemy (all) or goblin; puzzles — obelisk, maze, plates or puzzle (all); " +
+         "portal — the run portal (found once it has been seen, even from afar; it also has approachX, approachY — " +
+         "the tile in front of it, moveTo(portal) goes there). " +
+         "Without an argument — everything visible, enemies and puzzles included (the portal only by type \"portal\"). " +
+         $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\", \"puzzle\" or \"portal\"; " +
          "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
          "The array has count and methods for searching, filtering and sorting " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section",
          "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
-         "враги — enemy (все) или goblin; головоломки — obelisk, maze, plates или puzzle (все). " +
-         "Без аргумента — всё, что видно, вместе с врагами и головоломками. " +
-         $"У объекта есть поля {FieldsRu} (kind — \"object\", \"enemy\" или \"puzzle\"; " +
+         "враги — enemy (все) или goblin; головоломки — obelisk, maze, plates или puzzle (все); " +
+         "portal — портал забега (находится, если его уже видели, даже издалека; у него ещё approachX, approachY — " +
+         "клетка перед ним, moveTo(portal) ведёт туда). " +
+         "Без аргумента — всё, что видно, вместе с врагами и головоломками (портал — только по типу \"portal\"). " +
+         $"У объекта есть поля {FieldsRu} (kind — \"object\", \"enemy\", \"puzzle\" или \"portal\"; " +
          "у лабиринта ещё entranceX, entranceY — клетка перед входом, у плит — minX, minY, maxX, maxY их площадки). " +
          "У массива есть count и методы для поиска, фильтрации и сортировки " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке"),
@@ -161,6 +165,13 @@ public static class LocRuCommands
          "Готовая команда: дойти до ближайшего видимого ресурса (можно указать тип: stone, stick…) " +
          "и подобрать его, как harvest (останавливается, как только объект в досягаемости; деревья и валуны не трогает — для них mine). " +
          "Дороже, чем findObjects + moveTo + harvest. Возвращает true или false и причину"),
+
+        ("Leave the run through the portal and return to the camp: the player must stand next to the portal " +
+         "(moveTo(findObjects(\"portal\")[1]) walks up to it). The materials in the inventory go to the camp stock, " +
+         "the code after the call is not executed. Returns nil and a reason if you can't leave (\"portal is too far\")",
+         "Уйти из забега через портал и вернуться в лагерь: персонаж должен стоять рядом с порталом " +
+         "(moveTo(findObjects(\"portal\")[1]) подводит к нему). Материалы из инвентаря уходят на склад лагеря, " +
+         "код после вызова не выполняется. Если уйти нельзя, возвращает nil и причину (\"portal is too far\")"),
 
         ("Prints values to the log under the main window: numbers, text, nil, " +
          "tables with fields (one level deep), for a findObjects list — count and the first " +
