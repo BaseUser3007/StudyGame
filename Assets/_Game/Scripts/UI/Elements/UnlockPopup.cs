@@ -368,6 +368,7 @@ public class UnlockPopup
     /// Цена одного прохода кода по тем же правилам, что EnergyCounter (команды, методы массива findObjects,
     /// ключевые слова), но команды берутся из всего реестра — независимо от того, что открыто.
     /// parts — платные элементы по порядку появления, повторы сложены.
+    /// Проход выполняет одну ветку if: ветки else/elseif (до end своего if) не считаются.
     /// </summary>
     private float CalculateCost(string code, out List<(string Name, float Cost)> parts)
     {
@@ -375,8 +376,33 @@ public class UnlockPopup
         float total = 0f;
         if (string.IsNullOrEmpty(code)) return total;
 
+        int depth = 0;
+        int skipDepth = -1;
         foreach (LuaTokenizer.Token token in _tokenizer.Tokenize(code))
         {
+            if (token.Type == LuaTokenizer.TokenType.Keyword)
+            {
+                switch (token.Value)
+                {
+                    case "if":
+                    case "function":
+                    case "do":
+                    case "repeat":
+                        depth++;
+                        break;
+                    case "end":
+                    case "until":
+                        depth--;
+                        if (skipDepth >= 0 && depth < skipDepth) skipDepth = -1;
+                        break;
+                    case "else":
+                    case "elseif":
+                        if (skipDepth < 0) skipDepth = depth;
+                        break;
+                }
+            }
+            if (skipDepth >= 0) continue;
+
             float cost = GetTokenCost(token);
             if (cost <= 0f) continue;
 
