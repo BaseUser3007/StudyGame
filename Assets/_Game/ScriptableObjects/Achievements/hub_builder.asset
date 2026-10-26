@@ -22,10 +22,4 @@ MonoBehaviour:
     filter: 
     amount: 1
     maxEnergy: 10
-  rewards:
-  - kind: 4
-    id: code_task
-  - kind: 0
-    id: puzzle
-  - kind: 0
-    id: solve
+  rewards: []

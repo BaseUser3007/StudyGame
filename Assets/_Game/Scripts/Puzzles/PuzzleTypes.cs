@@ -13,4 +13,19 @@ public static class PuzzleTypes
 
     /// <summary>Все типы, которые есть в игре (для UnlockRegistry.SetKnownMapEvents).</summary>
     public static readonly string[] All = { CodeTask, Maze, Plates };
+
+    /// <summary>
+    /// Название события на карте для UI на языке игры (Loc): «Obelisks», «Maze», «Pressure plates».
+    /// Неизвестный id возвращается как есть.
+    /// </summary>
+    public static string GetDisplayName(string id)
+    {
+        switch (id)
+        {
+            case CodeTask: return Loc.T("Obelisks");
+            case Maze: return Loc.T("Maze");
+            case Plates: return Loc.T("Pressure plates");
+            default: return id ?? string.Empty;
+        }
+    }
 }

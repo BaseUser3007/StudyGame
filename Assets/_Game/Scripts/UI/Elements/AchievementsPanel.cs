@@ -20,6 +20,22 @@ public static class AchievementText
     }
 
     /// <summary>
+    /// «Achievements: 7/18 · next map event: Maze at 11» (или «… · all map events unlocked»).
+    /// null — трекера нет или пороги событий не заданы (строку не показываем).
+    /// </summary>
+    public static string FormatMapEvents(AchievementTracker tracker)
+    {
+        if (tracker == null || !tracker.HasMapEventThresholds) return null;
+
+        int completed = tracker.CompletedCount;
+        int total = tracker.Definitions.Count;
+        return tracker.TryGetNextMapEvent(out string eventId, out int required)
+            ? Loc.F("Achievements: {0}/{1} · next map event: {2} at {3}",
+                completed, total, PuzzleTypes.GetDisplayName(eventId), required)
+            : Loc.F("Achievements: {0}/{1} · all map events unlocked", completed, total);
+    }
+
+    /// <summary>
     /// Условие EfficientGather: «4 × log in one code run, spending ≤ 50 energy». Для остальных — null
     /// (их смысл и так в описании).
     /// </summary>
@@ -51,6 +67,7 @@ public class AchievementsPanel
     private readonly Label _count;
     private readonly ScrollView _list;
     private readonly Label _empty;
+    private readonly Label _mapEvents;
 
     private bool _dirty = true;
     private bool _refreshScheduled;
@@ -72,6 +89,14 @@ public class AchievementsPanel
 
         Debug.Assert(_backdrop != null && _card != null && _count != null && _list != null && _empty != null
                      && btnClose != null, "AchievementsPanel: elements not found");
+
+        // Строка о событиях на карте (открываются числом достижений) — над списком, в стиле пояснения
+        _mapEvents = new Label { enableRichText = false };
+        _mapEvents.AddToClassList("achievements-note");
+        _mapEvents.AddToClassList("achievements-map-events");
+        int listIndex = _card.IndexOf(_list);
+        if (listIndex >= 0) _card.Insert(listIndex, _mapEvents);
+        else _card.Add(_mapEvents);
 
         // UI управляется только мышью — кнопка не должна забирать фокус
         btnClose.focusable = false;
@@ -132,6 +157,10 @@ public class AchievementsPanel
 
         _count.text = _tracker != null ? $"{_tracker.CompletedCount} / {definitions.Count}" : "0 / 0";
         _empty.EnableInClassList(HiddenClass, definitions.Count > 0);
+
+        string mapEvents = AchievementText.FormatMapEvents(_tracker);
+        _mapEvents.text = mapEvents ?? string.Empty;
+        _mapEvents.style.display = mapEvents != null ? DisplayStyle.Flex : DisplayStyle.None;
 
         // Живое обновление не должно сбрасывать прокрутку
         _list.schedule.Execute(() => _list.scrollOffset = scroll);

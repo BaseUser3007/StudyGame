@@ -44,12 +44,20 @@ public class UnlockRegistry
     // null — каталога построек хаба / событий на карте ещё нет (этапы 4 и 6): открытия только сохраняются
     private HashSet<string> _knownHubBuildings;
     private HashSet<string> _knownMapEvents;
+    // Пороги событий на карте по числу достижений (по возрастанию; пусто — только награды)
+    private readonly List<MapEventThreshold> _mapEventThresholds;
 
     /// <summary>Отладка: всё открыто (сохранение при этом не меняется).</summary>
     public bool UnlockAll { get; }
 
     /// <summary>Стартовые команды из конфига — для проверки опечаток в именах.</summary>
     public IReadOnlyCollection<string> StartingCommands => _startingCommands;
+
+    /// <summary>
+    /// Пороги событий на карте по числу выполненных достижений (по возрастанию, см. <see cref="MapEventProgress"/>).
+    /// Пусто — конфига нет или пороги не заданы: события открываются только наградами.
+    /// </summary>
+    public IReadOnlyList<MapEventThreshold> MapEventThresholds => _mapEventThresholds;
 
     public UnlockRegistry(UnlockConfig config, MetaProgress progress)
     {
@@ -58,6 +66,7 @@ public class UnlockRegistry
         _progress = progress;
         _startingCommands = ToSet(config != null ? config.startingCommands : null);
         _startingConstructs = ToSet(config != null ? config.startingConstructs : null);
+        _mapEventThresholds = MapEventProgress.Normalize(config != null ? config.mapEventThresholds : null);
 
         // Без конфига (ассет ещё не привязан) открываем всё, чтобы игра оставалась играбельной
         if (config == null)
@@ -226,6 +235,27 @@ public class UnlockRegistry
             return SaveDeferred("map event", id, _progress.UnlockEvent);
 
         return Unlock(UnlockKind.MapEvent, id, _progress.IsEventUnlocked, _progress.UnlockEvent);
+    }
+
+    /// <summary>
+    /// Открывает события на карте, порог которых достигнут при completedAchievements выполненных достижениях,
+    /// и их команды (сначала событие, потом его команды — в этом порядке и всплывашки «Открыто»).
+    /// Идемпотентно: уже открытое не открывается повторно и OnUnlocked не вызывает.
+    /// Возвращает число событий, открытых впервые.
+    /// </summary>
+    public int UnlockMapEventsForAchievements(int completedAchievements)
+    {
+        int unlocked = 0;
+        foreach (MapEventThreshold threshold in MapEventProgress.GetDue(_mapEventThresholds, completedAchievements))
+        {
+            if (UnlockMapEvent(threshold.EventId)) unlocked++;
+
+            if (threshold.commands == null) continue;
+            foreach (string command in threshold.commands)
+                if (!string.IsNullOrWhiteSpace(command))
+                    UnlockCommand(command.Trim());
+        }
+        return unlocked;
     }
 
     // ─── Helpers ──────────────────────────────────────────────

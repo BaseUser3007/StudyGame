@@ -24,4 +24,16 @@ MonoBehaviour:
   - eat
   startingConstructs:
   - local
+  mapEventThresholds:
+  - eventId: code_task
+    achievementsRequired: 6
+    commands:
+    - puzzle
+    - solve
+  - eventId: maze
+    achievementsRequired: 11
+    commands: []
+  - eventId: plates
+    achievementsRequired: 15
+    commands: []
   unlockAll: 0

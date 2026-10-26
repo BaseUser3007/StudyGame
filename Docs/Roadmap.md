@@ -159,7 +159,7 @@
 `PuzzleManager` (`Level.Puzzles`), задачи `sum`/`max`/`count` с новым входом в каждом запуске, награды на
 забег (`PuzzleRewards`), лабиринт 7×7 с «густой изгородью» тумана (`FogOfWarSystem.AddHedgeArea`) и `crystal` ×2,
 `PuzzleSolved`; EditMode-тесты `PuzzleTests`. **Lua-часть готова** (2026-10-19): `puzzle([obj | x, y])` = 1,
-`solve(obj, answer)` = 2 (`true` / `nil, причина`; открываются `hub_builder`), в `findObjects` типы `obelisk`/`code_task`,
+`solve(obj, answer)` = 2 (`true` / `nil, причина`; открывались `hub_builder`, с 2026-10-26 — вместе с событием `code_task` при 6 достижениях, код ещё не переделан), в `findObjects` типы `obelisk`/`code_task`,
 `maze`, `puzzle` (только без тумана, id = `LuaObjectList.PuzzleIdOffset` + Id; в `findObjects()` тоже), в `check` —
 `wall`/`chest`/`obelisk`, `walkable = false` на стене лабиринта, поле `puzzle`; harvest/mine/attack по головоломке —
 понятная ошибка; тесты `PuzzleCommandTests`. **Ассеты есть** (`DefaultPuzzleConfig`, префабы обелиска,
@@ -170,8 +170,9 @@
   с уникальными номерами 1–30, не касаются углами, по одной на строку/столбец), номер — только `check(x, y).plate`,
   наступать по возрастанию (`PlatesSequence`, неверная — сброс всех), награда-предложение `crystal` ×1;
   `PuzzleConfig.platesCount` = 0 по умолчанию; префаб плиты не обязателен (квадрат из кода). Тесты
-  `PuzzleTests`/`PuzzleCommandTests`. Ждёт: префаб плиты, `platesCount` в `DefaultPuzzleConfig`, достижение-открытие
-  (автор) и проверку в Play Mode.
+  `PuzzleTests`/`PuzzleCommandTests`. Ждёт: префаб плиты, `platesCount` в `DefaultPuzzleConfig`, проверку в Play Mode.
+  **Открытие решено (2026-10-26):** не достижением, а при 15 выполненных достижениях (GameDesign §6.1) — ждёт
+  правила «событие по числу достижений» в коде (§9 «К внедрению»).
 - [ ] Уникальные ресурсы и что из них делается (рецепты/постройки хаба).
 
 ## Этап 7. Еда
@@ -216,5 +217,9 @@
 | Забег | Доступно на старте | Достижения → награды |
 |---|---|---|
 | 1 | `obtain`, `autoExplore`, `craft`, `build`, `drop`, `getInventory`, `getStatus`, `getPosition`, `eat`; `local` | `first_harvest` → `findObjects`, `moveTo`, `harvest`, `if`; `first_bug` → `print`; `first_axe` → `mine`; `explorer` → `move`, `check`, `while`; `copy_paste` (6 × `harvest`) → `for`; `workbench_built` → рецепты `bed`, `pickaxe`; `lumberjack` / `sweet_dreams` → постройки хаба; `threat_survivor` → рецепт `sword`; часто уже `efficient_logger`, `loop_lover` |
-| 2 | + открытое в забеге 1 | `efficient_logger` (4 бревна ≤ 55 энергии) → `repeat`; `loop_lover` → `function`; `enemy_spotted` → `attack`; `first_blood` → рецепты костра и еды; `hub_builder` → событие `code_task`, `puzzle`, `solve`; к концу `function_fan` |
-| 3 | + `repeat`, `function`, задачи на код | `function_fan` → `classes` (если не раньше); `code_solver` → событие `maze`; `maze_runner` → `watchtower`; `first_meal` → `healer_hut` |
+| 2 | + открытое в забеге 1 | `efficient_logger` (4 бревна ≤ 55 энергии) → `repeat`; `loop_lover` → `function`; `enemy_spotted` → `attack`; `first_blood` → рецепты костра и еды; `hub_builder` (без награды); к концу `function_fan`; на карте обелиски (6 достижений → событие `code_task`, `puzzle`, `solve` — набрано в забеге 1) |
+| 3 | + `repeat`, `function`, задачи на код | `function_fan` → `classes` (если не раньше); `code_solver` (без награды); на карте лабиринт (11 достижений → событие `maze`); `maze_runner` → `watchtower`; `first_meal` → `healer_hut`; к 15 достижениям — событие `plates` (на карте с забега 4) |
+
+События на карте открываются **числом выполненных достижений** (решение 2026-10-26): `code_task` 6 (+ команды
+`puzzle`, `solve`), `maze` 11, `plates` 15; открытое в забеге появляется со следующего забега. Обоснование —
+GameDesign.md §6.1 «События на карте — по числу достижений».

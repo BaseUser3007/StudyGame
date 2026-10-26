@@ -41,9 +41,25 @@ public static class JsonFileStore
         string tempPath = path + ".tmp";
         File.WriteAllText(tempPath, JsonUtility.ToJson(data, true));
 
-        if (File.Exists(path))
-            File.Replace(tempPath, path, null);
-        else
-            File.Move(tempPath, path);
+        // Windows: антивирус или индексатор ненадолго держат только что записанный файл, и File.Replace
+        // падает с «не удаётся удалить заменяемый файл» при частых сохранениях — несколько повторов
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Replace(tempPath, path, null);
+                else
+                    File.Move(tempPath, path);
+                return;
+            }
+            catch (IOException) when (attempt < ReplaceAttempts)
+            {
+                System.Threading.Thread.Sleep(ReplaceRetryDelayMs * attempt);
+            }
+        }
     }
+
+    private const int ReplaceAttempts = 4;
+    private const int ReplaceRetryDelayMs = 15;
 }

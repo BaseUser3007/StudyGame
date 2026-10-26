@@ -8,7 +8,7 @@ using UnityEngine;
 /// puzzle([obj | x, y]) — условие головоломки рядом (GameDesign §10.4): { kind, text, input, limit, solved }.
 /// Вход обелиска генерируется заново в каждом запуске кода — ответ надо вычислить в том же запуске.
 /// Нужно стоять не дальше PuzzleManager.InteractionRadius (1,5 тайла) от края головоломки.
-/// Открывается достижением hub_builder.
+/// Открывается вместе с событием карты code_task (по числу достижений, UnlockConfig.mapEventThresholds).
 /// </summary>
 public class PuzzleCommand : PlayerCommandBase
 {

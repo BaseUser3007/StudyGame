@@ -8,7 +8,7 @@
                 <ui:Label name="achievements-count" class="achievements-count" text="0 / 0"/>
                 <ui:Button name="btn-achievements-close" class="achievements-close" text="×"/>
             </ui:VisualElement>
-            <ui:Label class="achievements-note" text="Progress is kept between runs, even after a defeat. Rewards unlock commands, language constructs and recipes."/>
+            <ui:Label class="achievements-note" text="Progress is kept between runs, even after a defeat. Rewards unlock commands, language constructs and recipes; the number of achievements unlocks new map events."/>
             <ui:ScrollView name="achievements-list" class="achievements-list"/>
             <ui:Label name="achievements-empty" class="achievements-empty hidden" text="No achievements yet"/>
         </ui:VisualElement>

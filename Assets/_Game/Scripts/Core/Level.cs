@@ -187,7 +187,8 @@ public class Level : MonoBehaviour
         // иначе открытия остаются отложенными (без всплывашки)
         if (hubBuildingCatalog != null)
             unlocks.SetKnownHubBuildings(hubBuildingCatalog.GetIds());
-        // Типы головоломок — события на карте; известны всегда (их открывают достижения в обоих режимах)
+        // Типы головоломок — события на карте; известны всегда (их открывает число выполненных достижений
+        // в обоих режимах, UnlockConfig.mapEventThresholds)
         unlocks.SetKnownMapEvents(PuzzleTypes.All);
 
         PlayerEnergy playerEnergy = new PlayerEnergy(modifiers.BaseEnergyLimit);

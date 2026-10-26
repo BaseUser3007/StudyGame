@@ -25,5 +25,6 @@ public static class LocTablesRu
         LocRuT09.Entries,
         LocRuT13.Entries,
         LocRuT16.Entries,
+        LocRuEvents.Entries,
     };
 }

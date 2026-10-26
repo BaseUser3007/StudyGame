@@ -164,8 +164,8 @@ public static class LocRuUi
         ("Stays in the run: {0}", "Остаётся в забеге: {0}"),
 
         // ─── Достижения (AchievementsPanel.uxml, тосты) ───────
-        ("Progress is kept between runs, even after a defeat. Rewards unlock commands, language constructs and recipes.",
-            "Прогресс сохраняется между забегами, даже после поражения. Награды открывают команды, конструкции языка и рецепты."),
+        ("Progress is kept between runs, even after a defeat. Rewards unlock commands, language constructs and recipes; the number of achievements unlocks new map events.",
+            "Прогресс сохраняется между забегами, даже после поражения. Награды открывают команды, конструкции языка и рецепты, а число достижений — новые события на карте."),
         ("No achievements yet", "Достижений пока нет"),
         ("Completed", "Выполнено"),
         ("This run: {0} / {1}", "Этот запуск: {0} / {1}"),

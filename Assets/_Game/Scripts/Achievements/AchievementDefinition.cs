@@ -76,7 +76,7 @@ public class AchievementReward
             case AchievementRewardKind.Construct: return Loc.T(LuaConstructs.GetDisplayName(Id));
             case AchievementRewardKind.Recipe: return Loc.F("recipe: {0}", Id);
             case AchievementRewardKind.HubBuilding: return Loc.F("camp building: {0}", Id);
-            case AchievementRewardKind.MapEvent: return Loc.F("map event: {0}", Id);
+            case AchievementRewardKind.MapEvent: return Loc.F("map event: {0}", PuzzleTypes.GetDisplayName(Id));
             default: return Id;
         }
     }

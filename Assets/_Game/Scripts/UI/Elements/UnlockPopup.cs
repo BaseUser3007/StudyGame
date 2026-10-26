@@ -232,7 +232,7 @@ public class UnlockPopup
                 AddText(Loc.T("It can now be built in the camp."), "unlock-text");
                 break;
             case UnlockKind.MapEvent:
-                SetHeader("New map event", id);
+                SetHeader("New map event", PuzzleTypes.GetDisplayName(id));
                 AddText(Loc.T("It can now appear on the map during runs."), "unlock-text");
                 break;
             default:

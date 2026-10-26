@@ -134,6 +134,11 @@ public class DataIntegrityTests
     // Награды-рецепты будущих этапов: рецептов в книге ещё нет, открытие откладывается (GameDesign §6.1)
     private static readonly string[] DeferredRecipeRewards = { "sword", "campfire", "cooked_meat" };
 
+    private const string UnlockConfigPath = ScriptableObjects + "/DefaultUnlockConfig.asset";
+
+    // Достижения без наград: раньше давали события на карте, теперь только идут в счёт порогов событий
+    private static readonly string[] AchievementsWithoutRewards = { "hub_builder", "code_solver" };
+
     private static AchievementCatalog Catalog() => TestHelpers.Load<AchievementCatalog>(AchievementCatalogPath);
 
     [Test]
@@ -150,7 +155,67 @@ public class DataIntegrityTests
             Assert.IsNotNull(definition, $"element #{i + 1} is empty");
             Assert.IsTrue(ids.Add(definition.Id), $"duplicate achievement id '{definition.Id}'");
             Assert.IsNotNull(definition.Condition, $"{definition.Id}: no condition");
-            Assert.IsNotEmpty(definition.Rewards, $"{definition.Id}: no rewards");
+            if (AchievementsWithoutRewards.Contains(definition.Id))
+                Assert.IsEmpty(definition.Rewards,
+                    $"{definition.Id}: map events come by the achievement count, not as rewards");
+            else
+                Assert.IsNotEmpty(definition.Rewards, $"{definition.Id}: no rewards");
+        }
+    }
+
+    [Test]
+    public void AchievementCatalog_NoMapEventRewards()
+    {
+        // События на карте открываются числом выполненных достижений (DefaultUnlockConfig.mapEventThresholds)
+        foreach (AchievementDefinition definition in Catalog().Achievements)
+            foreach (AchievementReward reward in definition.Rewards)
+                Assert.AreNotEqual(AchievementRewardKind.MapEvent, reward.kind,
+                    $"{definition.Id}: map event '{reward.Id}' as a reward");
+    }
+
+    [Test]
+    public void UnlockConfig_MapEventThresholds_CoverAllPuzzleTypesWithinCatalog()
+    {
+        UnlockConfig config = TestHelpers.Load<UnlockConfig>(UnlockConfigPath);
+        int achievements = Catalog().Achievements.Count;
+
+        var expected = new Dictionary<string, int>
+        {
+            { PuzzleTypes.CodeTask, 6 }, { PuzzleTypes.Maze, 11 }, { PuzzleTypes.Plates, 15 }
+        };
+        Assert.AreEqual(expected.Count, config.mapEventThresholds.Count, "one row per map event");
+
+        var ids = new HashSet<string>();
+        foreach (MapEventThreshold threshold in config.mapEventThresholds)
+        {
+            Assert.IsNotNull(threshold, "empty row");
+            Assert.IsTrue(ids.Add(threshold.EventId), $"duplicate map event '{threshold.EventId}'");
+            CollectionAssert.Contains(PuzzleTypes.All, threshold.EventId, $"unknown map event '{threshold.EventId}'");
+            Assert.AreEqual(expected[threshold.EventId], threshold.achievementsRequired, threshold.EventId);
+            Assert.LessOrEqual(threshold.achievementsRequired, achievements,
+                $"{threshold.EventId}: needs more achievements than the catalog has");
+        }
+
+        CollectionAssert.AreEquivalent(PuzzleTypes.All, ids);
+    }
+
+    [Test]
+    public void UnlockConfig_PuzzleCommands_ComeWithCodeTaskOnly()
+    {
+        UnlockConfig config = TestHelpers.Load<UnlockConfig>(UnlockConfigPath);
+        string[] puzzleCommands = { "puzzle", "solve" };
+
+        MapEventThreshold codeTask = config.mapEventThresholds.First(t => t.EventId == PuzzleTypes.CodeTask);
+        CollectionAssert.AreEquivalent(puzzleCommands, codeTask.commands);
+        foreach (MapEventThreshold other in config.mapEventThresholds.Where(t => t.EventId != PuzzleTypes.CodeTask))
+            CollectionAssert.IsEmpty(other.commands, $"{other.EventId}: no commands expected");
+
+        foreach (string command in puzzleCommands)
+        {
+            CollectionAssert.DoesNotContain(config.startingCommands, command, $"'{command}' must not be a starting command");
+            Assert.IsFalse(Catalog().Achievements.SelectMany(a => a.Rewards)
+                    .Any(r => r.kind == AchievementRewardKind.Command && r.Id == command),
+                $"'{command}' comes with the code_task map event, not as an achievement reward");
         }
     }
 

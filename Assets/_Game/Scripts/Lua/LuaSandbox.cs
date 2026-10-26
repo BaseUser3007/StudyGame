@@ -200,7 +200,7 @@ public class LuaSandbox : MonoBehaviour
         // Отладка: вывод в лог под главным окном (заменяет стандартный print); открывается first_bug
         AddCommand(new PrintCommand(PublishPrint));
 
-        // Головоломки (этап 6): условие и ответ; открываются достижением hub_builder
+        // Головоломки (этап 6): условие и ответ; открываются с событием карты code_task (по числу достижений)
         AddCommand(new PuzzleCommand(_executor, _mapData, _puzzles));
         AddCommand(new SolveCommand(_puzzles));
 

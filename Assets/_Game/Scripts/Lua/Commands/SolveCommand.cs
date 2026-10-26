@@ -5,7 +5,8 @@ using Lua;
 /// <summary>
 /// solve(obj, answer) — ответ на задачу обелиска (GameDesign §10.4). Попытки не ограничены, каждая стоит
 /// цену вызова. Проверку, награду, событие PuzzleSolved и уведомление делает PuzzleManager.TrySolveCodeTask
-/// (энергию он не списывает — только эта команда). Открывается достижением hub_builder.
+/// (энергию он не списывает — только эта команда). Открывается вместе с событием карты code_task
+/// (по числу достижений, UnlockConfig.mapEventThresholds).
 /// </summary>
 public class SolveCommand : LuaCommandBase
 {

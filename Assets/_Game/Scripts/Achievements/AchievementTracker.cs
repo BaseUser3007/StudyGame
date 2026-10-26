@@ -32,7 +32,8 @@ public readonly struct AchievementProgress
 ///     потрачено с начала запуска (PlayerEnergy.TotalSpent) ≤ maxEnergy → выполнено. Считаются только
 ///     события с FromThisRun (подбор лута, нарубленного в прошлом запуске, не считается).
 /// События с Recycled (подбор выброшенного, стартовые предметы) не считаются.
-/// Выполненное: MetaProgress.CompleteAchievement, награды через UnlockRegistry, Save, OnAchievementCompleted.
+/// Выполненное: MetaProgress.CompleteAchievement, награды через UnlockRegistry, события на карте по числу
+/// выполненных (UnlockRegistry.UnlockMapEventsForAchievements), Save, OnAchievementCompleted.
 /// Работает и в лагере, и в забеге. Создаётся в Level; Level вызывает Dispose в OnDestroy (шина статическая).
 /// </summary>
 public class AchievementTracker : IDisposable
@@ -230,6 +231,8 @@ public class AchievementTracker : IDisposable
 
         foreach (AchievementReward reward in definition.Rewards)
             Grant(reward);
+        // События на карте открываются числом выполненных достижений (UnlockConfig.mapEventThresholds)
+        _unlocks.UnlockMapEventsForAchievements(CompletedCount);
 
         _completedThisScene.Add(definition);
         _runCounts.Remove(definition);
@@ -265,6 +268,7 @@ public class AchievementTracker : IDisposable
     /// <summary>
     /// Награды уже выполненных достижений, добавленные в ассеты позже. Вызывает Level после
     /// инициализации UI, чтобы окно «Unlocked» увидело новые открытия.
+    /// Сюда же — события на карте по числу выполненных (пороги добавлены позже / старое сохранение).
     /// Повторная выдача ничего не меняет (открытия идемпотентны).
     /// </summary>
     public void GrantRewardsOfCompleted()
@@ -275,6 +279,23 @@ public class AchievementTracker : IDisposable
             foreach (AchievementReward reward in definition.Rewards)
                 Grant(reward);
         }
+
+        _unlocks.UnlockMapEventsForAchievements(CompletedCount);
+    }
+
+    /// <summary>Пороги событий на карте заданы (иначе строку о следующем событии не показываем).</summary>
+    public bool HasMapEventThresholds => _unlocks.MapEventThresholds.Count > 0;
+
+    /// <summary>
+    /// Ближайшее событие на карте, которое откроется по числу достижений: id и сколько достижений нужно.
+    /// False — все пороги достигнуты или порогов нет.
+    /// </summary>
+    public bool TryGetNextMapEvent(out string eventId, out int achievementsRequired)
+    {
+        MapEventThreshold next = MapEventProgress.GetNext(_unlocks.MapEventThresholds, CompletedCount);
+        eventId = next?.EventId;
+        achievementsRequired = next?.achievementsRequired ?? 0;
+        return next != null;
     }
 
     // ─── Helpers ──────────────────────────────────────────────
@@ -318,6 +339,18 @@ public class AchievementTracker : IDisposable
                     Debug.Log($"AchievementTracker: '{definition.Id}' rewards {reward.kind} '{reward.Id}', " +
                               "which is not in the game yet (deferred until it appears)");
             }
+        }
+
+        foreach (MapEventThreshold threshold in _unlocks.MapEventThresholds)
+        {
+            if (threshold.achievementsRequired > _definitions.Count)
+                Debug.LogWarning($"AchievementTracker: map event '{threshold.EventId}' needs " +
+                                 $"{threshold.achievementsRequired} achievements, the catalog has {_definitions.Count}");
+            if (threshold.commands == null) continue;
+            foreach (string command in threshold.commands)
+                if (!string.IsNullOrWhiteSpace(command) && !_unlocks.IsKnownCommand(command.Trim()))
+                    Debug.Log($"AchievementTracker: map event '{threshold.EventId}' unlocks command '{command}', " +
+                              "which is not in the game yet (deferred until it appears)");
         }
     }
 

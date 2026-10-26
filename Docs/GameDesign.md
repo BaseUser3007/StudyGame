@@ -121,7 +121,30 @@
 События: `Harvested`, `Mined`, `ItemObtained`, `Crafted`, `Built`, `DayPassed`, `ConstructUsed`,
 `CommandUsed` — работают уже на этапе 2; `ThreatReached`, `EnemyFound`, `EnemyKilled` — этап 3;
 `HubBuildingBuilt` — этап 4; `PuzzleSolved` — этап 6; `FoodEaten` — этап 7.
-Награды: `Command`, `Construct`, `Recipe` (по itemId результата), `HubBuilding` (этап 4), `MapEvent` (этап 6).
+Награды: `Command`, `Construct`, `Recipe` (по itemId результата), `HubBuilding` (этап 4). `MapEvent` (этап 6) —
+тип награды остаётся в коде, но в срезе события выдаются **не достижениями, а числом выполненных достижений** (ниже).
+
+### События на карте — по числу достижений (решение 2026-10-26)
+
+Тип головоломки (событие карты) открывается, когда выполнено ≥ K достижений из каталога (18), любых.
+Открытие в забеге действует **со следующего забега**: головоломки генерируются при старте забега.
+
+| Событие | K | Порог набирается обычно (на карте — со следующего забега) | Что нужно уметь | Вместе открывается |
+|---|---|---|---|---|
+| `code_task` (обелиски) | 6 | забег 1, дни 1–2 | `for`, `if` (к 6 достижениям почти всегда открыты: `first_harvest` → `if`, `copy_paste` → `for`) | команды `puzzle`, `solve` |
+| `maze` | 11 | забег 2 | `while` + `if` (`check`/`move`) | — |
+| `plates` (плиты) | 15 | забег 3 | таблицы + обход по порядку (сортировка номеров) | — |
+
+Почему так:
+- **Без зависимости от хаба.** Раньше `code_task` давал `hub_builder`, а постройка после забега 1 часто не по
+  карману → обелиски могли не появиться до забега 3. Порог 6 даёт их в начале забега 2 почти всегда.
+- **Команды вместе с событием.** `puzzle`/`solve` раньше шли от `hub_builder` отдельно от события — можно было
+  получить обелиски без команд. Теперь они открываются тем же порогом.
+- **`maze` = 11** — тот же темп, что был через `code_solver` (забег 2–3), но без обязательного обелиска.
+- **`plates` = 15** — за пределами среза 2–3 забегов: нужна тема таблиц, её пока не учим.
+- **Достижимость.** Без достижений, зависящих от головоломок (`code_solver`, `maze_runner`), доступно 16 —
+  все пороги (≤ 15) выполнимы, тупика нет.
+- Задачи программистам — §9 «К внедрению».
 
 Уточнения семантики (нужны для чисел ниже):
 - `Harvested` поднимается в `ResourceHarvester` (подбор), поэтому считается и `obtain`, а не только `harvest`.
@@ -153,8 +176,8 @@
 | 11 | `threat_survivor` | **Brace Yourself** — Survive until the threat day. | Counter `ThreatReached` | пусто, 1 | Recipe `sword` | 3 |
 | 12 | `enemy_spotted` | **Know Your Enemy** — Spot an enemy. | Counter `EnemyFound` | пусто, 1 | Command `attack` | 3 |
 | 13 | `first_blood` | **First Blood** — Defeat an enemy. | Counter `EnemyKilled` | пусто, 1 | Recipe `campfire`, Recipe `cooked_meat` | 3 (рецепты — 7) |
-| 14 | `hub_builder` | **Home Sweet Home** — Build a structure in the hub. | Counter `HubBuildingBuilt` | пусто, 1 | MapEvent `code_task`, Command `puzzle`, `solve` | 4 |
-| 15 | `code_solver` | **Hello, World** — Solve a code puzzle. | Counter `PuzzleSolved` | `code_task`, 1 | MapEvent `maze` | 6 |
+| 14 | `hub_builder` | **Home Sweet Home** — Build a structure in the hub. | Counter `HubBuildingBuilt` | пусто, 1 | — (только счёт; было: MapEvent `code_task`, `puzzle`, `solve` — 2026-10-26 события перенесены на число достижений, ниже) | 4 |
+| 15 | `code_solver` | **Hello, World** — Solve a code puzzle. | Counter `PuzzleSolved` | `code_task`, 1 | — (только счёт; было: MapEvent `maze`) | 6 |
 | 16 | `maze_runner` | **Pathfinder** — Escape a maze. | Counter `PuzzleSolved` | `maze`, 1 | HubBuilding `watchtower` | 6 |
 | 17 | `first_meal` | **Bon Appétit** — Eat something. | Counter `FoodEaten` | пусто, 1 | HubBuilding `healer_hut` | 7 |
 | 18 | `first_bug` (v2) | **Bug Report** — Get your first error in a code run. | Counter `RunFinished` | `error` (Tag, §6.2.7), 1 | Command `print` | 2 (нужен код §6.2.8) |
@@ -168,8 +191,8 @@
 | Забег | Ожидаемые достижения | Конструкции и инструменты |
 |---|---|---|
 | 1 | день 1: `first_harvest`, `first_bug`, `explorer`, `first_axe`; день 2: `copy_paste`, `workbench_built`; дни 2–3: часто `efficient_logger`, `lumberjack`, `sweet_dreams`, `loop_lover`; `threat_survivor` на 3-й день | `if`, `while`, `for` (+ `print`); часто `repeat`, `function` |
-| 2 | `efficient_logger`, `loop_lover` (если не в забеге 1), `enemy_spotted`, `first_blood`, `hub_builder` (между забегами), `function_fan` к концу | `repeat`, `function`, часто `classes` |
-| 3 | `function_fan` (если не в забеге 2), `code_solver`, `maze_runner`, `first_meal` | `classes` |
+| 2 | `efficient_logger`, `loop_lover` (если не в забеге 1), `enemy_spotted`, `first_blood`, `hub_builder` (между забегами), `function_fan` к концу; на карте обелиски (6 достижений набрано в забеге 1), часто `code_solver` | `repeat`, `function`, часто `classes`; `puzzle`, `solve` |
+| 3 | `function_fan` (если не в забеге 2), `code_solver`, `maze_runner` (лабиринт — 11 достижений к концу забега 2), `first_meal` | `classes` |
 
 Цепочка до верстака занимает ~110 энергии, т.е. дни 1–2 забега 1: 3 × `obtain` (24) → свой сбор
 2 палок + 2 камней (~20) → `craft` кремня и топора (5) → 2 дерева через `mine` (~34) → подбор 4 брёвен
@@ -214,10 +237,11 @@
 - Постройки хаба (этап 4): `storage` (+2 слота инвентаря), `shrine` (+10 к лимиту энергии),
   `watchtower` (+1 день до угрозы), `healer_hut` (+25 к максимуму здоровья) — §10.3. На старте не открыта ни одна;
   первые две открываются в забеге 1, так что `hub_builder` выполним с забега 2.
-- События на карте (этап 6): `code_task`, `maze`.
+- События на карте (этап 6): `code_task`, `maze`, `plates` — открываются числом выполненных достижений
+  (6 / 11 / 15), а не наградой (см. «События на карте — по числу достижений»).
 - Стартовый набор `UnlockConfig` (v2): команды `obtain`, `autoExplore`, `craft`, `build`, `drop`,
   `getInventory`, `getStatus`, `getPosition`, `eat`; конструкция `local` (`if` — за `first_harvest`, §6.2).
-- `hub_builder` дополнительно открывает команды `puzzle`, `solve` (§10.4).
+- Команды `puzzle`, `solve` открываются вместе с событием `code_task` (порог 6 достижений; раньше — `hub_builder`, §10.4).
 
 ## 6.2. Прогрессия v2 (по мотивам TFWR)
 
@@ -455,7 +479,8 @@ print(getStatus().spent)   -- energy spent in this run so far
 ## 7. Сооружения-головоломки (события на карте)
 
 - Это часть **генерации мира**: игрок находит их, исследуя карту.
-- Новые типы открываются через мета-прогресс (между забегами).
+- Новые типы открываются через мета-прогресс: числом выполненных достижений (`code_task` 6, `maze` 11,
+  `plates` 15 — §6.1); открытый в забеге тип появляется на карте со следующего забега.
 - Типы — любые: **лабиринт**, **перемещение предметов** (сокобан), **задачи на код** (вход → выход:
   сумма, сортировка, поиск), и т.д.
 - **Награда зависит от типа:**
@@ -488,7 +513,7 @@ print(getStatus().spent)   -- energy spent in this run so far
 | 6 | Враги видны в Lua | Да: тип `enemy`/`goblin` в `findObjects` и `check` (было допущение §3) |
 | 7 | Как идёт время в мире | Только пока выполняется код; между запусками враги стоят (§10.1) |
 | 8 | Команда `eat` | В стартовом наборе `UnlockConfig` (выживание, не учебная тема) |
-| 9 | Команды головоломки `puzzle`/`solve` | Открываются вместе с событием `code_task` — доп. награды `hub_builder` |
+| 9 | Команды головоломки `puzzle`/`solve` | Открываются вместе с событием `code_task`. Пересмотрено 2026-10-26 (решение автора): события — по числу достижений (`code_task` 6, `maze` 11, `plates` 15, §6.1), `puzzle`/`solve` — вместе с `code_task`; у `hub_builder` и `code_solver` наград нет |
 | 10 | Восстановление здоровья без еды | Ночь у спального места (`bed`): +15 здоровья (§10.1), чтобы срез не зависел целиком от этапа 7 |
 | 11 | Цена вызова функции | 0 → **0,5**: иначе рекурсия с `and` (`return n > 0 and f(n - 1)`) — бесплатный цикл, задачи на код решались бы даром. Обоснование — §10.6. Пересмотрено 2026-10-20 по TFWR — **остаётся 0,5** (§6.2.3) |
 | 12 | Что делает `autoExplore` | Не случайные 5 шагов, а разведка к неизвестному (2026-10-20): из 8 направлений — то, где путь до 6 тайлов по прямой (вода останавливает) откроет больше всего ещё не виденной суши; если вокруг всё открыто — к ближайшей границе тумана. Ничья — хеш от seed и позиции. Возвращает число открытых тайлов суши. `autoExplore(type)` — до 3 шагов, пока объект/враг/головоломка типа не появится в поле зрения, вернёт ближайший или `nil, "not found"`; 10 за вызов + 10 за каждый шаг после первого. «Декомпиляция» — `check` + `move` (идти в одну сторону, пока впереди суша) |
@@ -502,7 +527,10 @@ print(getStatus().spent)   -- energy spent in this run so far
 | `DefaultEnergyConfig.functionCost` | 0 → 0,5 — **сделано** (и дефолт в коде, `CLAUDE.md`) | решение 11 |
 | `EnergyConfig.apiCallCost`, `variableCost` | удалены — **сделано** | мёртвые поля путают баланс |
 | `DefaultUnlockConfig` | + команда `eat` в стартовый набор — **сделано** | решение 8 |
-| `hub_builder.asset` | + награды Command `puzzle`, Command `solve` — **сделано** (в ассете) | решение 9 |
+| `hub_builder.asset` | + награды Command `puzzle`, Command `solve` — сделано, **отменено 2026-10-26**: убрать все награды (MapEvent `code_task`, `puzzle`, `solve`) | решение 9 (пересмотр) |
+| `code_solver.asset` | убрать награду MapEvent `maze` | решение 9 (пересмотр) |
+| программист: `UnlockRegistry` / `AchievementTracker` | правило «событие по числу достижений»: таблица {событие, порог, доп. команды} (`code_task` 6 + `puzzle`, `solve`; `maze` 11; `plates` 15) — в конфиге (`UnlockConfig` или `AchievementCatalog`), не в коде; после каждого `CompleteAchievement` при `CompletedCount` ≥ порога → `UnlockMapEvent` + `UnlockCommand` (тот же путь, что награды: `OnUnlocked` → `UnlockPopup`); при загрузке — догнать идемпотентно, как `GrantRewardsOfCompleted` (старые сохранения) | решение 9 (пересмотр) |
+| программист: `HubBuildPanel` / `AchievementsPanel` / тесты | подпись открытия события «N achievements» вместо имени достижения (если где-то показывается); `DataIntegrityTests`: нет наград MapEvent у достижений, пороги ≤ числа достижений без головоломок (17); строки `Loc` | решение 9 (пересмотр) |
 | ассеты достижений, `DefaultUnlockConfig`, `PrintCommand`, `UnlockPopup`… | список v2 — §6.2.8 | решение 13 |
 | `HubBuildingDefinition` `storage` (этап 4) | +2 слота (в §6.1 было +1, исправлено) | §10.3 |
 | `DayCycle` | ночь у `isSleepingPlace` → `PlayerHealth.Heal(15)` | решение 10 |
@@ -515,6 +543,7 @@ print(getStatus().spent)   -- energy spent in this run so far
 |---|---|---|---|
 | 14 | Перенос построек в лагере | (а) как сейчас — без сноса и переноса; (б) бесплатный перенос мышью (материалы не возвращаются — их и не тратим); (в) снос с возвратом части материалов | **(б)**: соседство — головоломка, а без переноса ранняя ошибка расстановки навсегда; задача программистам — `HubService.TryMove(def, cell)` + режим переноса в `HubPlacementController` |
 | 15 | Кристаллов мало (14 на всё, 2 за забег) | (а) оставить — хвост после среза; (б) сундук лабиринта ×3; (в) второй лабиринт на карте после среза | **(а)** до ручного прохождения; если ур. 2 `shrine`/`watchtower` не берут к забегу 4 — (б) |
+| 16 | Награды `hub_builder` и `code_solver` (с 2026-10-26 без наград, только счёт к порогам событий §6.1) | (а) оставить без наград — тост показывает прогресс «N / 11 до лабиринта»; (б) `hub_builder` → рецепт (новый предмет, например сундук-хранилище в забеге); (в) `code_solver` → новая постройка хаба (например, «обсерватория»: +1 обелиск на карту) или рецепт с `crystal`; (г) `code_solver` → готовая команда для задач, например `sum(list)` за 15 против ≈ 12–13 у своего `for` по 12 числам — «декомпиляция» наоборот: готовое дороже своего | **(а)** для среза; после — (г) для `code_solver` (учебная и по принципу «готовое дороже») и (б) для `hub_builder`. Решение автора |
 
 Всё, что выше, можно пересмотреть после ручного прохождения среза (этап 8).
 Проверить в прохождении (v2, §6.2): не слишком ли быстро (`if`, `while`, `for` + `print` в забеге 1 —
@@ -725,7 +754,10 @@ print(getStatus().spent)   -- energy spent in this run so far
 | `code_task` (обелиск) | 2, разные задачи | ≥ 12 | ≥ 15 |
 | `maze` | 1 | ≥ 20 | — |
 
-**`code_task`.** Команды (открываются наградой `hub_builder`), обе требуют игрока в 1,5 тайла от обелиска:
+**Открытие типов:** по числу выполненных достижений — `code_task` ≥ 6, `maze` ≥ 11, `plates` ≥ 15 (§6.1);
+генерируются только типы, открытые к старту забега.
+
+**`code_task`.** Команды (открываются вместе с событием `code_task`, порог 6 достижений), обе требуют игрока в 1,5 тайла от обелиска:
 
 | Команда | Цена | Что делает |
 |---|---|---|

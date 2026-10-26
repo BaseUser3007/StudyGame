@@ -22,6 +22,4 @@ MonoBehaviour:
     filter: code_task
     amount: 1
     maxEnergy: 10
-  rewards:
-  - kind: 4
-    id: maze
+  rewards: []
