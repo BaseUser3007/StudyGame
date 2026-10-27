@@ -262,7 +262,7 @@ public class LuaDebugToolsTests
         foreach (string tag in new[]
                  {
                      GameEventBus.RunTagOk, GameEventBus.RunTagEnergy, GameEventBus.RunTagStopped,
-                     GameEventBus.RunTagLocked
+                     GameEventBus.RunTagLocked, GameEventBus.RunTagPuzzle
                  })
         {
             GameEventBus.PublishRunStarted();

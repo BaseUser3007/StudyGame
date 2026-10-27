@@ -18,7 +18,8 @@ public class MapGenerationConfig : ScriptableObject
     public int mapHeight = 100;
 
     [Header("Noise Settings")]
-    [Tooltip("Scale of the Perlin noise — higher values produce smoother terrain")]
+    [Tooltip("Масштаб шума высоты острова (тайлы на период первой октавы) — больше значение, плавнее рельеф " +
+             "и крупнее озёра/заливы")]
     public float noiseScale = 20f;
 
     [Tooltip("Random seed for map generation — same seed always produces same map")]
@@ -28,9 +29,35 @@ public class MapGenerationConfig : ScriptableObject
     public bool randomSeed = true;
 
     [Header("Tile Thresholds")]
-    [Tooltip("Noise values below this threshold become Water tiles")]
+    [Tooltip("Устарело (T24): не используется — размер острова задаёт landFraction. " +
+             "Поле оставлено, чтобы не ломать сериализацию")]
     [Range(0f, 1f)]
     public float waterThreshold = 0.35f;
+
+    [Header("Island")]
+    [Tooltip("Доля суши от всей карты: порог воды подбирается по перцентилю, поэтому размер острова " +
+             "одинаков при любом seed")]
+    [Range(0.05f, 0.9f)]
+    public float landFraction = 0.5f;
+
+    [Tooltip("Сколько октав шума высоты (fBm): больше — мельче детали берега")]
+    [Range(1, 8)]
+    public int octaves = 4;
+
+    [Tooltip("Сила радиального спада высоты от центра к краю: больше — остров круглее, озёр меньше")]
+    [Min(0f)] public float islandFalloff = 0.9f;
+
+    [Tooltip("Степень радиального спада: больше — плоский центр и резкий спуск к берегу")]
+    [Min(0.1f)] public float islandFalloffPower = 2.2f;
+
+    [Tooltip("Масштаб шума, искажающего форму острова (тайлы) — больше значение, крупнее выступы и заливы")]
+    [Min(1f)] public float coastNoiseScale = 25f;
+
+    [Tooltip("На сколько тайлов искажается форма острова: 0 — почти круг")]
+    [Min(0f)] public float coastWarp = 10f;
+
+    [Tooltip("Кольцо тайлов у края карты, где всегда вода")]
+    [Min(0)] public int borderWater = 3;
 
     [Header("Tiles")]
     [Tooltip("Rule Tile used for grass surface")]
@@ -83,6 +110,23 @@ public class MapGenerationConfig : ScriptableObject
 
     [Tooltip("Ресурсы не создаются ближе этого (тайлы) к краю портала")]
     [Min(0f)] public float portalClearRadius = 1.5f;
+
+    // ─── Public API ───────────────────────────────────────────
+
+    public IslandSettings GetIslandSettings()
+    {
+        return new IslandSettings
+        {
+            LandFraction = landFraction,
+            NoiseScale = noiseScale,
+            Octaves = octaves,
+            Falloff = islandFalloff,
+            FalloffPower = islandFalloffPower,
+            CoastNoiseScale = coastNoiseScale,
+            CoastWarp = coastWarp,
+            BorderWater = borderWater
+        };
+    }
 }
 
 /// <summary>

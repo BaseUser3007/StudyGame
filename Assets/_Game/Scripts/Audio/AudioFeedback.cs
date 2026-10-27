@@ -121,7 +121,8 @@ public sealed class AudioFeedback : IDisposable
 
     private void HandleRunFinished(CodeRunReport report)
     {
-        // Остановка (Stop, смерть, watchdog) — без звука: игрок сам её вызвал или слышит удар
+        // Остановка (Stop, смерть, watchdog) и прерывание стартом головоломки ("puzzle") — без звука:
+        // игрок сам её вызвал, слышит удар или видит карточку головоломки
         if (report.Outcome == GameEventBus.RunTagOk) Play(SoundId.RunSuccess);
         else if (report.Outcome == GameEventBus.RunTagEnergy) Play(SoundId.RunOutOfEnergy);
         else if (report.Outcome == GameEventBus.RunTagError || report.Outcome == GameEventBus.RunTagLocked)

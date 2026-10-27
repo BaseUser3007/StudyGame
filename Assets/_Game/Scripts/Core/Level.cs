@@ -61,6 +61,7 @@ public class Level : MonoBehaviour
     private HubGrid _hubGrid;
     private HubPlacementController _hubPlacement;
     private PuzzleManager _puzzleManager;
+    private PuzzleSpawner _puzzleSpawner;
     private RunStats _runStats;
     private SheepWanderSystem _sheepWander;
     private AudioFeedback _audioFeedback;
@@ -246,16 +247,22 @@ public class Level : MonoBehaviour
         DamageNumbers damageNumbers = new GameObject("DamageNumbers").AddComponent<DamageNumbers>();
         damageNumbers.Initialize(_enemyManager, combat, executor.transform);
 
-        // 9b. Головоломки: только в забеге и только открытые типы, после врагов (держатся от лагерей
+        // 9b. Головоломки: только в забеге (сразу строятся открытые типы), после врагов (держатся от лагерей
         // подальше), до песочницы (Lua-команды puzzle/solve получают PuzzleManager)
         PuzzleRewards puzzleRewards = new PuzzleRewards(
             puzzleConfig, modifiers, playerEnergy, playerHealth, dayCycle, inventory, objectManager);
         _puzzleManager = new PuzzleManager(
             () => executor.Position, playerConfig.structureInteractionRadius, puzzleRewards);
         if (mode == GameMode.Run)
-            PuzzleGenerator.Generate(
+        {
+            // Места резервируются для всех типов (T24); закрытые ждут и строятся PuzzleSpawner'ом, когда
+            // событие открывается посреди забега (подписка — до AchievementTracker и GrantRewardsOfCompleted)
+            PuzzlePlan puzzlePlan = PuzzleGenerator.Generate(
                 puzzleConfig, tilemapGenerator, fogOfWarSystem, objectManager, _enemyManager.CampCenters, startTile,
                 unlocks.IsMapEventUnlocked, _puzzleManager, salt: new System.Random().Next());
+            if (puzzlePlan != null)
+                _puzzleSpawner = new PuzzleSpawner(puzzlePlan, unlocks, _enemyManager);
+        }
         // Патрули обходят области головоломок; патрули первого дня — только когда места головоломок известны
         _enemyManager.SetPuzzles(_puzzleManager);
         structures.SetPuzzles(_puzzleManager);
@@ -268,6 +275,8 @@ public class Level : MonoBehaviour
             _enemyManager, combat, _puzzleManager, _portal);
         dayCycle.Attach(luaSandbox);
         _enemyManager.Attach(luaSandbox);
+        // Попытка головоломки (T25) — следующий запуск кода; старт посреди запуска прерывает его
+        _puzzleManager.AttachRunControl(luaSandbox);
         // Овцы бродят около точки появления, пока выполняется код (не в воду, головоломки и лагеря)
         _sheepWander = new SheepWanderSystem(
             tilemapGenerator, objectManager, _puzzleManager, _enemyManager.CampCenters,
@@ -284,9 +293,11 @@ public class Level : MonoBehaviour
         // 11. UI
         codeEditorManager.Initialize(
             luaSandbox, uiManager, recipeBook, structures, dayCycle, _achievementTracker,
-            _hubService, _hubPlacement, hubBuildingCatalog);
+            _hubService, _hubPlacement, hubBuildingCatalog, _puzzleManager);
         uiManager.Initialize(
             codeEditorManager.TopBar, codeEditorManager.InventoryBar, codeEditorManager.CraftingPanel);
+        // Координаты тайла у курсора — чтобы подставлять их в moveTo/check (в лагере — нет)
+        codeEditorManager.EnableCursorCoordinates(tilemapGenerator, cameraController.Camera);
 
         // UI подписан на OnUnlocked — выдаём награды выполненных достижений, добавленные позже
         _achievementTracker.GrantRewardsOfCompleted();
@@ -339,6 +350,10 @@ public class Level : MonoBehaviour
         // Отписка от HubService и runtime-текстура площадки
         _hubGrid?.Dispose();
         _hubGrid = null;
+
+        // Отписка постройки головоломок посреди забега от UnlockRegistry
+        _puzzleSpawner?.Dispose();
+        _puzzleSpawner = null;
 
         // Отписка лабиринта от статической PlayerEventBus
         _puzzleManager?.Dispose();

@@ -1,0 +1,111 @@
+/* ── Backdrop ────────────────────────────────────────────── */
+/* Модальное: пока карточка открыта, игра под ней недоступна (закрывается только кнопкой) */
+.puzzle-briefing-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.puzzle-briefing-card {
+    width: 460px;
+    max-height: 85%;
+    background-color: rgba(30, 30, 30, 0.98);
+    border-width: 1px;
+    border-color: rgb(190, 150, 230);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.puzzle-briefing-caption {
+    font-size: 11px;
+    color: rgb(200, 160, 240);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0 0 2px 0;
+}
+
+.puzzle-briefing-title {
+    font-size: 18px;
+    color: rgb(225, 200, 250);
+    -unity-font-style: bold;
+    white-space: normal;
+    padding: 0;
+    margin: 0 0 8px 0;
+}
+
+/* Описание: `код` подсвечен как в редакторе (rich text из LuaSyntaxHighlighter) */
+.puzzle-briefing-text {
+    font-size: 12px;
+    color: rgb(205, 205, 205);
+    white-space: normal;
+    padding: 0;
+    margin: 0 0 8px 0;
+}
+
+.puzzle-briefing-reward-block {
+    margin: 0 0 8px 0;
+}
+
+.puzzle-briefing-section {
+    font-size: 12px;
+    color: rgb(230, 200, 110);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0 0 2px 0;
+}
+
+.puzzle-briefing-reward {
+    font-size: 12px;
+    color: rgb(150, 220, 150);
+    white-space: normal;
+    padding: 0;
+    margin: 0;
+}
+
+/* Правило одной попытки — заметной плашкой */
+.puzzle-briefing-rule {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(240, 205, 150);
+    white-space: normal;
+    padding: 6px 8px;
+    margin: 0;
+    border-left-width: 3px;
+    border-left-color: rgb(220, 150, 70);
+    border-radius: 3px;
+    background-color: rgba(220, 150, 70, 0.12);
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.puzzle-briefing-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.puzzle-briefing-ok {
+    height: 30px;
+    min-width: 90px;
+    padding: 0 16px;
+    margin: 0;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: rgb(50, 100, 50);
+    color: rgb(170, 230, 170);
+    font-size: 13px;
+}
+
+.puzzle-briefing-ok:hover {
+    background-color: rgb(60, 130, 60);
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden {
+    display: none;
+}

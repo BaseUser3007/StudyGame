@@ -146,4 +146,31 @@ public static class TestHelpers
         weapon.wearPerUse = wear;
         return weapon;
     }
+
+    // ─── Головоломки (T25) ────────────────────────────────────
+
+    /// <summary>Запуски кода для PuzzleManager без песочницы: тест сам начинает и заканчивает «запуск».</summary>
+    public sealed class PuzzleRunControl : IPuzzleRunControl
+    {
+        public bool IsRunning { get; private set; }
+        public int InterruptCount { get; private set; }
+        public event System.Action<bool> OnRunningChanged;
+
+        public void SetRunning(bool running)
+        {
+            IsRunning = running;
+            OnRunningChanged?.Invoke(running);
+        }
+
+        public void InterruptForPuzzle() => InterruptCount++;
+    }
+
+    /// <summary>Начать головоломку вне запуска и начать запуск-попытку (State == Attempt).</summary>
+    public static void StartAttempt(PuzzleManager manager, PuzzleRunControl run, PuzzleStructure puzzle)
+    {
+        manager.AttachRunControl(run);
+        NUnit.Framework.Assert.IsTrue(manager.TryStart(puzzle), "puzzle starts");
+        run.SetRunning(true);
+        NUnit.Framework.Assert.AreEqual(PuzzleState.Attempt, puzzle.State);
+    }
 }

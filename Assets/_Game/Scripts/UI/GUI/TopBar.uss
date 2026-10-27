@@ -116,6 +116,22 @@
     -unity-font-style: bold;
 }
 
+/* Начатая головоломка (T25): ждёт запуск-попытку — фиолетовая надпись */
+.puzzle-label {
+    font-size: 12px;
+    margin-left: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: rgb(210, 180, 245);
+    -unity-font-style: bold;
+}
+
+/* Идёт попытка — фиолетовая плашка */
+.puzzle-label--attempt {
+    color: rgb(245, 235, 255);
+    background-color: rgb(105, 60, 150);
+}
+
 .btn-end-day {
     color: rgb(230, 200, 110);
 }

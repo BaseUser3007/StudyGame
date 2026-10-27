@@ -8,6 +8,8 @@
                 <ui:Label name="day-label" class="day-label" text="Day 1 · Runs 0/3"/>
                 <!-- Мировая угроза: «Threat in N days» → «Threat tomorrow!» → «Threat!» -->
                 <ui:Label name="threat-label" class="threat-label hidden" text=""/>
+                <!-- Начатая головоломка (T25): «попытка — следующий запуск» / «идёт попытка» -->
+                <ui:Label name="puzzle-label" class="puzzle-label hidden" text=""/>
                 <ui:Label name="day-summary" class="day-summary" text=""/>
             </ui:VisualElement>
             <!-- Центр — Энергия -->

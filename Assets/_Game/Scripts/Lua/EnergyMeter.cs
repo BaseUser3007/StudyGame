@@ -17,10 +17,13 @@ public class EnergyMeter
     public string ExhaustedMessage { get; private set; }
 
     /// <summary>
-    /// Запуск закончен изнутри (enterPortal): любое следующее списание бросает
+    /// Запуск закончен изнутри (enterPortal, старт головоломки): любое следующее списание бросает
     /// <see cref="RunHaltedException"/>, так что pcall не даст коду продолжиться. Сбрасывается в Reset.
     /// </summary>
     public bool IsHalted { get; private set; }
+
+    /// <summary>Текст исключения остановки (<see cref="Halt"/>); null — стандартный (enterPortal).</summary>
+    public string HaltMessage { get; private set; }
 
     public EnergyMeter(PlayerEnergy energy)
     {
@@ -37,12 +40,17 @@ public class EnergyMeter
         IsExhausted = false;
         ExhaustedMessage = null;
         IsHalted = false;
+        HaltMessage = null;
     }
 
-    /// <summary>Останавливает запуск: дальше ничего не списывается, каждое списание — исключение.</summary>
-    public void Halt()
+    /// <summary>
+    /// Останавливает запуск: дальше ничего не списывается, каждое списание — исключение.
+    /// message — текст исключения (его увидит pcall); null — «закончен enterPortal()».
+    /// </summary>
+    public void Halt(string message = null)
     {
         IsHalted = true;
+        HaltMessage = message;
     }
 
     /// <summary>Подсветка выполняемой строки (может не быть — например, в тестах).</summary>
@@ -68,7 +76,7 @@ public class EnergyMeter
     public void Charge(float amount, string source)
     {
         if (amount <= 0f) return;
-        if (IsHalted) throw new RunHaltedException();
+        if (IsHalted) throw new RunHaltedException(HaltMessage);
 
         if (!IsExhausted && _energy.TrySpend(amount)) return;
 
@@ -89,12 +97,17 @@ public class OutOfEnergyException : Exception
 }
 
 /// <summary>
-/// Запуск закончен командой (enterPortal): код дальше не выполняется. Наследник OperationCanceledException —
+/// Запуск закончен изнутри (enterPortal, старт головоломки): код дальше не выполняется. Наследник OperationCanceledException —
 /// песочница считает это остановкой, а не ошибкой кода.
 /// </summary>
 public class RunHaltedException : OperationCanceledException
 {
     public const string HaltMessage = "the run was ended by enterPortal()";
 
+    /// <summary>Запуск прерван стартом головоломки (T25): попытка — следующий запуск.</summary>
+    public const string PuzzleMessage = "the run was interrupted: a puzzle started — the next run is its attempt";
+
     public RunHaltedException() : base(HaltMessage) { }
+
+    public RunHaltedException(string message) : base(string.IsNullOrEmpty(message) ? HaltMessage : message) { }
 }

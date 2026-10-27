@@ -2,6 +2,7 @@
     <ui:Template name="HubPanel" src="HubPanel.uxml"/>
     <ui:Template name="AchievementsPanel" src="AchievementsPanel.uxml"/>
     <ui:Template name="UnlockPopup" src="UnlockPopup.uxml"/>
+    <ui:Template name="PuzzleBriefingPopup" src="PuzzleBriefingPopup.uxml"/>
     <ui:Template name="AchievementToast" src="AchievementToast.uxml"/>
     <ui:Template name="TutorialOverlay" src="TutorialOverlay.uxml"/>
     <Style src="RunScreens.uss"/>
@@ -28,10 +29,12 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Поверх экранов: панель достижений, окно «Unlocked: X», тосты достижений, подсказки туториала (в этом порядке по глубине).
+        <!-- Поверх экранов: панель достижений, окно «Unlocked: X», карточка головоломки, тосты достижений, подсказки туториала (в этом порядке по глубине).
              Контроллеры (AchievementsPanel, UnlockPopup, AchievementToasts) создаёт CodeEditorManager -->
         <ui:Instance template="AchievementsPanel" name="achievements-overlay" class="screen-overlay" picking-mode="Ignore"/>
         <ui:Instance template="UnlockPopup" name="unlock-overlay" class="screen-overlay" picking-mode="Ignore"/>
+        <!-- Карточка начатой головоломки (T25) — над «Unlocked: X»: после прерванного запуска она важнее -->
+        <ui:Instance template="PuzzleBriefingPopup" name="puzzle-briefing-overlay" class="screen-overlay" picking-mode="Ignore"/>
         <ui:Instance template="AchievementToast" name="toast-overlay" class="screen-overlay" picking-mode="Ignore"/>
         <!-- Подсказки туториала — выше всего, но мышь ловит только карточка (TutorialOverlay) -->
         <ui:Instance template="TutorialOverlay" name="tutorial-overlay" class="screen-overlay" picking-mode="Ignore"/>

@@ -12,6 +12,9 @@ public class PuzzleConfig : ScriptableObject
     [Min(0f)] public float minDistanceFromCamps = 8f;
     [Tooltip("Зазор между областями разных головоломок (тайлы)")]
     [Min(0f)] public float minDistanceBetweenAreas = 3f;
+    [Tooltip("Стартовая платформа (T25): плоский спрайт с опорой в центре тайла, без сплошного коллайдера — " +
+             "рисуется как пол (PlatesPuzzle.SortingOrder). Пусто — золотистый квадрат из кода")]
+    public GameObject startPlatformPrefab;
 
     [Header("code_task (обелиск)")]
     [Tooltip("Обелиск: спрайт с опорой у основания и Collider2D (не триггер). CodeTaskPuzzle добавится сам, если его нет")]

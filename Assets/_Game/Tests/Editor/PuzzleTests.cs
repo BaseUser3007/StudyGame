@@ -283,19 +283,18 @@ public class PuzzleTests
         RewardSetup s = CreateRewards();
         Vector2 player = new Vector2(10f, 0f);
         var manager = new PuzzleManager(() => player, 1.5f, s.Rewards);
+        var run = new TestHelpers.PuzzleRunControl();
 
-        var go = new GameObject("Obelisk");
-        _created.Add(go);
-        CodeTaskPuzzle obelisk = go.AddComponent<CodeTaskPuzzle>();
-        obelisk.Setup(1, Vector2.zero);
-        obelisk.Initialize(CodeTaskKind.Sum, 5, Rect.zero);
-        manager.Register(obelisk);
+        CodeTaskPuzzle obelisk = CreateObelisk(manager, 1, Vector2.zero);
+        CodeTaskPuzzle second = CreateObelisk(manager, 2, new Vector2(0f, 1f));
 
         var solved = new List<GameEvent>();
         void OnEvent(GameEvent e) { if (e.Type == GameEventType.PuzzleSolved) solved.Add(e); }
         GameEventBus.OnGameEvent += OnEvent;
         try
         {
+            // Попытка: одна неверная — до конца запуска ответов нет, конец запуска — провал (T25)
+            TestHelpers.StartAttempt(manager, run, obelisk);
             int answer = obelisk.GetTask().Answer;
             Assert.AreEqual(PuzzleSolveResult.TooFar, manager.TrySolveCodeTask(obelisk, answer));
 
@@ -304,20 +303,28 @@ public class PuzzleTests
             Assert.IsFalse(obelisk.IsSolved);
             // Одна попытка за запуск: даже верный ответ в том же запуске не принимается
             Assert.AreEqual(PuzzleSolveResult.NoAttemptsLeft, manager.TrySolveCodeTask(obelisk, answer));
+            run.SetRunning(false);
+            Assert.AreEqual(PuzzleState.Failed, obelisk.State);
+            Assert.IsNull(manager.GetById(1), "failed puzzle is removed");
 
-            // Новый запуск — новый вход и новая попытка
+            // Новая головоломка, новый запуск — верный ответ
             GameEventBus.PublishRunStarted();
-            answer = obelisk.GetTask().Answer;
-            Assert.AreEqual(PuzzleSolveResult.Correct, manager.TrySolveCodeTask(obelisk, answer));
-            Assert.IsTrue(obelisk.IsSolved);
-            Assert.AreEqual(PuzzleSolveResult.AlreadySolved, manager.TrySolveCodeTask(obelisk, answer));
+            Assert.IsTrue(manager.TryStart(second));
+            run.SetRunning(true);
+            answer = second.GetTask().Answer;
+            Assert.AreEqual(PuzzleSolveResult.Correct, manager.TrySolveCodeTask(second, answer));
+            Assert.IsTrue(second.IsSolved);
+            Assert.IsNull(manager.ActivePuzzle);
+            Assert.AreEqual(PuzzleSolveResult.AlreadySolved, manager.TrySolveCodeTask(second, answer));
+            run.SetRunning(false);
+            Assert.AreEqual(PuzzleState.Solved, second.State, "end of run does not fail a solved puzzle");
 
             Assert.AreEqual(1, solved.Count);
             Assert.AreEqual(PuzzleTypes.CodeTask, solved[0].Id);
             Assert.AreEqual("sum", solved[0].Tag);
 
-            Assert.AreSame(obelisk, manager.GetById(1));
-            Assert.AreSame(obelisk, manager.GetPuzzleAt(Vector2Int.zero));
+            Assert.AreSame(second, manager.GetById(2));
+            Assert.AreSame(second, manager.GetPuzzleAt(new Vector2Int(0, 1)));
             Assert.AreEqual(1, manager.GetPuzzlesInRadius(player, 2f, PuzzleTypes.CodeTask).Count);
             Assert.AreEqual(0, manager.GetPuzzlesInRadius(player, 2f, PuzzleTypes.Maze).Count);
         }
@@ -431,6 +438,11 @@ public class PuzzleTests
         GameEventBus.OnGameEvent += OnEvent;
         try
         {
+            // До попытки плиты не нажимаются (T25)
+            Assert.IsFalse(manager.StepOnPlates(plates, order[0]));
+            Assert.AreEqual(0, plates.PressedCount);
+            TestHelpers.StartAttempt(manager, new TestHelpers.PuzzleRunControl(), plates);
+
             // Не на плиту — ничего; вторая по порядку первой — сброс
             Assert.IsFalse(manager.StepOnPlates(plates, plates.Origin + new Vector2Int(-3, -3)));
             Assert.IsTrue(manager.StepOnPlates(plates, order[0]));
@@ -479,6 +491,17 @@ public class PuzzleTests
     }
 
     // ─── Helpers ──────────────────────────────────────────────
+
+    private CodeTaskPuzzle CreateObelisk(PuzzleManager manager, int id, Vector2 position)
+    {
+        var go = new GameObject("Obelisk");
+        _created.Add(go);
+        CodeTaskPuzzle obelisk = go.AddComponent<CodeTaskPuzzle>();
+        obelisk.Setup(id, position);
+        obelisk.Initialize(CodeTaskKind.Sum, 5, Rect.zero);
+        manager.Register(obelisk);
+        return obelisk;
+    }
 
     private PlatesPuzzle CreatePlates(PuzzleManager manager, Vector2Int origin, int seed)
     {

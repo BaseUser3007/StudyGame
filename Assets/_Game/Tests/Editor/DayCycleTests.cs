@@ -185,6 +185,21 @@ public class DayCycleTests
     }
 
     [Test]
+    public void RunInterruptedForPuzzle_IsNotCounted()
+    {
+        _day.RegisterRunFinished();
+        _day.RegisterRunFinished();
+        // Прерван стартом головоломки (T25): попытка — следующий запуск, запуск дня не тратится
+        _day.RegisterRunFinished(interruptedForPuzzle: true);
+
+        Assert.AreEqual(1, _day.Day);
+        Assert.AreEqual(2, _day.RunsUsed);
+
+        _day.RegisterRunFinished();
+        Assert.AreEqual(2, _day.Day, "the next ordinary run ends the day");
+    }
+
+    [Test]
     public void RunFinishedAfterDeath_DoesNotEndTheDay()
     {
         var health = new PlayerHealth(100f);

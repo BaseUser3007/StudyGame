@@ -2,8 +2,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Какой биом в каком тайле. Карта делится на области Вороного со случайными центрами,
-/// каждой области случайно (по весу) достаётся биом; границы искривляются шумом.
+/// Какой биом в каком тайле. Суша делится на области Вороного со случайными центрами на суше,
+/// каждой области случайно (по весу) достаётся биом; границы искривляются шумом. Вода — без биома.
 /// </summary>
 public class BiomeMap
 {
@@ -28,37 +28,48 @@ public class BiomeMap
 
     // ─── Generation ───────────────────────────────────────────
 
-    public static BiomeMap Generate(BiomeConfig config, int width, int height, int seed)
+    /// <summary>
+    /// land[x, y] = true — суша. Центры областей берутся только на суше (разные тайлы), вода — биом −1
+    /// (Get → null). Каждый биом встречается на суше хотя бы раз, если тайлов суши не меньше, чем биомов.
+    /// </summary>
+    public static BiomeMap Generate(BiomeConfig config, bool[,] land, int seed)
     {
+        int width = land.GetLength(0);
+        int height = land.GetLength(1);
         int[,] indices = new int[width, height];
         List<Biome> biomes = new List<Biome>();
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                indices[x, y] = -1;
 
         if (config != null)
             foreach (Biome biome in config.biomes)
                 if (biome != null && biome.weight > 0f)
                     biomes.Add(biome);
 
-        if (biomes.Count == 0)
-        {
+        List<Vector2Int> landTiles = new List<Vector2Int>();
+        for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                for (int y = 0; y < height; y++)
-                    indices[x, y] = -1;
+                if (land[x, y]) landTiles.Add(new Vector2Int(x, y));
+
+        if (biomes.Count == 0 || landTiles.Count == 0)
             return new BiomeMap(indices, biomes);
-        }
 
         System.Random random = new System.Random(seed);
 
         int cellCount = Mathf.Max(biomes.Count,
-            Mathf.CeilToInt(width * height / (config.biomeSize * config.biomeSize)));
+            Mathf.CeilToInt(landTiles.Count / (config.biomeSize * config.biomeSize)));
+        cellCount = Mathf.Min(cellCount, landTiles.Count);
 
+        // Центры — разные тайлы суши (частичное перемешивание Фишера–Йетса)
         Vector2[] centers = new Vector2[cellCount];
         int[] cellBiome = new int[cellCount];
-
         for (int i = 0; i < cellCount; i++)
         {
-            centers[i] = new Vector2(
-                (float)random.NextDouble() * width,
-                (float)random.NextDouble() * height);
+            int j = i + random.Next(landTiles.Count - i);
+            (landTiles[i], landTiles[j]) = (landTiles[j], landTiles[i]);
+            centers[i] = landTiles[i];
             cellBiome[i] = i < biomes.Count ? i : PickWeighted(biomes, random);
         }
 
@@ -66,17 +77,49 @@ public class BiomeMap
         Shuffle(cellBiome, random);
 
         float noiseOffset = (float)random.NextDouble() * 10000f;
+        int[] biomeTiles = new int[biomes.Count];
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
+                if (!land[x, y]) continue;
                 Vector2 point = new Vector2(x, y) + Warp(x, y, config, noiseOffset);
-                indices[x, y] = cellBiome[Nearest(centers, point)];
+                int biome = cellBiome[Nearest(centers, point)];
+                indices[x, y] = biome;
+                biomeTiles[biome]++;
             }
         }
 
+        EnsureEveryBiome(indices, land, centers, cellBiome, biomeTiles);
         return new BiomeMap(indices, biomes);
+    }
+
+    // Искривление границ может «съесть» маленькую область целиком. Тогда биом получает её область
+    // без искривления: её центр — тайл суши, ближе всего к самому себе, так что хотя бы он достанется биому
+    private static void EnsureEveryBiome(int[,] indices, bool[,] land, Vector2[] centers, int[] cellBiome,
+        int[] biomeTiles)
+    {
+        for (int biome = 0; biome < biomeTiles.Length; biome++)
+        {
+            if (biomeTiles[biome] > 0) continue;
+
+            int cell = System.Array.IndexOf(cellBiome, biome);
+            if (cell < 0) continue;
+
+            for (int x = 0; x < indices.GetLength(0); x++)
+            {
+                for (int y = 0; y < indices.GetLength(1); y++)
+                {
+                    if (!land[x, y] || Nearest(centers, new Vector2(x, y)) != cell) continue;
+                    // Последний тайл другого биома не забираем — иначе пропадёт уже он
+                    if (biomeTiles[indices[x, y]] <= 1) continue;
+                    biomeTiles[indices[x, y]]--;
+                    indices[x, y] = biome;
+                    biomeTiles[biome]++;
+                }
+            }
+        }
     }
 
     private static Vector2 Warp(int x, int y, BiomeConfig config, float offset)

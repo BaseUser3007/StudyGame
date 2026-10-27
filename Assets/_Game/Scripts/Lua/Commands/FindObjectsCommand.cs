@@ -28,7 +28,8 @@ public class FindObjectsCommand : PlayerCommandBase
         "the tile in front of it, moveTo(portal) goes there). " +
         "Without an argument — everything visible, enemies and puzzles included (the portal only by type \"portal\"). " +
         $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\", \"puzzle\" or \"portal\"; " +
-        "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
+        "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area; " +
+        "puzzles — startX, startY of the start platform that starts them). " +
         "The array has count and methods for searching, filtering and sorting " +
         "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section";
 

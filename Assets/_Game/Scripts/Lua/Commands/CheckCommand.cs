@@ -10,7 +10,8 @@ using UnityEngine;
 /// Тайл должен быть виден: под туманом (в том числе полупрозрачным, уже исследованным) не проверить.
 /// Головоломки: стена лабиринта — type/structure "wall" и walkable = false (сам тайл проходим, стоит
 /// препятствие с коллайдером), обелиск — "obelisk", центр лабиринта — "chest", плита — "plate" (+ поля plate — номер,
-/// pressed — нажата); поле puzzle — таблица головоломки, если тайл в её области.
+/// pressed — нажата), стартовая платформа (T25) — "start_platform"; поле puzzle — таблица головоломки, если тайл
+/// в её области или на её платформе.
 /// Портал забега: type/structure "portal", walkable = false (коллайдер сплошной, кроме запасного случая
 /// RunPortal.IsSolid = false), поле portal — его таблица (как элемент findObjects).
 /// </summary>
@@ -23,10 +24,10 @@ public class CheckCommand : PlayerCommandBase
         "What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
         "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
         "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle, portal } " +
-        "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\", run portal — \"portal\"), " +
+        "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\", puzzle start platform — \"start_platform\", run portal — \"portal\"), " +
         "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
         "walkable = false on a maze wall and on the portal; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
-        "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; portal — the portal if it stands on the tile, or nil; " +
+        "puzzle — the puzzle whose area or start platform contains the tile (like a findObjects item), or nil; portal — the portal if it stands on the tile, or nil; " +
         "on a pressure plate also plate — its number, and pressed — whether it is pressed";
 
     private const string UsageMessage = "usage: check(x, y), check(obj) or check(direction, [distance])";
@@ -126,6 +127,9 @@ public class CheckCommand : PlayerCommandBase
         // Стена лабиринта: тайл карты проходим, но на нём препятствие с коллайдером
         PuzzleStructure puzzle = _puzzles?.GetPuzzleAt(tile);
         bool mazeWall = _puzzles != null && _puzzles.IsMazeWall(tile);
+        // Стартовая платформа (T25): встал — головоломка начинается; поле puzzle — её головоломка
+        PuzzleStructure startOf = LuaPuzzles.GetByStartTile(_puzzles, tile);
+        if (startOf != null) puzzle = startOf;
         // Портал: тайлы карты под ним проходимы, но коллайдер портала сплошной
         bool onPortal = _portal != null && _portal.ContainsTile(tile);
         LuaTable objectList = _objectList.Build(objects, Meter);
@@ -158,7 +162,8 @@ public class CheckCommand : PlayerCommandBase
             table["pressed"] = platePressed;
         }
 
-        string structureName = GetPuzzleStructureName(puzzle, tile, mazeWall)
+        string structureName = (startOf != null && !mazeWall ? LuaPuzzles.StartPlatformName : null)
+            ?? GetPuzzleStructureName(puzzle, tile, mazeWall)
             ?? (onPortal ? LuaPortal.TypeName : null)
             ?? (structure != null ? GetStructureName(structure) : null);
         if (structureName != null)

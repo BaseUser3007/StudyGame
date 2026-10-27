@@ -18,9 +18,11 @@ public class PuzzleCommand : PlayerCommandBase
     public override string Signature => "puzzle([obj | x, y])";
     public override string Description =>
         "Conditions of a nearby puzzle: puzzle(obj) — an obelisk, maze or plates from findObjects/check, puzzle(x, y) — at a point, " +
-        "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved } " +
-        "(kind — \"sum\", \"max\", \"count\", \"maze\" or \"plates\"; input — an array of numbers, new on every code run) " +
-        "or nil and a reason. The answer is given with solve(obj, answer)";
+        "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved, state, startX, startY } " +
+        "(kind — \"sum\", \"max\", \"count\", \"maze\" or \"plates\"; input — an array of numbers, new on every code run; " +
+        "state — \"waiting\", \"armed\", \"attempt\" or \"solved\"; startX, startY — its start platform) " +
+        "or nil and a reason. Stepping on the start platform starts the puzzle and interrupts the run; the next code run is " +
+        "the only attempt — not solved in it, the puzzle disappears. The answer is given with solve(obj, answer)";
 
     private const string UsageMessage = "usage: puzzle(), puzzle(x, y) or puzzle(obj)";
 

@@ -18,7 +18,7 @@ using UnityEngine;
 /// с id объектов (GetInstanceID объектов, созданных во время игры, отрицательные). Позиция, здоровье
 /// и состояние врага читаются методами на момент вызова (враг двигается), а distance до врага —
 /// от точной позиции персонажа, как её проверяет attack().
-/// Головоломки (kind = "puzzle", type "obelisk"/"maze", поле solved): id = <see cref="PuzzleIdOffset"/> + PuzzleStructure.Id;
+/// Головоломки (kind = "puzzle", type "obelisk"/"maze"/"plates", поля solved, state, startX/startY): id = <see cref="PuzzleIdOffset"/> + PuzzleStructure.Id;
 /// distance до них — от точной позиции персонажа до края области (так досягаемость проверяют puzzle()/solve()).
 /// Портал забега (kind = type = "portal"): id = <see cref="LuaPortal.PortalId"/>, distance — до края портала
 /// (так досягаемость проверяет enterPortal()), approachX/approachY — проходимый тайл перед ним (RunPortal.ApproachTile).
@@ -49,7 +49,7 @@ public class LuaObjectList
     };
 
     /// <summary>Поля объекта, с которыми работают методы.</summary>
-    public const string Fields = "distance, durability, x, y, id, type, kind, tool; enemies also have health, maxHealth, state; puzzles have solved";
+    public const string Fields = "distance, durability, x, y, id, type, kind, tool; enemies also have health, maxHealth, state; puzzles have solved, state, startX, startY";
 
     /// <summary>Значение поля kind у ресурсов и врагов.</summary>
     public const string KindObject = "object";
@@ -229,6 +229,8 @@ public class LuaObjectList
             // Площадка с плитами: for x = p.minX, p.maxX do … check(x, y).plate … end
             LuaPuzzles.AddArea(table, plates);
         }
+        // Стартовая платформа (T25): moveTo(p.startX, p.startY) начинает головоломку
+        LuaPuzzles.AddStartTile(table, puzzle);
         RefreshPuzzle(table, puzzle);
         return table;
     }
@@ -493,10 +495,11 @@ public class LuaObjectList
         table["distance"] = (double)Distance(enemy);
     }
 
-    /// <summary>Изменчивые поля головоломки: решена ли, расстояние.</summary>
+    /// <summary>Изменчивые поля головоломки: решена ли, состояние попытки, расстояние.</summary>
     private void RefreshPuzzle(LuaTable table, PuzzleStructure puzzle)
     {
         table["solved"] = puzzle.IsSolved;
+        table["state"] = LuaPuzzles.GetStateName(puzzle.State);
         table["distance"] = (double)Distance(puzzle);
     }
 
@@ -547,6 +550,7 @@ public class LuaObjectList
 
         // Головоломку могли решить после поиска
         if (e.IsPuzzle && field == "solved") return e.Puzzle.IsSolved;
+        if (e.IsPuzzle && field == "state") return LuaPuzzles.GetStateName(e.Puzzle.State);
 
         return e.Table[field];
     }

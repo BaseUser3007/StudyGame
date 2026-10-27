@@ -135,16 +135,19 @@ public class DayCycle
     private void HandleRunningChanged(bool running)
     {
         // Запуск засчитывается, когда он закончился — успешно, с ошибкой или по Stop
-        if (!running) RegisterRunFinished();
+        if (!running) RegisterRunFinished(_sandbox != null && _sandbox.LastRunInterruptedForPuzzle);
     }
 
     /// <summary>
     /// Засчитать законченный запуск; после последнего за день — конец дня.
     /// Не засчитывается, если после запуска ждёт выход через портал или игрок погиб: забег закончен,
     /// день (DayPassed, лечение сном, новый максимум энергии, угроза) уже не наступает.
+    /// interruptedForPuzzle — запуск прерван стартом головоломки (T25, LuaSandbox.LastRunInterruptedForPuzzle):
+    /// тоже не засчитывается, попытка — следующий запуск.
     /// </summary>
-    public void RegisterRunFinished()
+    public void RegisterRunFinished(bool interruptedForPuzzle = false)
     {
+        if (interruptedForPuzzle) return;
         if (RunExit != null && RunExit.IsExitPending) return;
         if (_health != null && _health.IsDead) return;
 

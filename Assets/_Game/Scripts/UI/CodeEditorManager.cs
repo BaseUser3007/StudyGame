@@ -38,6 +38,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private AchievementsPanel _achievementsPanel;
     private AchievementToasts _achievementToasts;
     private UnlockPopup _unlockPopup;
+    // Головоломки забега (T25): карточка начатой и индикатор в верхней панели; null — нет головоломок
+    private PuzzleManager _puzzles;
+    private PuzzleBriefingPopup _puzzleBriefing;
     private TutorialOverlay _tutorialOverlay;
     private TutorialController _tutorial;
     private readonly Dictionary<TutorialAnchor, VisualElement> _tutorialAnchors =
@@ -77,13 +80,15 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     /// <param name="hubService">Логика лагеря (Level.HubService); null — забег.</param>
     /// <param name="hubPlacement">Размещение построек мышью (Level.HubPlacement); null — забег.</param>
     /// <param name="hubCatalog">Каталог построек лагеря (и в забеге — названия в окне открытия); может быть null.</param>
+    /// <param name="puzzles">Головоломки забега (Level.Puzzles): карточка старта и индикатор; может быть null.</param>
     public void Initialize(
         LuaSandbox luaSandbox, UIManager uiManager, RecipeBook recipeBook, IStationProvider stations,
         DayCycle dayCycle, AchievementTracker achievements,
         HubService hubService = null, HubPlacementController hubPlacement = null,
-        HubBuildingCatalog hubCatalog = null)
+        HubBuildingCatalog hubCatalog = null, PuzzleManager puzzles = null)
     {
         _hubCatalog = hubCatalog;
+        _puzzles = puzzles;
         _luaSandbox = luaSandbox;
         _uiManager = uiManager;
         _recipeBook = recipeBook;
@@ -133,6 +138,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         _runScreens = new RunScreens(runScreensTemplate);
         _container.Add(_runScreens);
         CreateAchievementOverlays();
+        CreatePuzzleUI();
         if (IsHub) CreateHub();
         CreateTutorial();
 
@@ -255,6 +261,13 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         if (_unlocks != null)
             _unlocks.OnUnlocked -= HandleUnlocked;
+
+        if (_puzzles != null)
+        {
+            _puzzles.OnPuzzleStarted -= HandlePuzzleStarted;
+            _puzzles.OnPuzzleSolved -= HandlePuzzleSolved;
+            _puzzles.OnPuzzleFailed -= HandlePuzzleFailed;
+        }
 
         if (_hubService != null)
         {
@@ -396,6 +409,65 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         if (kind == UnlockKind.HubBuilding) _hubPanel?.Refresh();
     }
 
+    // ─── Головоломки (T25) ────────────────────────────────────
+
+    /// <summary>
+    /// Карточка начатой головоломки (шаблон внутри RunScreens.uxml, над «Unlocked: X») и индикатор
+    /// попытки в верхней панели. Без PuzzleManager (тесты, нет конфига) — только скрытая карточка.
+    /// </summary>
+    private void CreatePuzzleUI()
+    {
+        _puzzleBriefing = new PuzzleBriefingPopup(
+            _runScreens.GetOverlay("puzzle-briefing-overlay"), _context.Highlighter);
+
+        if (_puzzles != null)
+        {
+            _puzzles.OnPuzzleStarted += HandlePuzzleStarted;
+            _puzzles.OnPuzzleSolved += HandlePuzzleSolved;
+            _puzzles.OnPuzzleFailed += HandlePuzzleFailed;
+        }
+        RefreshPuzzleStatus();
+    }
+
+    /// <summary>
+    /// Игрок встал на стартовую платформу. Запуск, если шёл, уже прерывается — карточка ждёт его конца
+    /// (SetSuspended в HandleRunningChanged); строка в лог запуска — сразу.
+    /// </summary>
+    private void HandlePuzzleStarted(PuzzleStructure puzzle)
+    {
+        PuzzleBriefing briefing = _puzzles.GetBriefing(puzzle);
+        _puzzleBriefing.Enqueue(puzzle, briefing);
+        UIEventBus.PublishNotification(
+            PuzzleBriefingPopup.FormatLogLine(briefing.Title, PuzzleManager.AttemptRuleText), LogEntryType.Info);
+        RefreshPuzzleStatus();
+    }
+
+    private void HandlePuzzleSolved(PuzzleStructure puzzle) => RefreshPuzzleStatus();
+
+    /// <summary>Попытка не удалась (уведомление публикует PuzzleManager): ждущая карточка и индикатор не нужны.</summary>
+    private void HandlePuzzleFailed(PuzzleStructure puzzle)
+    {
+        _puzzleBriefing.Drop(puzzle);
+        RefreshPuzzleStatus();
+    }
+
+    /// <summary>Индикатор в верхней панели по ActivePuzzle: Armed — «следующий запуск», Attempt — «идёт попытка».</summary>
+    private void RefreshPuzzleStatus()
+    {
+        if (_topBar == null) return;
+
+        PuzzleStructure active = _puzzles?.ActivePuzzle;
+        if (active == null)
+        {
+            _topBar.SetPuzzleStatus(null, null, false);
+            return;
+        }
+
+        string tooltip = _puzzles.GetBriefing(active).Title + "\n" + PuzzleManager.AttemptRuleText;
+        _topBar.SetPuzzleStatus(
+            PuzzleBriefingPopup.FormatStatus(active.State), tooltip, active.State == PuzzleState.Attempt);
+    }
+
     // ─── Туториал и подсказки ─────────────────────────────────
 
     /// <summary>
@@ -445,6 +517,7 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     private bool IsTutorialBlocked()
     {
         return (_unlockPopup != null && _unlockPopup.IsOpen)
+            || (_puzzleBriefing != null && _puzzleBriefing.IsOpen)
             || (_achievementsPanel != null && _achievementsPanel.IsOpen)
             || _runScreens.IsSummaryShown
             // Во время размещения постройки карточка не должна закрывать клетки сетки
@@ -811,6 +884,8 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         if (_mainWindow == null || _luaSandbox == null) return;
         // В лагере код не выполняется (кнопка Run скрыта вместе с верхней панелью — проверка на всякий случай)
         if (IsHub) return;
+        // Пока открыта карточка головоломки, Ctrl+Enter не должен тратить попытку — сначала закрыть карточку
+        if (_puzzleBriefing != null && _puzzleBriefing.IsOpen) return;
 
         // Повторное нажатие во время выполнения — остановка
         if (_luaSandbox.IsRunning)
@@ -835,6 +910,9 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
 
         if (result.IsSuccess)
             UIEventBus.PublishNotification(Loc.T("Execution completed") + spent, LogEntryType.Success);
+        // Прерывание стартом головоломки — не ошибка игрока: нейтральная строка, карточка с заданием — отдельно
+        else if (result.IsInterruptedForPuzzle)
+            UIEventBus.PublishNotification(Loc.T("Execution interrupted by a puzzle") + spent, LogEntryType.Info);
         else if (result.IsCancelled)
             UIEventBus.PublishNotification(Loc.T("Execution stopped") + spent, LogEntryType.Warning);
         else
@@ -1018,6 +1096,12 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
         }
         // «Unlocked: X» — только между запусками: модальное окно не должно появляться посреди работы кода
         _unlockPopup?.SetSuspended(running);
+        // Карточка начатой головоломки — тоже между запусками (старт прерывает запуск, она идёт сразу после)
+        _puzzleBriefing?.SetSuspended(running);
+        // Начало запуска переводит головоломку в попытку, конец — в решение или провал. PuzzleManager
+        // подписан раньше UI, но порядок подписчиков не гарантирован — перечитываем и в следующем кадре
+        RefreshPuzzleStatus();
+        _container?.schedule.Execute(RefreshPuzzleStatus);
         // Подсказки туториала тоже ждут конца запуска (кроме шагов, которые объясняют сам запуск)
         _tutorial?.SetRunning(running);
     }
@@ -1061,6 +1145,16 @@ public class CodeEditorManager : MonoBehaviour, IPointerOverUIProvider
     }
 
     public MainCodeEditorWindow MainWindow => _mainWindow;
+
+    /// <summary>
+    /// Координаты тайла под курсором (для moveTo / check в коде). Только в забеге: в лагере код не выполняется.
+    /// Подпись — над всем интерфейсом, но сама прячется, когда курсор над ним.
+    /// </summary>
+    public void EnableCursorCoordinates(IMapDataProvider map, Camera camera)
+    {
+        if (IsHub || _container == null || map == null || camera == null) return;
+        _container.Add(new CursorCoordinates(map, camera, this));
+    }
 
     // ─── IPointerOverUIProvider ───────────────────────────────
 

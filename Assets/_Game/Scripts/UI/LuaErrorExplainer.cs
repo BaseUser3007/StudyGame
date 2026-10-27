@@ -136,6 +136,10 @@ public static class LuaErrorExplainer
         (R(@"portal can't be (?:harvested|mined|attacked)"), (m, i) => (
             Loc.T("The portal is not a resource or an enemy — it is the way back to the camp."),
             Loc.T("Stand next to it and call `enterPortal()` to leave the run."))),
+        // solve() до попытки (T25, PuzzleManager.Describe(NotStarted)), превращённое кодом в ошибку
+        (R(@"puzzle is not started"), (m, i) => (
+            Loc.T("The puzzle has not started yet: it is solved only in its attempt — the code run after the player steps on its start platform."),
+            Loc.T("Walk onto the platform first: `moveTo(p.startX, p.startY)` (that run stops there), then solve the puzzle in the next run."))),
         (R(@"(?:(?<cmd>[A-Za-z_]\w*): )?unknown type '(?<name>[^']*)'(?: \(known: (?<known>[^)]*)\))?"), UnknownType),
         (R(@"bad argument #(?<n>\d+) to '(?<fn>[^']+)' \((?<detail>.*?)\)*$"), BadArgument),
         (R(@"^(?<fn>[A-Za-z_]\w*): usage:? (?<usage>.+)$"), WrongUsage),

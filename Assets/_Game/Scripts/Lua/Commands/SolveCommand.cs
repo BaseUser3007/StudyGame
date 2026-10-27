@@ -3,8 +3,9 @@ using System.Threading.Tasks;
 using Lua;
 
 /// <summary>
-/// solve(obj, answer) — ответ на задачу обелиска (GameDesign §10.4). Попытки не ограничены, каждая стоит
-/// цену вызова. Проверку, награду, событие PuzzleSolved и уведомление делает PuzzleManager.TrySolveCodeTask
+/// solve(obj, answer) — ответ на задачу обелиска (GameDesign §10.4). Принимается только в запуске-попытке (T25:
+/// после стартовой платформы; раньше — nil, "puzzle is not started — step on its start platform"), один ответ за
+/// попытку, каждый вызов стоит цену вызова. Проверку, награду, событие PuzzleSolved и уведомление делает PuzzleManager.TrySolveCodeTask
 /// (энергию он не списывает — только эта команда). Открывается вместе с событием карты code_task
 /// (по числу достижений, UnlockConfig.mapEventThresholds).
 /// </summary>
@@ -16,8 +17,9 @@ public class SolveCommand : LuaCommandBase
     public override string Signature => "solve(obj, answer)";
     public override string Description =>
         "Answer to an obelisk task from findObjects/check: solve(obj, answer), the player within 1.5 tiles of the obelisk. " +
+        "Works only in the attempt — the code run after stepping on the obelisk's start platform. " +
         "The answer must be computed by code in the same run (puzzle(obj).input changes every run). " +
-        "Correct — a reward until the end of the run and true; otherwise nil and a reason (\"wrong answer\"); one attempt per obelisk per code run";
+        "Correct — a reward until the end of the run and true; otherwise nil and a reason (\"wrong answer\"); one answer per attempt";
 
     private const string UsageMessage = "usage: solve(obj, answer)";
 

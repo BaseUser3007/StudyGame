@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="PuzzleBriefingPopup.uss"/>
+    <!-- Карточка начатой головоломки (T25): что сделать, награда и правило одной попытки.
+         Показывается после окончания прерванного запуска; содержимое заполняет PuzzleBriefingPopup -->
+    <ui:VisualElement name="puzzle-briefing-backdrop" class="puzzle-briefing-backdrop hidden">
+        <ui:VisualElement name="puzzle-briefing-card" class="puzzle-briefing-card">
+            <ui:Label class="puzzle-briefing-caption" text="Puzzle started"/>
+            <ui:Label name="puzzle-briefing-title" class="puzzle-briefing-title" text=""/>
+            <ui:Label name="puzzle-briefing-description" class="puzzle-briefing-text" text=""/>
+            <ui:VisualElement name="puzzle-briefing-reward-block" class="puzzle-briefing-reward-block">
+                <ui:Label class="puzzle-briefing-section" text="Reward"/>
+                <ui:Label name="puzzle-briefing-reward" class="puzzle-briefing-reward" text=""/>
+            </ui:VisualElement>
+            <ui:Label name="puzzle-briefing-rule" class="puzzle-briefing-rule" text=""/>
+            <ui:VisualElement class="puzzle-briefing-buttons">
+                <ui:Button name="btn-puzzle-briefing-ok" class="puzzle-briefing-ok" text="Got it"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

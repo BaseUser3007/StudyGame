@@ -68,6 +68,10 @@ public class TopBar : VisualElement
     private bool _hubMode;
     private bool _hasThreatInfo;
 
+    // Начатая головоломка (T25): текст индикатора, null/пусто — скрыт
+    private Label _puzzleLabel;
+    private string _puzzleStatus;
+
     public TopBar(VisualTreeAsset template)
     {
         VisualElement root = template.Instantiate();
@@ -80,6 +84,8 @@ public class TopBar : VisualElement
         _dayLabel = root.Q<Label>("day-label");
         _daySummary = root.Q<Label>("day-summary");
         _threatLabel = root.Q<Label>("threat-label");
+        _puzzleLabel = root.Q<Label>("puzzle-label");
+        Debug.Assert(_puzzleLabel != null, "TopBar: puzzle-label not found");
         _health = root.Q<VisualElement>("health");
         _btnRun = root.Q<Button>("btn-run");
         _btnEndDay = root.Q<Button>("btn-end-day");
@@ -188,6 +194,28 @@ public class TopBar : VisualElement
     {
         _hubMode = hub;
         RefreshThreatVisibility();
+        RefreshPuzzleVisibility();
+    }
+
+    // ─── Головоломка ──────────────────────────────────────────
+
+    /// <summary>
+    /// Индикатор начатой головоломки (T25). <paramref name="status"/> — уже переведённый текст
+    /// (PuzzleBriefingPopup.FormatStatus), null — скрыть; <paramref name="attempt"/> — идёт запуск-попытка.
+    /// </summary>
+    public void SetPuzzleStatus(string status, string tooltip, bool attempt)
+    {
+        _puzzleStatus = status;
+        _puzzleLabel.enableRichText = false;
+        _puzzleLabel.text = status ?? string.Empty;
+        _puzzleLabel.tooltip = tooltip ?? string.Empty;
+        _puzzleLabel.EnableInClassList("puzzle-label--attempt", attempt);
+        RefreshPuzzleVisibility();
+    }
+
+    private void RefreshPuzzleVisibility()
+    {
+        _puzzleLabel.EnableInClassList("hidden", _hubMode || string.IsNullOrEmpty(_puzzleStatus));
     }
 
     // ─── Угроза ───────────────────────────────────────────────

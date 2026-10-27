@@ -34,6 +34,32 @@ public class PuzzleRewards
 
     // ─── Public API ───────────────────────────────────────────
 
+    /// <summary>
+    /// Текст награды задачи на код для карточки головоломки (T25, Loc) — то, что выдаст ApplyCodeTask сейчас.
+    /// </summary>
+    public string DescribeCodeTask(CodeTaskKind kind)
+    {
+        switch (kind)
+        {
+            case CodeTaskKind.Max:
+                return Loc.F("+{0} max health for this run and full health.", _config.maxHealthBonus.ToString("0.#"));
+
+            case CodeTaskKind.Count:
+                if (_dayCycle != null && !_dayCycle.IsThreatActive && _config.threatDelayDays > 0)
+                    return Loc.F("The threat comes {0} day(s) later.", _config.threatDelayDays);
+                return DescribeEnergyBonus();
+
+            default:
+                return DescribeEnergyBonus();
+        }
+    }
+
+    /// <summary>Текст награды лабиринта для карточки (Loc).</summary>
+    public string DescribeMaze() => DescribeCrystals(_config.crystalAmount);
+
+    /// <summary>Текст награды плит для карточки (Loc).</summary>
+    public string DescribePlates() => DescribeCrystals(_config.platesCrystalAmount);
+
     /// <summary>Выдаёт награду задачи на код. Возвращает текст для уведомления (англ.).</summary>
     public string ApplyCodeTask(CodeTaskKind kind)
     {
@@ -123,6 +149,16 @@ public class PuzzleRewards
     }
 
     // ─── Helpers ──────────────────────────────────────────────
+
+    private string DescribeEnergyBonus() =>
+        Loc.F("+{0} max energy for this run and +{0} energy now.", _config.energyLimitBonus.ToString("0.#"));
+
+    private string DescribeCrystals(int amount)
+    {
+        ResourceItem crystal = _config.crystalItem;
+        if (crystal == null || amount <= 0) return Loc.T("Nothing.");
+        return Loc.F("{0} × {1} into the inventory.", amount, Loc.T(crystal.DisplayName));
+    }
 
     private string ApplyEnergyBonus()
     {

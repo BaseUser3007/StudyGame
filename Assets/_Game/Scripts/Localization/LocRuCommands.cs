@@ -8,7 +8,7 @@ public static class LocRuCommands
 {
     // Русский вариант LuaObjectList.Fields (входит и в описание findObjects)
     private const string FieldsRu =
-        "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state; у головоломок — solved";
+        "distance, durability, x, y, id, type, kind, tool; у врагов ещё health, maxHealth, state; у головоломок — solved, state, startX, startY";
 
     public static readonly (string En, string Ru)[] Entries =
     {
@@ -46,18 +46,18 @@ public static class LocRuCommands
         ("What is in a tile: check(x, y), check(obj) or check(\"north\", 2) — relative to the player " +
          "(directions as in move, distance in tiles, 1 by default, diagonally — steps along both axes). " +
          "Only tiles without fog. Returns a table { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle, portal } " +
-         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\", run portal — \"portal\"), " +
+         "or nil and a reason. type is the main thing in the tile: a structure (maze wall — \"wall\", obelisk — \"obelisk\", maze center — \"chest\", pressure plate — \"plate\", puzzle start platform — \"start_platform\", run portal — \"portal\"), " +
          "else an enemy (its type, e.g. \"goblin\"), else the first object, else \"water\" or \"empty\"; " +
          "walkable = false on a maze wall and on the portal; objects — the resources in the tile, enemies — the enemies in it (with the same methods as findObjects); " +
-         "puzzle — the puzzle whose area contains the tile (like a findObjects item), or nil; portal — the portal if it stands on the tile, or nil; " +
+         "puzzle — the puzzle whose area or start platform contains the tile (like a findObjects item), or nil; portal — the portal if it stands on the tile, or nil; " +
          "on a pressure plate also plate — its number, and pressed — whether it is pressed",
          "Что находится в клетке: check(x, y), check(obj) или check(\"north\", 2) — относительно персонажа " +
          "(направления как у move, расстояние в клетках, по умолчанию 1, по диагонали — шаги по обеим осям). " +
          "Только клетки без тумана. Возвращает таблицу { x, y, type, terrain, walkable, biome, structure, player, objects, enemies, puzzle, portal } " +
-         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\", нажимная плита — \"plate\", портал забега — \"portal\"), " +
+         "или nil и причину. type — главное в клетке: постройка (стена лабиринта — \"wall\", обелиск — \"obelisk\", центр лабиринта — \"chest\", нажимная плита — \"plate\", стартовая платформа головоломки — \"start_platform\", портал забега — \"portal\"), " +
          "иначе враг (его тип, например \"goblin\"), иначе первый объект, иначе \"water\" или \"empty\"; " +
          "на стене лабиринта и на портале walkable = false; objects — массив ресурсов клетки, enemies — массив врагов в нём (с теми же методами, что у findObjects); " +
-         "puzzle — головоломка, в область которой входит клетка (как элемент findObjects), или nil; portal — портал, если он стоит на клетке, или nil; " +
+         "puzzle — головоломка, в область или на стартовую платформу которой входит клетка (как элемент findObjects), или nil; portal — портал, если он стоит на клетке, или nil; " +
          "на нажимной плите ещё plate — её номер и pressed — нажата ли она"),
 
         ("Craft an item by name (recipes are in the crafting panel). " +
@@ -89,7 +89,8 @@ public static class LocRuCommands
          "the tile in front of it, moveTo(portal) goes there). " +
          "Without an argument — everything visible, enemies and puzzles included (the portal only by type \"portal\"). " +
          $"Objects have the fields {LuaObjectList.Fields} (kind — \"object\", \"enemy\", \"puzzle\" or \"portal\"; " +
-         "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area). " +
+         "a maze also has entranceX, entranceY — the tile in front of the entrance; plates — minX, minY, maxX, maxY of their area; " +
+         "puzzles — startX, startY of the start platform that starts them). " +
          "The array has count and methods for searching, filtering and sorting " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — see the Help section",
          "Массив объектов типа в поле зрения: tree, stone, boulder, gold_ore, berry_bush, mushroom, sheep, stick, pebble, log, flint (выброшенные); " +
@@ -98,7 +99,8 @@ public static class LocRuCommands
          "клетка перед ним, moveTo(portal) ведёт туда). " +
          "Без аргумента — всё, что видно, вместе с врагами и головоломками (портал — только по типу \"portal\"). " +
          $"У объекта есть поля {FieldsRu} (kind — \"object\", \"enemy\", \"puzzle\" или \"portal\"; " +
-         "у лабиринта ещё entranceX, entranceY — клетка перед входом, у плит — minX, minY, maxX, maxY их площадки). " +
+         "у лабиринта ещё entranceX, entranceY — клетка перед входом, у плит — minX, minY, maxX, maxY их площадки; " +
+         "у головоломок — startX, startY стартовой платформы, с которой они начинаются). " +
          "У массива есть count и методы для поиска, фильтрации и сортировки " +
          "(getNear, getFar, getMin, getMax, where, sortBy, take, find …) — см. раздел в справке"),
 
@@ -183,20 +185,26 @@ public static class LocRuCommands
          "Внутри цикла оплачивается на каждом проходе"),
 
         ("Conditions of a nearby puzzle: puzzle(obj) — an obelisk, maze or plates from findObjects/check, puzzle(x, y) — at a point, " +
-         "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved } " +
-         "(kind — \"sum\", \"max\", \"count\", \"maze\" or \"plates\"; input — an array of numbers, new on every code run) " +
-         "or nil and a reason. The answer is given with solve(obj, answer)",
+         "puzzle() — the nearest one in reach (1.5 tiles). Returns a table { kind, text, input, limit, solved, state, startX, startY } " +
+         "(kind — \"sum\", \"max\", \"count\", \"maze\" or \"plates\"; input — an array of numbers, new on every code run; " +
+         "state — \"waiting\", \"armed\", \"attempt\" or \"solved\"; startX, startY — its start platform) " +
+         "or nil and a reason. Stepping on the start platform starts the puzzle and interrupts the run; the next code run is " +
+         "the only attempt — not solved in it, the puzzle disappears. The answer is given with solve(obj, answer)",
          "Условие головоломки рядом: puzzle(obj) — обелиска, лабиринта или плит из findObjects/check, puzzle(x, y) — в точке, " +
-         "puzzle() — ближайшей в досягаемости (1.5 клетки). Возвращает таблицу { kind, text, input, limit, solved } " +
-         "(kind — \"sum\", \"max\", \"count\", \"maze\" или \"plates\"; input — массив чисел, новый в каждом запуске кода) " +
-         "или nil и причину. Ответ отдаётся через solve(obj, answer)"),
+         "puzzle() — ближайшей в досягаемости (1.5 клетки). Возвращает таблицу { kind, text, input, limit, solved, state, startX, startY } " +
+         "(kind — \"sum\", \"max\", \"count\", \"maze\" или \"plates\"; input — массив чисел, новый в каждом запуске кода; " +
+         "state — \"waiting\", \"armed\", \"attempt\" или \"solved\"; startX, startY — её стартовая платформа) " +
+         "или nil и причину. Встали на стартовую платформу — головоломка начинается, а запуск прерывается; следующий запуск кода — " +
+         "единственная попытка: не решили в нём — головоломка исчезает. Ответ отдаётся через solve(obj, answer)"),
 
         ("Answer to an obelisk task from findObjects/check: solve(obj, answer), the player within 1.5 tiles of the obelisk. " +
+         "Works only in the attempt — the code run after stepping on the obelisk's start platform. " +
          "The answer must be computed by code in the same run (puzzle(obj).input changes every run). " +
-         "Correct — a reward until the end of the run and true; otherwise nil and a reason (\"wrong answer\"); one attempt per obelisk per code run",
+         "Correct — a reward until the end of the run and true; otherwise nil and a reason (\"wrong answer\"); one answer per attempt",
          "Ответ на задачу обелиска из findObjects/check: solve(obj, answer), персонаж — не дальше 1.5 клетки от обелиска. " +
+         "Работает только в попытке — запуске кода после того, как персонаж встал на стартовую платформу обелиска. " +
          "Ответ надо вычислить кодом в том же запуске (puzzle(obj).input меняется при каждом запуске). " +
-         "Верно — награда до конца забега и true; иначе nil и причина (\"wrong answer\"); одна попытка на обелиск за запуск кода"),
+         "Верно — награда до конца забега и true; иначе nil и причина (\"wrong answer\"); один ответ за попытку"),
 
         // ─── Методы списков (LuaObjectList.Methods) ───────────
 

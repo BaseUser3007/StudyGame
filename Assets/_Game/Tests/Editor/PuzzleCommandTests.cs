@@ -1,8 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using Lua;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 /// <summary>
@@ -23,6 +27,8 @@ public class PuzzleCommandTests
     private PuzzleManager _manager;
     private Vector2 _player;
     private CodeTaskPuzzle _obelisk;
+    // Запуски кода для попытки головоломки (T25): решать можно только в запуске-попытке
+    private TestHelpers.PuzzleRunControl _run;
 
     [SetUp]
     public void SetUp()
@@ -31,6 +37,8 @@ public class PuzzleCommandTests
         _player = new Vector2(1f, 0f);
         // Награды не нужны: PuzzleManager работает и без PuzzleRewards
         _manager = new PuzzleManager(() => _player, 1.5f, null);
+        _run = new TestHelpers.PuzzleRunControl();
+        _manager.AttachRunControl(_run);
 
         var go = new GameObject("Obelisk");
         _created.Add(go);
@@ -111,6 +119,7 @@ public class PuzzleCommandTests
         var solved = new List<GameEvent>();
         void OnEvent(GameEvent e) { if (e.Type == GameEventType.PuzzleSolved) solved.Add(e); }
         GameEventBus.OnGameEvent += OnEvent;
+        TestHelpers.StartAttempt(_manager, _run, _obelisk);
         try
         {
             _lua.Run(
@@ -140,6 +149,7 @@ public class PuzzleCommandTests
     [Test]
     public void Solve_WrongAnswer_NilAndReason_CostsTwo_OneAttemptPerRun()
     {
+        TestHelpers.StartAttempt(_manager, _run, _obelisk);
         int wrong = _obelisk.GetTask().Answer + 1;
         _lua.Run($"a, b = solve({ObeliskTable}, {wrong})");
 
@@ -155,14 +165,33 @@ public class PuzzleCommandTests
         Assert.AreEqual(4f, _lua.Spent, 0.001f);
         Assert.IsFalse(_obelisk.IsSolved);
 
+        // T25: попытка одна — запуск закончился без решения, обелиск исчез
+        _run.SetRunning(false);
         GameEventBus.PublishRunStarted();
-        _lua.Run($"e = solve({ObeliskTable}, {_obelisk.GetTask().Answer})");
-        Assert.IsTrue(Global("e").Read<bool>());
+        _lua.Run($"e, f = solve({ObeliskTable}, 1)");
+        Assert.AreEqual(LuaValueType.Nil, Global("e").Type);
+        Assert.AreEqual("puzzle is gone", Global("f").Read<string>());
+    }
+
+    [Test]
+    public void Solve_BeforeStart_NotStarted()
+    {
+        int answer = _obelisk.GetTask().Answer;
+        _lua.Run($"a, b = solve({ObeliskTable}, {answer})");
+        Assert.AreEqual(LuaValueType.Nil, Global("a").Type);
+        Assert.AreEqual("puzzle is not started — step on its start platform", Global("b").Read<string>());
+
+        // Начата, но запуск-попытка ещё не шёл — тоже нет
+        Assert.IsTrue(_manager.TryStart(_obelisk));
+        _lua.Run($"c, d = solve({ObeliskTable}, {answer})");
+        Assert.AreEqual("puzzle is not started — step on its start platform", Global("d").Read<string>());
+        Assert.IsFalse(_obelisk.IsSolved);
     }
 
     [Test]
     public void Solve_Errors_AreNilAndReason()
     {
+        TestHelpers.StartAttempt(_manager, _run, _obelisk);
         _lua.Run($"a, b = solve({ObeliskTable}, \"ten\") c, d = solve({{ kind = \"puzzle\", id = 5 }}, 1)");
 
         Assert.AreEqual(LuaValueType.Nil, Global("a").Type);
@@ -174,6 +203,175 @@ public class PuzzleCommandTests
         _lua.Run($"e, f = solve({ObeliskTable}, {_obelisk.GetTask().Answer})");
         Assert.AreEqual("too far from the puzzle", Global("f").Read<string>());
         Assert.IsFalse(_obelisk.IsSolved);
+    }
+
+    // ─── Стартовая платформа (T25) ────────────────────────────
+
+    private static readonly Vector2Int ObeliskStartTile = new Vector2Int(2, 0);
+
+    [Test]
+    public void Puzzle_StateAndStartTile_FollowTheAttempt()
+    {
+        _obelisk.SetStartPlatform(ObeliskStartTile, null);
+
+        _lua.Run($"w = puzzle({ObeliskTable})");
+        LuaTable w = Global("w").Read<LuaTable>();
+        Assert.AreEqual("waiting", w["state"].Read<string>());
+        Assert.AreEqual((double)ObeliskStartTile.x, w["startX"].Read<double>());
+        Assert.AreEqual((double)ObeliskStartTile.y, w["startY"].Read<double>());
+
+        Assert.IsTrue(_manager.TryStart(_obelisk));
+        _lua.Run($"a = puzzle({ObeliskTable}).state");
+        Assert.AreEqual("armed", Global("a").Read<string>());
+
+        _run.SetRunning(true);
+        _lua.Run($"t = puzzle({ObeliskTable}).state");
+        Assert.AreEqual("attempt", Global("t").Read<string>());
+
+        int answer = _obelisk.GetTask().Answer;
+        _lua.Run($"solve({ObeliskTable}, {answer}) s = puzzle({ObeliskTable}).state");
+        Assert.AreEqual("solved", Global("s").Read<string>());
+    }
+
+    [Test]
+    public void FindObjects_And_Check_ShowStartPlatform()
+    {
+        _obelisk.SetStartPlatform(ObeliskStartTile, null);
+        PlayerCommandExecutor executor = CreateExecutor(new Vector2Int(1, 0));
+        var fog = new StubFog { Visible = true };
+        new FindObjectsCommand(executor, StubMap.Instance, null, null, fog, _manager).Register(_lua.State, _lua.Meter);
+        new CheckCommand(executor, StubMap.Instance, fog, null, null, null, _manager).Register(_lua.State, _lua.Meter);
+
+        _lua.Run("o = findObjects(\"obelisk\")[1] " +
+                 "p = check(o.startX, o.startY) n = check(3, 3) " +
+                 "st = findObjects(\"obelisk\"):getNear().state");
+
+        LuaTable o = Global("o").Read<LuaTable>();
+        Assert.AreEqual((double)ObeliskStartTile.x, o["startX"].Read<double>());
+        Assert.AreEqual((double)ObeliskStartTile.y, o["startY"].Read<double>());
+        Assert.AreEqual("waiting", o["state"].Read<string>());
+        Assert.AreEqual("waiting", Global("st").Read<string>());
+
+        LuaTable p = Global("p").Read<LuaTable>();
+        Assert.AreEqual(LuaPuzzles.StartPlatformName, p["type"].Read<string>());
+        Assert.AreEqual(LuaPuzzles.StartPlatformName, p["structure"].Read<string>());
+        Assert.IsTrue(p["walkable"].Read<bool>());
+        LuaTable pz = p["puzzle"].Read<LuaTable>();
+        Assert.AreEqual((double)(LuaObjectList.PuzzleIdOffset + ObeliskId), pz["id"].Read<double>());
+        Assert.AreEqual(LuaPuzzles.ObeliskTypeName, pz["type"].Read<string>());
+
+        Assert.AreEqual("empty", Global("n").Read<LuaTable>()["type"].Read<string>());
+
+        // Решённая головоломка: платформа скрыта и больше не действует
+        TestHelpers.StartAttempt(_manager, _run, _obelisk);
+        Assert.AreEqual(PuzzleSolveResult.Correct, _manager.TrySolveCodeTask(_obelisk, _obelisk.GetTask().Answer));
+        _lua.Run("q = check(o.startX, o.startY)");
+        LuaTable q = Global("q").Read<LuaTable>();
+        Assert.AreEqual("empty", q["type"].Read<string>());
+        Assert.AreEqual(LuaValueType.Nil, q["puzzle"].Type);
+    }
+
+    // ─── Прерывание запуска стартом головоломки (T25) ─────────
+
+    [UnityTest]
+    public IEnumerator Sandbox_PuzzleStart_InterruptsRun_NotCountedAsDayRun_EvenUnderPcall()
+    {
+        var tags = new List<string>();
+        void OnEvent(GameEvent e) { if (e.Type == GameEventType.RunFinished) tags.Add(e.Tag); }
+        GameEventBus.OnGameEvent += OnEvent;
+
+        var saves = new TestHelpers.TempSaveFolder();
+        var unlockConfig = ScriptableObject.CreateInstance<UnlockConfig>();
+        var playerConfig = ScriptableObject.CreateInstance<PlayerConfig>();
+        _created.Add(unlockConfig);
+        _created.Add(playerConfig);
+        unlockConfig.unlockAll = false;
+        unlockConfig.startingCommands = new List<string> { "print" };
+        unlockConfig.startingConstructs = new List<string> { LuaConstructs.For };
+        var unlocks = new UnlockRegistry(unlockConfig, saves.Progress());
+
+        var energy = new PlayerEnergy(100f);
+        var day = new DayCycle(playerConfig, RunModifiers.Create(playerConfig, new MetaProgress()), energy, null);
+        var host = new GameObject("PuzzleSandboxTest");
+        _created.Add(host);
+        LuaSandbox sandbox = host.AddComponent<LuaSandbox>();
+        sandbox.Initialize(CreateExecutor(new Vector2Int(1, 0)), StubMap.Instance, null, TestHelpers.ProjectEnergyConfig(),
+            null, energy, null, null, null, null, 1.5f, day, unlocks, null, null, _manager);
+        day.Attach(sandbox);
+        _manager.AttachRunControl(sandbox);
+
+        // Игрок «встаёт на платформу» посреди кода: print(...) → старт головоломки
+        bool startOnPrint = true;
+        int prints = 0;
+        void OnLog(string text, LogEntryType type)
+        {
+            prints++;
+            if (startOnPrint) _manager.TryStart(_obelisk);
+        }
+        sandbox.OnLogMessage += OnLog;
+
+        var results = new List<ExecutionResult>();
+        int runsAfterInterrupt;
+        try
+        {
+            yield return Run(sandbox, "pcall(print, \"x\")\nfor i = 1, 3 do print(i) end", results);
+            runsAfterInterrupt = day.RunsUsed;
+            Assert.IsTrue(sandbox.LastRunInterruptedForPuzzle);
+            Assert.AreEqual(PuzzleState.Armed, _obelisk.State, "the interrupted run is not the attempt");
+            Assert.AreEqual(1, prints, "code after the start must not run (pcall can't swallow the interrupt)");
+
+            // Следующий запуск — попытка: не решили → головоломка исчезла, запуск дня засчитан
+            startOnPrint = false;
+            yield return Run(sandbox, "for i = 1, 2 do x = i end", results);
+        }
+        finally
+        {
+            sandbox.OnLogMessage -= OnLog;
+            GameEventBus.OnGameEvent -= OnEvent;
+            saves.Dispose();
+        }
+
+        Assert.IsTrue(results[0].IsInterruptedForPuzzle);
+        Assert.IsTrue(results[0].IsCancelled);
+        Assert.IsFalse(results[0].IsSuccess);
+        Assert.IsNull(results[0].ErrorMessage, "an interrupted run is not an error");
+        Assert.AreEqual(0, runsAfterInterrupt, "the interrupted run does not use a day run");
+
+        Assert.IsTrue(results[1].IsSuccess, results[1].ErrorMessage);
+        Assert.IsFalse(sandbox.LastRunInterruptedForPuzzle);
+        Assert.AreEqual(1, day.RunsUsed);
+        Assert.AreEqual(PuzzleState.Failed, _obelisk.State);
+        CollectionAssert.AreEqual(new[] { GameEventBus.RunTagPuzzle, GameEventBus.RunTagOk }, tags);
+        Assert.IsFalse(sandbox.IsRunning);
+    }
+
+    [UnityTest]
+    public IEnumerator Sandbox_InterruptForPuzzle_NotRunning_DoesNothing()
+    {
+        var saves = new TestHelpers.TempSaveFolder();
+        var unlockConfig = ScriptableObject.CreateInstance<UnlockConfig>();
+        _created.Add(unlockConfig);
+        unlockConfig.unlockAll = true;
+        var unlocks = new UnlockRegistry(unlockConfig, saves.Progress());
+        var host = new GameObject("PuzzleSandboxIdle");
+        _created.Add(host);
+        LuaSandbox sandbox = host.AddComponent<LuaSandbox>();
+        sandbox.Initialize(CreateExecutor(new Vector2Int(1, 0)), StubMap.Instance, null, TestHelpers.ProjectEnergyConfig(),
+            null, new PlayerEnergy(100f), null, null, null, null, 1.5f, null, unlocks, null, null, _manager);
+
+        var results = new List<ExecutionResult>();
+        try
+        {
+            sandbox.InterruptForPuzzle();
+            yield return Run(sandbox, "for i = 1, 2 do y = i end", results);
+        }
+        finally
+        {
+            saves.Dispose();
+        }
+
+        Assert.IsTrue(results[0].IsSuccess, results[0].ErrorMessage);
+        Assert.IsFalse(sandbox.LastRunInterruptedForPuzzle);
     }
 
     // ─── Лабиринт ─────────────────────────────────────────────
@@ -312,6 +510,7 @@ public class PuzzleCommandTests
         for (int i = 1; i < plates.Layout.Count; i++)
             if (plates.Layout.Numbers[i] < plates.Layout.Numbers[first]) first = i;
         Vector2Int tile = plates.Origin + plates.Layout.Tiles[first];
+        TestHelpers.StartAttempt(_manager, _run, plates);
         Assert.IsTrue(_manager.StepOnPlates(plates, tile));
 
         _lua.Run($"p = check({tile.x}, {tile.y})");
@@ -335,6 +534,16 @@ public class PuzzleCommandTests
     }
 
     // ─── Helpers ──────────────────────────────────────────────
+
+    private static IEnumerator Run(LuaSandbox sandbox, string main, List<ExecutionResult> into)
+    {
+        Task<ExecutionResult> task = sandbox.ExecuteAsync(main, new Dictionary<string, string>()).AsTask();
+        for (int frame = 0; frame < 600 && !task.IsCompleted; frame++)
+            yield return null;
+
+        Assert.IsTrue(task.IsCompleted, "execution did not finish");
+        into.Add(task.Result);
+    }
 
     private MazePuzzle CreateMaze()
     {

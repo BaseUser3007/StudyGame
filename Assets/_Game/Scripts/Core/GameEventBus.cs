@@ -32,7 +32,7 @@ public enum GameEventType
     RunStarted,
     /// <summary>
     /// Закончился запуск кода. Id — "success" или "failed", Tag — итог (GameEventBus.RunTag*):
-    /// "ok", "error", "energy", "stopped", "locked".
+    /// "ok", "error", "energy", "stopped", "locked", "puzzle".
     /// </summary>
     RunFinished,
 
@@ -156,6 +156,11 @@ public static class GameEventBus
     public const string RunTagStopped = "stopped";
     /// <summary>Отказ: закрытая конструкция/окна-«классы» (LuaConstructGuard) или вызов закрытой команды.</summary>
     public const string RunTagLocked = "locked";
+    /// <summary>
+    /// Прерван: игрок встал на стартовую платформу головоломки (T25). Не ошибка и не Stop; запуск дня
+    /// не тратится, попытка — следующий запуск.
+    /// </summary>
+    public const string RunTagPuzzle = "puzzle";
 
     private static int _lastRunId;
 

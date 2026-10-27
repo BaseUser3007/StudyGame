@@ -55,6 +55,19 @@ public class LuaErrorExplainerTests
     }
 
     [Test]
+    public void PuzzleNotStarted_ExplainsStartPlatform()
+    {
+        // solve() до попытки вернул nil + причину, а код превратил её в ошибку: assert(solve(o, x))
+        var e = Explain("Runtime error: Lua-CSharp: [string \"Main\"]:4: " +
+                        PuzzleManager.Describe(PuzzleSolveResult.NotStarted));
+
+        Assert.AreEqual("Main", e.Window);
+        Assert.AreEqual(4, e.Line);
+        StringAssert.Contains("start platform", e.Explanation);
+        StringAssert.Contains("moveTo(p.startX, p.startY)", e.Suggestion);
+    }
+
+    [Test]
     public void IndexNil_IfLocked_DoesNotSuggestIf()
     {
         var e = LuaErrorExplainer.Explain(

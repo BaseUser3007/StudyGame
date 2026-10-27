@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Tilemaps;
 
 public enum TileType { Grass, Water }
@@ -29,9 +30,12 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
             ? Random.Range(0, int.MaxValue)
             : config.seed;
 
+        // Биомам нужна маска суши, тайлам земли — биомы
         GenerateWater();
-        GenerateGround(_seed);
-        GenerateBiomes(_seed);
+        bool[,] land = IslandLayout.Generate(config.mapWidth, config.mapHeight, _seed, config.GetIslandSettings());
+        // Свой сдвиг seed: иначе поток случайных чисел биомов совпадёт с потоком острова
+        GenerateBiomes(land, unchecked(_seed * 17 + 101));
+        GenerateGround(land);
         GenerateFog();
     }
 
@@ -43,8 +47,8 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
             "TilemapGenerator: MapGenerationConfig is not assigned");
         Debug.Assert(config.noiseScale > 0f,
             "TilemapGenerator: noiseScale must be greater than 0");
-        Debug.Assert(config.waterThreshold >= 0f && config.waterThreshold <= 1f,
-            "TilemapGenerator: waterThreshold must be between 0 and 1");
+        Debug.Assert(config.landFraction > 0f && config.landFraction < 1f,
+            "TilemapGenerator: landFraction must be between 0 and 1");
         Debug.Assert(config.waterTile != null,
             "TilemapGenerator: waterTile is not assigned in config");
         Debug.Assert(config.grassTile != null,
@@ -70,28 +74,41 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
             config.waterTile);
     }
 
-    private void GenerateGround(int seed)
+    private void GenerateGround(bool[,] land)
     {
         _tileMap = new TileType[config.mapWidth, config.mapHeight];
         groundTilemap.ClearAllTiles();
+
+        // Тайлы ставятся одним пакетом: правила LandRuleTile пересчитываются уже по готовым соседям
+        List<Vector3Int> positions = new List<Vector3Int>();
+        List<TileBase> tiles = new List<TileBase>();
 
         for (int x = 0; x < config.mapWidth; x++)
         {
             for (int y = 0; y < config.mapHeight; y++)
             {
-                float noiseValue = SampleNoise(x, y, seed);
-                TileType tileType = ClassifyTile(noiseValue);
+                TileType tileType = land[x, y] ? TileType.Grass : TileType.Water;
                 _tileMap[x, y] = tileType;
+                if (tileType == TileType.Water) continue;
 
-                if (tileType != TileType.Water)
-                    groundTilemap.SetTile(new Vector3Int(x, y, 0), config.grassTile);
+                positions.Add(new Vector3Int(x, y, 0));
+                tiles.Add(GetGroundTile(x, y));
             }
         }
+
+        groundTilemap.SetTiles(positions.ToArray(), tiles.ToArray());
     }
 
-    private void GenerateBiomes(int seed)
+    // Свой тайл у биома, иначе общий тайл травы
+    private TileBase GetGroundTile(int x, int y)
     {
-        _biomeMap = BiomeMap.Generate(config.biomeConfig, config.mapWidth, config.mapHeight, seed);
+        Biome biome = _biomeMap?.Get(x, y);
+        return biome != null && biome.groundTile != null ? biome.groundTile : config.grassTile;
+    }
+
+    private void GenerateBiomes(bool[,] land, int seed)
+    {
+        _biomeMap = BiomeMap.Generate(config.biomeConfig, land, seed);
     }
 
     private void GenerateFog()
@@ -113,22 +130,6 @@ public class TilemapGenerator : MonoBehaviour, IMapDataProvider
         for (int x = startX; x < endX; x++)
             for (int y = startY; y < endY; y++)
                 tilemap.SetTile(new Vector3Int(x, y, 0), tile);
-    }
-
-    private float SampleNoise(int x, int y, int seed)
-    {
-        float offsetX = seed * 0.001f;
-        float offsetY = seed * 0.001f;
-        float sampleX = (x + offsetX) / config.noiseScale;
-        float sampleY = (y + offsetY) / config.noiseScale;
-        return Mathf.PerlinNoise(sampleX, sampleY);
-    }
-
-    private TileType ClassifyTile(float noiseValue)
-    {
-        return noiseValue < config.waterThreshold
-            ? TileType.Water
-            : TileType.Grass;
     }
 
     // ─── IMapDataProvider ─────────────────────────────────────

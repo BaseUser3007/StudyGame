@@ -23,6 +23,8 @@ public static class LuaPuzzles
     public const string ChestName = "chest";
     /// <summary>Имя в check для тайла с плитой (номер — поле plate).</summary>
     public const string PlateName = "plate";
+    /// <summary>Имя в check для стартовой платформы головоломки (T25): встал на неё — головоломка начинается.</summary>
+    public const string StartPlatformName = "start_platform";
 
     /// <summary>Условие лабиринта для puzzle(maze).</summary>
     public const string MazeText = "Reach the center of the maze.";
@@ -68,6 +70,39 @@ public static class LuaPuzzles
             case PlatesTypeName: typeId = PuzzleTypes.Plates; return true;
             default: return false;
         }
+    }
+
+    /// <summary>
+    /// Состояние для Lua (поле state): "waiting" — не начата (встаньте на платформу), "armed" — начата, попытка —
+    /// следующий запуск, "attempt" — идёт попытка, "solved", "failed" (исчезла — в списках её уже нет).
+    /// </summary>
+    public static string GetStateName(PuzzleState state)
+    {
+        switch (state)
+        {
+            case PuzzleState.Armed: return "armed";
+            case PuzzleState.Attempt: return "attempt";
+            case PuzzleState.Solved: return "solved";
+            case PuzzleState.Failed: return "failed";
+            default: return "waiting";
+        }
+    }
+
+    /// <summary>Тайл стартовой платформы: startX, startY (нет платформы — полей нет).</summary>
+    public static void AddStartTile(LuaTable table, PuzzleStructure puzzle)
+    {
+        if (puzzle == null || !puzzle.HasStartTile) return;
+        table["startX"] = (double)puzzle.StartTile.x;
+        table["startY"] = (double)puzzle.StartTile.y;
+    }
+
+    /// <summary>
+    /// Головоломка, чья стартовая платформа на тайле, — пока платформа действует (не решена; у решённой она скрыта).
+    /// </summary>
+    public static PuzzleStructure GetByStartTile(PuzzleManager puzzles, Vector2Int tile)
+    {
+        PuzzleStructure puzzle = puzzles?.GetPuzzleByStartTile(tile);
+        return puzzle != null && !puzzle.IsSolved && puzzle.State != PuzzleState.Failed ? puzzle : null;
     }
 
     /// <summary>Имена для подсказки в ошибке findObjects.</summary>
@@ -199,9 +234,10 @@ public static class LuaPuzzles
     // ─── Таблица задачи ───────────────────────────────────────
 
     /// <summary>
-    /// Результат puzzle(): { kind, text, input = {..}, limit, solved, id, type }.
+    /// Результат puzzle(): { kind, text, input = {..}, limit, solved, state, startX, startY, id, type }.
     /// У обелиска kind — "sum"/"max"/"count" (вход — текущего запуска кода), у лабиринта — "maze",
     /// у плит — "plates" (+ plates — сколько плит, pressedCount — сколько нажато, minX/minY/maxX/maxY — площадка).
+    /// state — <see cref="GetStateName"/>, startX/startY — стартовая платформа (T25).
     /// </summary>
     public static LuaTable BuildTaskTable(PuzzleStructure puzzle)
     {
@@ -212,6 +248,8 @@ public static class LuaPuzzles
         table["id"] = (double)(LuaObjectList.PuzzleIdOffset + puzzle.Id);
         table["type"] = GetTypeName(puzzle);
         table["solved"] = puzzle.IsSolved;
+        table["state"] = GetStateName(puzzle.State);
+        AddStartTile(table, puzzle);
 
         if (puzzle is CodeTaskPuzzle obelisk)
         {

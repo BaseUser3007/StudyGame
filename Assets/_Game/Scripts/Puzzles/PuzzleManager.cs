@@ -16,20 +16,51 @@ public enum PuzzleSolveResult
     /// <summary>Это не обелиск с задачей (или null).</summary>
     NotCodeTask,
     /// <summary>В этом запуске обелиск уже отклонил ответ (против перебора solve).</summary>
-    NoAttemptsLeft
+    NoAttemptsLeft,
+    /// <summary>Головоломка не начата или идёт не запуск-попытка (T25): сначала — стартовая платформа.</summary>
+    NotStarted
+}
+
+/// <summary>
+/// Карточка головоломки при старте (T25): название, что сделать, награда — на языке игры (Loc).
+/// Правило попытки — <see cref="PuzzleManager.AttemptRuleText"/>.
+/// </summary>
+public readonly struct PuzzleBriefing
+{
+    public readonly string Title;
+    public readonly string Description;
+    public readonly string Reward;
+
+    public PuzzleBriefing(string title, string description, string reward)
+    {
+        Title = title;
+        Description = description;
+        Reward = reward;
+    }
 }
 
 /// <summary>
 /// Головоломки забега (этап 6): список, запросы по id / тайлу / радиусу, решение задач на код и
-/// проверка лабиринта (игрок встал на центр — PlayerEventBus.OnPlayerMoved). Plain-класс, создаётся в Level
-/// (в лагере — пустой), заполняется PuzzleGenerator. Dispose — отписка от статической шины.
+/// проверка лабиринта и плит (шаги игрока — PlayerEventBus.OnPlayerMoved). Plain-класс, создаётся в Level
+/// (в лагере — пустой), заполняется PuzzleGenerator. Dispose — отписка от статической шины и запуска.
 /// Решение: MarkSolved → награда (PuzzleRewards) → GameEventBus PuzzleSolved (Id = тип, Tag = вид задачи)
 /// → уведомление → OnPuzzleSolved.
+/// Попытка (T25): игрок встал на стартовую платформу (Waiting, нет активной) → Armed, ActivePuzzle,
+/// OnPuzzleStarted; если код выполняется — запуск прерывается (IPuzzleRunControl.InterruptForPuzzle).
+/// Следующий запуск кода → Attempt; он закончился без решения → Failed: головоломка убирается (Remove),
+/// уведомление, OnPuzzleFailed. Решить можно только в Attempt (плиты, центр лабиринта, solve()).
 /// </summary>
 public class PuzzleManager : IDisposable
 {
+    /// <summary>Головоломка начата (Armed; карточка — GetBriefing). Если код шёл, прерывание уже запрошено.</summary>
+    public event Action<PuzzleStructure> OnPuzzleStarted;
     /// <summary>Головоломка решена (после награды и события).</summary>
     public event Action<PuzzleStructure> OnPuzzleSolved;
+    /// <summary>
+    /// Попытка не удалась: головоломка уже убрана из списков, объект уничтожается сразу после события
+    /// (Id/TypeId/Position ещё читаются).
+    /// </summary>
+    public event Action<PuzzleStructure> OnPuzzleFailed;
 
     private readonly Func<Vector2> _playerPosition;
     private readonly PuzzleRewards _rewards;
@@ -38,12 +69,19 @@ public class PuzzleManager : IDisposable
     // Обелиск → запуск кода с неверным ответом: одна попытка за запуск (вход в новом запуске другой),
     // поэтому перебор solve растягивается на много запусков, а их всего несколько в день
     private readonly Dictionary<int, int> _failedRun = new Dictionary<int, int>();
+    private IPuzzleRunControl _runControl;
     private bool _disposed;
 
-    /// <summary>Все головоломки забега (решённые тоже).</summary>
+    /// <summary>Все головоломки забега (решённые тоже; провалившиеся убираются).</summary>
     public IReadOnlyList<PuzzleStructure> Puzzles => _puzzles;
     /// <summary>Радиус, в котором работают puzzle()/solve() (до края коллайдера обелиска).</summary>
     public float InteractionRadius { get; }
+    /// <summary>Начатая головоломка (Armed / Attempt) или null. Одновременно — только одна.</summary>
+    public PuzzleStructure ActivePuzzle { get; private set; }
+
+    /// <summary>Правило попытки для карточки и лога (Loc).</summary>
+    public static string AttemptRuleText =>
+        Loc.T("One attempt: the next code run. If you don't solve it, the puzzle disappears.");
 
     /// <param name="playerPosition">Свободная позиция игрока на карте (PlayerCommandExecutor.Position).</param>
     /// <param name="interactionRadius">PlayerConfig.structureInteractionRadius (1,5 тайла).</param>
@@ -55,11 +93,26 @@ public class PuzzleManager : IDisposable
         PlayerEventBus.OnPlayerMoved += HandlePlayerMoved;
     }
 
+    /// <summary>
+    /// Запуски кода (T25): начало запуска переводит начатую головоломку в попытку, конец попытки без
+    /// решения — провал; при старте посреди запуска он прерывается. Без вызова — головоломка начинается,
+    /// но попытка не наступает (тесты без песочницы).
+    /// </summary>
+    public void AttachRunControl(IPuzzleRunControl runControl)
+    {
+        if (_disposed) return;
+        if (_runControl != null) _runControl.OnRunningChanged -= HandleRunningChanged;
+        _runControl = runControl;
+        if (_runControl != null) _runControl.OnRunningChanged += HandleRunningChanged;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         PlayerEventBus.OnPlayerMoved -= HandlePlayerMoved;
+        if (_runControl != null) _runControl.OnRunningChanged -= HandleRunningChanged;
+        _runControl = null;
     }
 
     /// <summary>Добавить созданную головоломку (генератор). Id должен быть уникальным.</summary>
@@ -68,6 +121,15 @@ public class PuzzleManager : IDisposable
         if (puzzle == null || _byId.ContainsKey(puzzle.Id)) return;
         _puzzles.Add(puzzle);
         _byId[puzzle.Id] = puzzle;
+    }
+
+    /// <summary>
+    /// Убрать головоломку с карты (T25, провал): из списков, «изгородь» тумана лабиринта, объекты и платформа.
+    /// </summary>
+    public void Remove(PuzzleStructure puzzle)
+    {
+        if (!Unregister(puzzle)) return;
+        puzzle.Teardown();
     }
 
     // ─── Queries ──────────────────────────────────────────────
@@ -79,6 +141,17 @@ public class PuzzleManager : IDisposable
     {
         foreach (PuzzleStructure puzzle in _puzzles)
             if (puzzle != null && puzzle.ContainsTile(tile))
+                return puzzle;
+        return null;
+    }
+
+    /// <summary>
+    /// Головоломка, чья стартовая платформа на тайле (решённые тоже — платформа у них скрыта), или null.
+    /// </summary>
+    public PuzzleStructure GetPuzzleByStartTile(Vector2Int tile)
+    {
+        foreach (PuzzleStructure puzzle in _puzzles)
+            if (puzzle != null && puzzle.HasStartTile && puzzle.StartTile == tile)
                 return puzzle;
         return null;
     }
@@ -116,15 +189,76 @@ public class PuzzleManager : IDisposable
             && puzzle.DistanceTo(_playerPosition()) <= InteractionRadius;
     }
 
+    // ─── Попытка (T25) ────────────────────────────────────────
+
+    /// <summary>
+    /// Начать головоломку (как будто игрок встал на её платформу): только Waiting, зарегистрированную и
+    /// когда нет другой начатой. Если код выполняется — запуск прерывается. false — не начата.
+    /// </summary>
+    public bool TryStart(PuzzleStructure puzzle)
+    {
+        if (puzzle == null || ActivePuzzle != null || GetById(puzzle.Id) != puzzle) return false;
+        if (!puzzle.Arm()) return false;
+
+        ActivePuzzle = puzzle;
+
+        // Игрок двигается кодом — почти всегда это посреди запуска: прерываем его (попытка — следующий запуск)
+        if (_runControl != null && _runControl.IsRunning)
+        {
+            try
+            {
+                _runControl.InterruptForPuzzle();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        OnPuzzleStarted?.Invoke(puzzle);
+        return true;
+    }
+
+    /// <summary>Карточка головоломки (T25): название, что сделать и награда — на языке игры.</summary>
+    public PuzzleBriefing GetBriefing(PuzzleStructure puzzle)
+    {
+        switch (puzzle)
+        {
+            case CodeTaskPuzzle obelisk:
+                return new PuzzleBriefing(
+                    Loc.T("Obelisk"),
+                    DescribeCodeTask(obelisk.Kind),
+                    _rewards != null ? _rewards.DescribeCodeTask(obelisk.Kind) : string.Empty);
+
+            case MazePuzzle _:
+                return new PuzzleBriefing(
+                    Loc.T("Maze"),
+                    Loc.T("Reach the chest in the centre of the maze. Inside the maze you only see the tiles next to you."),
+                    _rewards != null ? _rewards.DescribeMaze() : string.Empty);
+
+            case PlatesPuzzle _:
+                return new PuzzleBriefing(
+                    Loc.T("Pressure plates"),
+                    Loc.T("Step on all plates in ascending order of their numbers. A number is visible only with check(x, y).plate; a wrong plate releases all of them."),
+                    _rewards != null ? _rewards.DescribePlates() : string.Empty);
+
+            default:
+                return new PuzzleBriefing(
+                    puzzle != null ? PuzzleTypes.GetDisplayName(puzzle.TypeId) : string.Empty, string.Empty, string.Empty);
+        }
+    }
+
     // ─── code_task ────────────────────────────────────────────
 
     /// <summary>
     /// Ответ на задачу обелиска для текущего запуска кода. Энергию не списывает (это делает Lua-команда).
+    /// Принимается только в запуске-попытке (State == Attempt).
     /// </summary>
     public PuzzleSolveResult TrySolveCodeTask(PuzzleStructure puzzle, double answer)
     {
         if (!(puzzle is CodeTaskPuzzle obelisk)) return PuzzleSolveResult.NotCodeTask;
         if (obelisk.IsSolved) return PuzzleSolveResult.AlreadySolved;
+        if (obelisk.State != PuzzleState.Attempt) return PuzzleSolveResult.NotStarted;
         if (!IsInReach(obelisk)) return PuzzleSolveResult.TooFar;
 
         int runId = GameEventBus.ActiveRunId;
@@ -152,23 +286,34 @@ public class PuzzleManager : IDisposable
                 return "the obelisk already rejected an answer this run — try again in the next run";
             case PuzzleSolveResult.AlreadySolved: return "puzzle is already solved";
             case PuzzleSolveResult.TooFar: return "too far from the puzzle";
+            case PuzzleSolveResult.NotStarted: return "puzzle is not started — step on its start platform";
             default: return "not a code puzzle";
         }
     }
 
-    // ─── maze ─────────────────────────────────────────────────
+    // ─── Шаги игрока: платформы, лабиринт ─────────────────────
 
     private void HandlePlayerMoved(Vector2Int tile)
     {
-        foreach (PuzzleStructure puzzle in _puzzles)
+        // Стартовая платформа: только ждущая головоломка и пока нет другой начатой
+        if (ActivePuzzle == null)
         {
+            PuzzleStructure byStart = GetPuzzleByStartTile(tile);
+            if (byStart != null && byStart.State == PuzzleState.Waiting && TryStart(byStart)) return;
+        }
+
+        // По индексу, а не foreach: решение → достижение → открытие события → PuzzleSpawner добавляет
+        // головоломку в _puzzles прямо во время обхода
+        for (int i = 0; i < _puzzles.Count; i++)
+        {
+            PuzzleStructure puzzle = _puzzles[i];
             if (puzzle is PlatesPuzzle plates)
             {
                 if (StepOnPlates(plates, tile)) break;
                 continue;
             }
 
-            if (!(puzzle is MazePuzzle maze) || maze.IsSolved || maze.Layout == null) continue;
+            if (!(puzzle is MazePuzzle maze) || maze.State != PuzzleState.Attempt || maze.Layout == null) continue;
             if (maze.CenterTile != tile) continue;
 
             Vector2Int center = maze.CenterTile;
@@ -182,10 +327,11 @@ public class PuzzleManager : IDisposable
     /// <summary>
     /// Шаг игрока по площадке с плитами (вызывается и из тестов). true — тайл был плитой этой площадки.
     /// Неверная плита — уведомление о сбросе; последняя верная — решение и награда.
+    /// До запуска-попытки (State != Attempt) плиты не нажимаются — false.
     /// </summary>
     public bool StepOnPlates(PlatesPuzzle plates, Vector2Int tile)
     {
-        if (plates == null || plates.IsSolved) return false;
+        if (plates == null || plates.State != PuzzleState.Attempt) return false;
 
         PlateStepResult result = plates.Step(tile);
         switch (result)
@@ -203,11 +349,29 @@ public class PuzzleManager : IDisposable
         return true;
     }
 
+    // ─── Handlers ─────────────────────────────────────────────
+
+    private void HandleRunningChanged(bool running)
+    {
+        PuzzleStructure active = ActivePuzzle;
+        if (active == null) return;
+
+        if (running)
+        {
+            // Первый запуск после старта — попытка (прерванный запуск закончился раньше и её не тратит)
+            active.BeginAttempt();
+            return;
+        }
+
+        if (active.State == PuzzleState.Attempt) Fail(active);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────
 
     private void Solve(PuzzleStructure puzzle, string tag, Func<string> applyReward)
     {
         if (!puzzle.MarkSolved()) return;
+        if (ActivePuzzle == puzzle) ActivePuzzle = null;
 
         string reward = applyReward?.Invoke();
         GameEventBus.Publish(GameEventType.PuzzleSolved, puzzle.TypeId, 1, tag);
@@ -215,5 +379,56 @@ public class PuzzleManager : IDisposable
         string title = Loc.T(puzzle.TypeId == PuzzleTypes.Maze ? "Maze solved!" : "Puzzle solved!");
         UIEventBus.PublishNotification(string.IsNullOrEmpty(reward) ? title : $"{title} {reward}", LogEntryType.Success);
         OnPuzzleSolved?.Invoke(puzzle);
+    }
+
+    // Попытка не удалась: убрать из списков, сообщить, затем уничтожить объекты
+    private void Fail(PuzzleStructure puzzle)
+    {
+        puzzle.MarkFailed();
+        if (ActivePuzzle == puzzle) ActivePuzzle = null;
+        Unregister(puzzle);
+
+        UIEventBus.PublishNotification(
+            Loc.F("Puzzle failed: {0} is gone.", GetBriefing(puzzle).Title), LogEntryType.Warning);
+        try
+        {
+            OnPuzzleFailed?.Invoke(puzzle);
+        }
+        finally
+        {
+            puzzle.Teardown();
+        }
+    }
+
+    private bool Unregister(PuzzleStructure puzzle)
+    {
+        if (puzzle == null || !_byId.TryGetValue(puzzle.Id, out PuzzleStructure registered) || registered != puzzle)
+            return false;
+
+        _byId.Remove(puzzle.Id);
+        _puzzles.Remove(puzzle);
+        _failedRun.Remove(puzzle.Id);
+        if (ActivePuzzle == puzzle) ActivePuzzle = null;
+        return true;
+    }
+
+    // Что сделать у обелиска — по виду задачи (вход у каждого запуска свой, его здесь нет)
+    private static string DescribeCodeTask(CodeTaskKind kind)
+    {
+        string goal;
+        switch (kind)
+        {
+            case CodeTaskKind.Max:
+                goal = Loc.T("Find the largest number of the task input.");
+                break;
+            case CodeTaskKind.Count:
+                goal = Loc.T("Count the numbers of the task input that are greater than its limit.");
+                break;
+            default:
+                goal = Loc.T("Add up all numbers of the task input.");
+                break;
+        }
+
+        return goal + " " + Loc.T("Read the task with puzzle(obelisk) — the input changes every run — and answer with solve(obelisk, answer) in the same run.");
     }
 }

@@ -225,6 +225,18 @@ public class FogOfWarSystem : MonoBehaviour, IFogProvider
                     SetTileState(x, y, FogState.Explored);
     }
 
+    /// <summary>
+    /// Снимает «густую изгородь» с области (головоломка исчезла — T25): там снова обычный обзор, тайлы в
+    /// радиусе обзора игрока сразу открываются.
+    /// </summary>
+    public void RemoveHedgeArea(RectInt tiles)
+    {
+        int removed = _hedges.RemoveAll(hedge => hedge.Tiles.Equals(tiles));
+        if (removed == 0 || _fogMap == null || _playerData == null) return;
+
+        RevealArea(_lastPlayerTile);
+    }
+
     private readonly struct HedgeArea
     {
         public readonly RectInt Tiles;

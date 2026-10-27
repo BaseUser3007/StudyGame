@@ -74,12 +74,17 @@ public class StructureManager : IStationProvider, ISleepingPlaceProvider
                 if (!_mapData.IsWalkable(x, y))
                     return "can't build on water";
 
-        // Постройку не снести — на головоломке (плиты, лабиринт) она сделала бы её нерешаемой
+        // Постройку не снести — на головоломке (плиты, лабиринт) или её стартовой платформе она сделала бы
+        // головоломку нерешаемой
         if (_puzzles != null)
             for (int x = min.x; x <= max.x; x++)
                 for (int y = min.y; y <= max.y; y++)
-                    if (_puzzles.GetPuzzleAt(new Vector2Int(x, y)) != null)
+                {
+                    var tile = new Vector2Int(x, y);
+                    // Платформа решённой головоломки скрыта — как и check(), её не считаем
+                    if (_puzzles.GetPuzzleAt(tile) != null || LuaPuzzles.GetByStartTile(_puzzles, tile) != null)
                         return "can't build on a puzzle";
+                }
 
         if (IsOccupied(area))
             return "place is occupied";

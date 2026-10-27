@@ -7,7 +7,7 @@ using Lua;
 using Lua.Standard;
 using UnityEngine;
 
-public class LuaSandbox : MonoBehaviour
+public class LuaSandbox : MonoBehaviour, IPuzzleRunControl
 {
     /// <summary>
     /// Сообщение для лога под главным окном: вывод print(...) (LogEntryType.Info). Вызывается
@@ -82,8 +82,16 @@ public class LuaSandbox : MonoBehaviour
     // закрытой команды, вызванной в этом запуске (итог "locked")
     private float _spentAtRunStart;
     private string _lockedCommandError;
+    // Итог запуска, остановленного изнутри (EnergyMeter.Halt): "ok" — enterPortal, "puzzle" — старт головоломки
+    private string _haltOutcome;
 
     public bool IsRunning { get; private set; }
+
+    /// <summary>
+    /// Последний запуск прерван стартом головоломки (<see cref="InterruptForPuzzle"/>). Выставляется до
+    /// OnRunningChanged(false) — DayCycle по нему не засчитывает запуск дня; сбрасывается в начале следующего запуска.
+    /// </summary>
+    public bool LastRunInterruptedForPuzzle { get; private set; }
 
     /// <summary>
     /// Выход из забега через портал (RunController) — для enterPortal(). Задаётся после Initialize:
@@ -231,10 +239,24 @@ public class LuaSandbox : MonoBehaviour
     {
         if (RunExit == null || !RunExit.RequestExitThroughPortal()) return false;
 
-        _meter.Halt();
+        HaltRun(GameEventBus.RunTagOk, null);
+        return true;
+    }
+
+    /// <summary>
+    /// Закончить запуск изнутри: EnergyMeter.Halt (каждое следующее списание бросает RunHaltedException —
+    /// pcall не даст продолжить) и отмена (ожидающие команды — moveTo и т. п. — прерываются).
+    /// outcome — итог запуска (Tag RunFinished), message — текст исключения остановки.
+    /// </summary>
+    private void HaltRun(string outcome, string message)
+    {
+        // Первая причина остаётся: портал после старта головоломки (или наоборот) итог не меняет
+        if (_meter.IsHalted) return;
+
+        _haltOutcome = outcome;
+        _meter.Halt(message);
         try { _cts?.Cancel(); }
         catch (ObjectDisposedException) { }
-        return true;
     }
 
     private void PublishPrint(string text)
@@ -461,6 +483,8 @@ public class LuaSandbox : MonoBehaviour
         float spentAtStart = _playerEnergy.TotalSpent;
         _spentAtRunStart = spentAtStart;
         _lockedCommandError = null;
+        _haltOutcome = null;
+        LastRunInterruptedForPuzzle = false;
         var usedConstructs = new HashSet<string>(StringComparer.Ordinal);
         bool started = false;
         bool succeeded = false;
@@ -503,16 +527,19 @@ public class LuaSandbox : MonoBehaviour
             foreach (var chunk in chunks)
                 await RunChunkAsync(chunk.Code, chunk.Name, ct);
 
+            // Остановка (старт головоломки / портал) пришла на шаге без await, а после неё код уже ничего
+            // не списал — исключения не было, но итог всё равно «прерван», а не успех
+            if (_meter.IsHalted)
+                return HaltedResult(out succeeded, out outcome);
+
             succeeded = true;
             outcome = GameEventBus.RunTagOk;
             return ExecutionResult.Success();
         }
         catch (OperationCanceledException) when (_meter.IsHalted)
         {
-            // Вышли через портал (enterPortal): запуск закончен намеренно — успех, а не Stop
-            succeeded = true;
-            outcome = GameEventBus.RunTagOk;
-            return ExecutionResult.Success();
+            // Вышли через портал (enterPortal) — успех, а не Stop; старт головоломки — прерван, не ошибка
+            return HaltedResult(out succeeded, out outcome);
         }
         catch (OperationCanceledException)
         {
@@ -526,10 +553,8 @@ public class LuaSandbox : MonoBehaviour
         }
         catch (Exception) when (_meter.IsHalted)
         {
-            // Выход через портал, обёрнутый Lua в ошибку (pcall/error пересоздали RunHaltedException)
-            succeeded = true;
-            outcome = GameEventBus.RunTagOk;
-            return ExecutionResult.Success();
+            // Остановка изнутри, обёрнутая Lua в ошибку (pcall/error пересоздали RunHaltedException)
+            return HaltedResult(out succeeded, out outcome);
         }
         catch (Exception ex)
         {
@@ -569,6 +594,37 @@ public class LuaSandbox : MonoBehaviour
     public void Stop()
     {
         _cts?.Cancel();
+    }
+
+    /// <summary>
+    /// Игрок встал на стартовую платформу головоломки посреди кода (T25): запуск заканчивается, как при
+    /// enterPortal (EnergyMeter.Halt — pcall не даст продолжить — и отмена), энергия не возвращается.
+    /// Итог — <see cref="GameEventBus.RunTagPuzzle"/>, результат — <see cref="ExecutionResult.InterruptedForPuzzle"/>;
+    /// <see cref="LastRunInterruptedForPuzzle"/> = true до OnRunningChanged(false), так что DayCycle запуск
+    /// не засчитывает. Код не выполняется — ничего не делает.
+    /// </summary>
+    public void InterruptForPuzzle()
+    {
+        if (!IsRunning || _meter == null) return;
+
+        // Раньше отмены: она может довыполнить запуск (и его finally с OnRunningChanged(false)) прямо внутри Cancel()
+        if (!_meter.IsHalted) LastRunInterruptedForPuzzle = true;
+        HaltRun(GameEventBus.RunTagPuzzle, RunHaltedException.PuzzleMessage);
+    }
+
+    /// <summary>Итог запуска, остановленного изнутри (EnergyMeter.Halt): портал — успех, головоломка — прерван.</summary>
+    private ExecutionResult HaltedResult(out bool succeeded, out string outcome)
+    {
+        if (_haltOutcome == GameEventBus.RunTagPuzzle)
+        {
+            succeeded = false;
+            outcome = GameEventBus.RunTagPuzzle;
+            return ExecutionResult.InterruptedForPuzzle();
+        }
+
+        succeeded = true;
+        outcome = GameEventBus.RunTagOk;
+        return ExecutionResult.Success();
     }
 
     // ─── Watchdog ─────────────────────────────────────────────

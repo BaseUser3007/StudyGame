@@ -14,6 +14,8 @@ public class MazePuzzle : PuzzleStructure
     private SpriteRenderer _chestRenderer;
     private Sprite _openedChestSprite;
     private readonly List<GameObject> _walls = new List<GameObject>();
+    // Туман, которому добавлена «густая изгородь» (снимается при провале — T25)
+    private FogOfWarSystem _hedgeFog;
 
     public override string TypeId => PuzzleTypes.Maze;
     public MazeLayout Layout => _layout;
@@ -74,6 +76,20 @@ public class MazePuzzle : PuzzleStructure
     {
         Vector2Int local = tile - _origin;
         return _layout != null && _layout.IsWall(local);
+    }
+
+    /// <summary>«Густая изгородь» тумана над внутренней частью (снимается, если головоломка исчезнет).</summary>
+    public void AddHedge(FogOfWarSystem fog, int visionRadius)
+    {
+        if (fog == null) return;
+        _hedgeFog = fog;
+        fog.AddHedgeArea(InnerArea, visionRadius);
+    }
+
+    protected override void OnRemoved()
+    {
+        if (_hedgeFog != null) _hedgeFog.RemoveHedgeArea(InnerArea);
+        _hedgeFog = null;
     }
 
     protected override void OnSolved()

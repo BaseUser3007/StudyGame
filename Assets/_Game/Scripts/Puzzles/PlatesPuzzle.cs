@@ -126,7 +126,7 @@ public class PlatesPuzzle : PuzzleStructure
     }
 
     // Белый квадрат 1×1 единицу мира (общий на всю игру; текстура создаётся один раз)
-    private static Sprite GetFallbackSprite()
+    internal static Sprite GetFallbackSprite()
     {
         if (_fallbackSprite != null) return _fallbackSprite;
 
@@ -141,7 +141,7 @@ public class PlatesPuzzle : PuzzleStructure
     }
 
     // Плита — пол: по ней ходят (сплошные коллайдеры → триггеры), сортировка по высоте не нужна
-    private static void PrepareAsFloor(GameObject plate)
+    internal static void PrepareAsFloor(GameObject plate)
     {
         foreach (Collider2D collider in plate.GetComponentsInChildren<Collider2D>())
         {
